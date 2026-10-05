@@ -225,13 +225,22 @@ export default async function TestPrepDetailPage({ params }: Props) {
 
               {/* Action Buttons */}
               <div className="mt-8 flex flex-wrap items-center gap-3">
-                <LeadTriggerButton
+                <Link
+                  href={`/test-prep/${exam.slug}/online-test`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="min-h-[44px] rounded-xl bg-[#D89A3E] px-6 py-3 text-xs sm:text-sm font-bold text-slate-950 shadow-md hover:bg-[#c4872f] transition inline-flex items-center gap-2 cursor-pointer active:scale-98"
+                >
+                  <span>Take the {exam.shortName} Online Test</span>
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                {/* <LeadTriggerButton
                   country={exam.targetCountries[0]}
                   className="min-h-[44px] rounded-xl bg-[#D89A3E] px-6 py-3 text-xs sm:text-sm font-bold text-slate-950 shadow-md hover:bg-[#c4872f] transition inline-flex items-center gap-2 cursor-pointer active:scale-98"
                 >
                   <span>Get Free {exam.shortName} Prep Assessment</span>
                   <ArrowRight className="h-4 w-4" />
-                </LeadTriggerButton>
+                </LeadTriggerButton> */}
                 <AICounsellorTriggerButton className="min-h-[44px] rounded-xl border border-white/25 bg-white/10 px-5 py-3 text-xs sm:text-sm font-bold text-white hover:bg-white/20 transition inline-flex items-center gap-2 cursor-pointer">
                   <Sparkles className="h-4 w-4 text-[#D89A3E]" />
                   <span>Ask AI for {exam.shortName} Tips</span>
@@ -485,13 +494,22 @@ export default async function TestPrepDetailPage({ params }: Props) {
                     </p>
 
                     <div className="mt-6 space-y-3">
-                      <LeadTriggerButton
+                    <Link
+                      href={`/test-prep/${exam.slug}/online-test`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="min-h-[44px] rounded-xl bg-[#D89A3E] px-6 py-3 text-xs sm:text-sm font-bold text-slate-950 shadow-md hover:bg-[#c4872f] transition inline-flex items-center gap-2 cursor-pointer active:scale-98"
+                    >
+                      <span>Take the {exam.shortName} Online Test</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                      {/* <LeadTriggerButton
                         country={exam.targetCountries[0]}
                         className="w-full min-h-[44px] rounded-xl bg-[#D89A3E] py-3 text-xs sm:text-sm font-bold text-slate-950 shadow-xs hover:bg-[#c4872f] transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
                       >
                         <span>Schedule Free Strategy Call</span>
                         <ArrowRight className="h-4 w-4" />
-                      </LeadTriggerButton>
+                      </LeadTriggerButton> */}
 
                       <AICounsellorTriggerButton className="w-full min-h-[44px] rounded-xl border border-[#D9CFB8] bg-[#FDFCF7] py-3 text-xs sm:text-sm font-bold text-[#103B47] hover:bg-white transition flex items-center justify-center gap-2 cursor-pointer">
                         <Sparkles className="h-4 w-4 text-[#D89A3E]" />
