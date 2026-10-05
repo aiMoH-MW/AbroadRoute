@@ -108,7 +108,7 @@ export function BrandLogo({
           >
             Abroad
             <span className={`font-serif italic font-normal ${accentColor}`}>
-              route
+              Route
             </span>
           </span>
           {showTagline && (
