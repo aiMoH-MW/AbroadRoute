@@ -18,6 +18,7 @@ import {
   LayoutDashboard,
   Zap,
   Sparkles,
+  Library,
 } from "lucide-react";
 import { Country, University, Program } from "@/types";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -36,6 +37,7 @@ import { AdminCountriesTab } from "@/components/admin/AdminCountriesTab";
 import { AdminProgramsTab } from "@/components/admin/AdminProgramsTab";
 import { AdminLeadsTab } from "@/components/admin/AdminLeadsTab";
 import { AdminAICounsellorKBTab } from "@/components/admin/AdminAICounsellorKBTab";
+import { AdminBooksTab } from "@/components/admin/AdminBooksTab";
 
 type AdminTab =
   | "overview"
@@ -44,7 +46,8 @@ type AdminTab =
   | "countries"
   | "programs"
   | "leads"
-  | "kb";
+  | "kb"
+  | "books";
 
 function AdminPortalContent() {
   const router = useRouter();
@@ -76,6 +79,7 @@ function AdminPortalContent() {
         "programs",
         "leads",
         "kb",
+        "books",
       ].includes(tabParam)
     ) {
       setActiveTab(tabParam);
@@ -331,6 +335,12 @@ function AdminPortalContent() {
       badge: "Vector RAG",
       badgeColor: "bg-indigo-600 text-white",
     },
+    {
+      id: "books" as AdminTab,
+      label: "Books Library",
+      icon: Library,
+      badge: null,
+    },
   ];
 
   // 4. Authorized Super Administrator -> Render Operations Control Center with Component Tabs
@@ -471,6 +481,8 @@ function AdminPortalContent() {
           {activeTab === "leads" && <AdminLeadsTab />}
 
           {activeTab === "kb" && <AdminAICounsellorKBTab />}
+
+          {activeTab === "books" && <AdminBooksTab programsList={programsList} />}
         </div>
       </div>
 
