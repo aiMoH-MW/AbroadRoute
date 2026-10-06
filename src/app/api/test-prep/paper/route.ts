@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { generatePaper } from "@/lib/testPrep/paper";
+import { getTestSettings } from "@/lib/testPrep/settings";
 
 const paperSchema = z.object({
   examSlug: z.string().min(1),
@@ -9,11 +10,12 @@ const paperSchema = z.object({
 export async function POST(req: NextRequest) {
   try {
     const { examSlug } = paperSchema.parse(await req.json());
-    const paper = generatePaper(examSlug.toLowerCase());
+    const settings = await getTestSettings(examSlug.toLowerCase());
+    const paper = settings?.enabled ? generatePaper(settings) : null;
 
     if (!paper) {
       return NextResponse.json(
-        { error: "No online test is available for this exam yet." },
+        { error: "The online test for this exam is currently unavailable." },
         { status: 404 },
       );
     }

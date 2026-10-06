@@ -38,6 +38,7 @@ export function OnlineTestResult({ examShortName, candidateName, result }: Props
         </ul>
       </div>
 
+      {result.review && (
       <div className="rounded-3xl border border-[#D9CFB8]/80 bg-white p-6 sm:p-8 shadow-sm">
         <h2 className="text-sm font-bold uppercase tracking-wider text-[#103B47]">
           Answer Review
@@ -72,6 +73,7 @@ export function OnlineTestResult({ examShortName, candidateName, result }: Props
           ))}
         </ol>
       </div>
+      )}
     </div>
   );
 }

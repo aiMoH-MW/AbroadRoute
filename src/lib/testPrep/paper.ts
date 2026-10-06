@@ -1,6 +1,6 @@
 import "server-only";
 import { QUESTION_BANK, BankQuestion } from "./questionBank";
-import type { GeneratedPaper, SectionScore, TestResult } from "./types";
+import type { GeneratedPaper, SectionScore, TestModuleSettings, TestResult } from "./types";
 
 function shuffle<T>(items: T[]): T[] {
   const copy = [...items];
@@ -15,18 +15,19 @@ function shuffle<T>(items: T[]): T[] {
  * Picks a random set of questions from the exam's bank, then restores bank order
  * so questions stay grouped by section and passage. Answer keys are stripped.
  */
-export function generatePaper(examSlug: string): GeneratedPaper | null {
+export function generatePaper(settings: TestModuleSettings): GeneratedPaper | null {
+  const examSlug = settings.examSlug;
   const bank = QUESTION_BANK[examSlug];
   if (!bank) return null;
 
   const order = new Map(bank.questions.map((q, i) => [q.id, i]));
   const picked = shuffle(bank.questions)
-    .slice(0, bank.questionsPerPaper)
+    .slice(0, settings.questionsPerPaper)
     .sort((a, b) => order.get(a.id)! - order.get(b.id)!);
 
   return {
     examSlug,
-    durationMinutes: bank.durationMinutes,
+    durationMinutes: settings.durationMinutes,
     questions: picked.map(({ id, section, passage, prompt, options }) => ({
       id,
       section,

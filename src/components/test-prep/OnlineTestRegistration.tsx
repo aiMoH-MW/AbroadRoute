@@ -13,6 +13,9 @@ export interface OnlineTestExam {
   fullName: string;
   targetCountry?: string;
   sections: string[];
+  durationMinutes: number;
+  questionCount: number;
+  instructions: string | null;
 }
 
 export interface OnlineTestCandidate {
@@ -220,9 +223,15 @@ export function OnlineTestRegistration({ exam }: Props) {
         {exam.name} Online Test
       </h1>
       <p className="mt-2 text-sm leading-relaxed text-slate-500">
-        Fill in your details to start. Your paper is generated as soon as you
-        submit.
+        {exam.questionCount} questions · {exam.durationMinutes} minutes. Fill in
+        your details to start. Your paper is generated as soon as you submit.
       </p>
+
+      {exam.instructions && (
+        <div className="mt-4 whitespace-pre-line rounded-2xl border border-[#D9CFB8]/70 bg-[#FDFCF7] p-4 text-xs leading-relaxed text-slate-600">
+          {exam.instructions}
+        </div>
+      )}
 
       {exam.sections.length > 0 && (
         <ul className="mt-4 flex flex-wrap gap-2">

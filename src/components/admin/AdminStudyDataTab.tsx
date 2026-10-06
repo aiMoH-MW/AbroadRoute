@@ -21,7 +21,7 @@ import { Program, Specialisation } from "@/types";
 import { supabase } from "@/lib/supabase/client";
 import { fetchLiveSpecialisations } from "@/lib/supabase/dataFetchers";
 import { TEST_PREP_EXAMS } from "@/lib/data/testPrepData";
-import type { Book, BookPage, ProcessProgress } from "@/lib/books/types";
+import type { Material, MaterialPage, ProcessProgress } from "@/lib/studyMaterials/types";
 
 interface Props {
   programsList: Program[];
@@ -34,7 +34,7 @@ const inputClass =
   "w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:border-[#102C57] focus:outline-none focus:ring-1 focus:ring-[#102C57]";
 const labelClass = "block text-xs font-bold text-slate-700 mb-1";
 
-const STATUS_STYLES: Record<Book["status"], string> = {
+const STATUS_STYLES: Record<Material["status"], string> = {
   uploaded: "bg-slate-100 text-slate-700",
   processing: "bg-amber-100 text-amber-800",
   completed: "bg-emerald-100 text-emerald-800",
@@ -54,6 +54,8 @@ const EMPTY_FORM = {
   language: "English",
 };
 
+const isTextFile = (fileName: string) => fileName.toLowerCase().endsWith(".txt");
+
 function formatBytes(bytes: number | null) {
   if (!bytes) return "—";
   return bytes > 1024 * 1024
@@ -61,8 +63,8 @@ function formatBytes(bytes: number | null) {
     : `${Math.round(bytes / 1024)} KB`;
 }
 
-export function AdminBooksTab({ programsList }: Props) {
-  const [books, setBooks] = useState<Book[]>([]);
+export function AdminStudyDataTab({ programsList }: Props) {
+  const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [specialisations, setSpecialisations] = useState<Specialisation[]>([]);
 
@@ -82,13 +84,13 @@ export function AdminBooksTab({ programsList }: Props) {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Book ids with an OCR loop currently running in this browser tab.
+  // Material ids with an OCR loop currently running in this browser tab.
   const [activeJobs, setActiveJobs] = useState<Set<string>>(new Set());
   const activeJobsRef = useRef<Set<string>>(new Set());
 
   const [viewer, setViewer] = useState<{
-    book: Book;
-    pages: BookPage[];
+    material: Material;
+    pages: MaterialPage[];
     from: number;
     pdfUrl: string | null;
     loading: boolean;
@@ -110,37 +112,37 @@ export function AdminBooksTab({ programsList }: Props) {
     (s) => !form.programSlug || s.programSlug === form.programSlug,
   );
 
-  const fetchBooks = useCallback(async () => {
+  const fetchMaterials = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (filterExam) params.set("exam", filterExam);
       if (filterProgram) params.set("program", filterProgram);
       if (debouncedQuery) params.set("q", debouncedQuery);
-      const res = await fetch(`/api/admin/books?${params}`);
+      const res = await fetch(`/api/admin/study-materials?${params}`);
       const data = await res.json();
       if (data.success) {
-        setBooks(data.items);
+        setMaterials(data.items);
       } else {
-        setStatusMessage({ type: "error", text: data.error || "Failed to load books" });
+        setStatusMessage({ type: "error", text: data.error || "Failed to load materials" });
       }
     } catch {
-      setStatusMessage({ type: "error", text: "Network error loading books." });
+      setStatusMessage({ type: "error", text: "Network error loading materials." });
     } finally {
       setLoading(false);
     }
   }, [filterExam, filterProgram, debouncedQuery]);
 
   useEffect(() => {
-    fetchBooks();
-  }, [fetchBooks]);
+    fetchMaterials();
+  }, [fetchMaterials]);
 
   useEffect(() => {
     fetchLiveSpecialisations().then(setSpecialisations);
   }, []);
 
-  const updateBook = (id: string, patch: Partial<Book>) =>
-    setBooks((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
+  const updateMaterial = (id: string, patch: Partial<Material>) =>
+    setMaterials((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
 
   const setJobActive = (id: string, active: boolean) => {
     const next = new Set(activeJobsRef.current);
@@ -150,25 +152,25 @@ export function AdminBooksTab({ programsList }: Props) {
     setActiveJobs(next);
   };
 
-  /** Prepares the book if needed, then OCRs chunk by chunk until done or an error occurs. */
-  const runProcessing = async (book: Book) => {
-    if (activeJobsRef.current.has(book.id)) return;
-    setJobActive(book.id, true);
-    updateBook(book.id, { status: "processing", error_message: null });
+  /** Prepares the material if needed, then OCRs chunk by chunk until done or an error occurs. */
+  const runProcessing = async (material: Material) => {
+    if (activeJobsRef.current.has(material.id)) return;
+    setJobActive(material.id, true);
+    updateMaterial(material.id, { status: "processing", error_message: null });
 
     try {
-      if (!book.page_count) {
-        const res = await fetch(`/api/admin/books/${book.id}/prepare`, { method: "POST" });
+      if (!material.page_count) {
+        const res = await fetch(`/api/admin/study-materials/${material.id}/prepare`, { method: "POST" });
         const data = await res.json();
-        if (!data.success) throw new Error(data.error || "Failed to prepare PDF");
-        updateBook(book.id, { page_count: data.pageCount, pages_processed: 0 });
+        if (!data.success) throw new Error(data.error || "Failed to prepare file");
+        updateMaterial(material.id, { page_count: data.pageCount, pages_processed: 0 });
       }
 
-      while (activeJobsRef.current.has(book.id)) {
-        const res = await fetch(`/api/admin/books/${book.id}/process`, { method: "POST" });
+      while (activeJobsRef.current.has(material.id)) {
+        const res = await fetch(`/api/admin/study-materials/${material.id}/process`, { method: "POST" });
         const data: ProcessProgress & { success: boolean; error?: string } = await res.json();
         if (!data.success) throw new Error(data.error || "OCR failed");
-        updateBook(book.id, {
+        updateMaterial(material.id, {
           status: data.status,
           page_count: data.pageCount,
           pages_processed: data.pagesProcessed,
@@ -177,44 +179,44 @@ export function AdminBooksTab({ programsList }: Props) {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Processing failed";
-      updateBook(book.id, { status: "failed", error_message: message });
+      updateMaterial(material.id, { status: "failed", error_message: message });
     } finally {
-      setJobActive(book.id, false);
+      setJobActive(material.id, false);
     }
   };
 
   const handleFileChange = (selected: File | null) => {
     if (!selected) return;
-    if (selected.type !== "application/pdf" && !selected.name.toLowerCase().endsWith(".pdf")) {
-      setStatusMessage({ type: "error", text: "Please choose a PDF file." });
+    if (!/\.(pdf|txt)$/i.test(selected.name)) {
+      setStatusMessage({ type: "error", text: "Please choose a PDF or TXT file." });
       return;
     }
     if (selected.size > MAX_FILE_BYTES) {
-      setStatusMessage({ type: "error", text: "PDF must be 100 MB or smaller." });
+      setStatusMessage({ type: "error", text: "File must be 100 MB or smaller." });
       return;
     }
     setFile(selected);
     setStatusMessage(null);
     if (!form.title) {
-      setForm((f) => ({ ...f, title: selected.name.replace(/\.pdf$/i, "").replace(/[_-]+/g, " ") }));
+      setForm((f) => ({ ...f, title: selected.name.replace(/\.(pdf|txt)$/i, "").replace(/[_-]+/g, " ") }));
     }
   };
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) {
-      setStatusMessage({ type: "error", text: "Please choose a PDF to upload." });
+      setStatusMessage({ type: "error", text: "Please choose a PDF or TXT file to upload." });
       return;
     }
     if (form.title.trim().length < 2) {
-      setStatusMessage({ type: "error", text: "Please enter the book title." });
+      setStatusMessage({ type: "error", text: "Please enter the material title." });
       return;
     }
 
     setIsUploading(true);
     setStatusMessage(null);
     try {
-      const res = await fetch("/api/admin/books", {
+      const res = await fetch("/api/admin/study-materials", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -225,29 +227,31 @@ export function AdminBooksTab({ programsList }: Props) {
         }),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error || "Failed to create book");
+      if (!data.success) throw new Error(data.error || "Failed to create material");
 
       const { error: uploadError } = await supabase.storage
         .from(data.upload.bucket)
         .uploadToSignedUrl(data.upload.path, data.upload.token, file, {
-          contentType: "application/pdf",
+          contentType: isTextFile(file.name) ? "text/plain" : "application/pdf",
         });
       if (uploadError) {
         // Remove the orphaned record so it doesn't sit in the list without a file.
-        await fetch(`/api/admin/books/${data.book.id}`, { method: "DELETE" });
+        await fetch(`/api/admin/study-materials/${data.material.id}`, { method: "DELETE" });
         throw new Error(`Upload failed: ${uploadError.message}`);
       }
 
-      const book: Book = data.book;
-      setBooks((prev) => [book, ...prev]);
+      const material: Material = data.material;
+      setMaterials((prev) => [material, ...prev]);
       setForm(EMPTY_FORM);
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       setStatusMessage({
         type: "success",
-        text: `"${book.title}" uploaded. OCR has started — keep this tab open until it completes.`,
+        text: isTextFile(material.file_name)
+          ? `"${material.title}" uploaded. Storing its text now.`
+          : `"${material.title}" uploaded. OCR has started — keep this tab open until it completes.`,
       });
-      runProcessing(book);
+      runProcessing(material);
     } catch (err) {
       setStatusMessage({ type: "error", text: err instanceof Error ? err.message : "Upload failed" });
     } finally {
@@ -255,47 +259,47 @@ export function AdminBooksTab({ programsList }: Props) {
     }
   };
 
-  const handleDelete = async (book: Book) => {
-    if (!window.confirm(`Delete "${book.title}" and all its extracted text? This cannot be undone.`)) {
+  const handleDelete = async (material: Material) => {
+    if (!window.confirm(`Delete "${material.title}" and all its extracted text? This cannot be undone.`)) {
       return;
     }
-    setJobActive(book.id, false);
-    const res = await fetch(`/api/admin/books/${book.id}`, { method: "DELETE" });
+    setJobActive(material.id, false);
+    const res = await fetch(`/api/admin/study-materials/${material.id}`, { method: "DELETE" });
     const data = await res.json();
     if (data.success) {
-      setBooks((prev) => prev.filter((b) => b.id !== book.id));
-      if (viewer?.book.id === book.id) setViewer(null);
+      setMaterials((prev) => prev.filter((b) => b.id !== material.id));
+      if (viewer?.material.id === material.id) setViewer(null);
     } else {
       setStatusMessage({ type: "error", text: data.error || "Delete failed" });
     }
   };
 
-  const openViewer = async (book: Book, from = 1) => {
+  const openViewer = async (material: Material, from = 1) => {
     setViewer((v) => ({
-      book,
-      pages: v?.book.id === book.id ? v.pages : [],
+      material,
+      pages: v?.material.id === material.id ? v.pages : [],
       from,
-      pdfUrl: v?.book.id === book.id ? v.pdfUrl : null,
+      pdfUrl: v?.material.id === material.id ? v.pdfUrl : null,
       loading: true,
     }));
     try {
-      const res = await fetch(`/api/admin/books/${book.id}?from=${from}`);
+      const res = await fetch(`/api/admin/study-materials/${material.id}?from=${from}`);
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      setViewer({ book: data.book, pages: data.pages, from, pdfUrl: data.pdfUrl, loading: false });
+      setViewer({ material: data.material, pages: data.pages, from, pdfUrl: data.pdfUrl, loading: false });
     } catch {
       setViewer(null);
       setStatusMessage({ type: "error", text: "Failed to load extracted text." });
     }
   };
 
-  const tagsFor = (book: Book) =>
+  const tagsFor = (material: Material) =>
     [
-      book.exam_slug && (examNames[book.exam_slug] || book.exam_slug),
-      book.program_slug && (programNames[book.program_slug] || book.program_slug),
-      book.specialisation_slug && (specialisationNames[book.specialisation_slug] || book.specialisation_slug),
-      book.subject,
-      ...book.tags,
+      material.exam_slug && (examNames[material.exam_slug] || material.exam_slug),
+      material.program_slug && (programNames[material.program_slug] || material.program_slug),
+      material.specialisation_slug && (specialisationNames[material.specialisation_slug] || material.specialisation_slug),
+      material.subject,
+      ...material.tags,
     ].filter(Boolean) as string[];
 
   return (
@@ -331,9 +335,9 @@ export function AdminBooksTab({ programsList }: Props) {
                 <Upload className="h-4 w-4" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Upload a Book</h3>
+                <h3 className="text-sm font-bold text-slate-900">Upload Study Material</h3>
                 <p className="text-[11px] text-slate-500">
-                  PDF up to 100 MB. Text is extracted page by page with Gemini OCR.
+                  PDF or TXT up to 100 MB. PDF text is extracted page by page with Gemini OCR; TXT is stored as-is.
                 </p>
               </div>
             </div>
@@ -341,7 +345,7 @@ export function AdminBooksTab({ programsList }: Props) {
             <form onSubmit={handleUpload} className="space-y-4">
               <div>
                 <label className={labelClass}>
-                  PDF File <span className="text-rose-500">*</span>
+                  PDF / TXT File <span className="text-rose-500">*</span>
                 </label>
                 <label
                   onDragOver={(e) => e.preventDefault()}
@@ -357,12 +361,12 @@ export function AdminBooksTab({ programsList }: Props) {
                       {file.name} · {formatBytes(file.size)}
                     </span>
                   ) : (
-                    <span className="text-xs text-slate-500">Drop a PDF here or click to browse</span>
+                    <span className="text-xs text-slate-500">Drop a PDF or TXT file here or click to browse</span>
                   )}
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="application/pdf,.pdf"
+                    accept="application/pdf,.pdf,text/plain,.txt"
                     className="sr-only"
                     onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
                   />
@@ -371,7 +375,7 @@ export function AdminBooksTab({ programsList }: Props) {
 
               <div>
                 <label className={labelClass}>
-                  Book Title <span className="text-rose-500">*</span>
+                  Title <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -516,10 +520,10 @@ export function AdminBooksTab({ programsList }: Props) {
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
                   <BookMarked className="h-4 w-4" />
                 </div>
-                <h3 className="text-sm font-bold text-slate-900">Books Library ({books.length})</h3>
+                <h3 className="text-sm font-bold text-slate-900">Study Data ({materials.length})</h3>
               </div>
               <button
-                onClick={fetchBooks}
+                onClick={fetchMaterials}
                 className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -556,39 +560,39 @@ export function AdminBooksTab({ programsList }: Props) {
               </select>
             </div>
 
-            {loading && books.length === 0 ? (
+            {loading && materials.length === 0 ? (
               <div className="flex items-center justify-center gap-2 py-12 text-xs text-slate-500">
-                <Loader2 className="h-4 w-4 animate-spin" /> Loading books…
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading materials…
               </div>
-            ) : books.length === 0 ? (
-              <p className="py-12 text-center text-xs text-slate-500">No books uploaded yet.</p>
+            ) : materials.length === 0 ? (
+              <p className="py-12 text-center text-xs text-slate-500">No materials uploaded yet.</p>
             ) : (
               <ul className="space-y-3">
-                {books.map((book) => {
-                  const running = activeJobs.has(book.id);
-                  const total = book.page_count ?? 0;
-                  const percent = total ? Math.round((book.pages_processed / total) * 100) : 0;
+                {materials.map((material) => {
+                  const running = activeJobs.has(material.id);
+                  const total = material.page_count ?? 0;
+                  const percent = total ? Math.round((material.pages_processed / total) * 100) : 0;
                   return (
-                    <li key={book.id} className="rounded-2xl border border-slate-200 p-4">
+                    <li key={material.id} className="rounded-2xl border border-slate-200 p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-bold text-slate-900">{book.title}</p>
+                          <p className="truncate text-sm font-bold text-slate-900">{material.title}</p>
                           <p className="text-[11px] text-slate-500">
-                            {[book.author, book.edition, formatBytes(book.file_size_bytes), total ? `${total} pages` : null]
+                            {[material.author, material.edition, formatBytes(material.file_size_bytes), total ? `${total} pages` : null]
                               .filter(Boolean)
                               .join(" · ")}
                           </p>
                         </div>
                         <span
-                          className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${STATUS_STYLES[book.status]}`}
+                          className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${STATUS_STYLES[material.status]}`}
                         >
-                          {book.status}
+                          {material.status}
                         </span>
                       </div>
 
-                      {tagsFor(book).length > 0 && (
+                      {tagsFor(material).length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-1.5">
-                          {tagsFor(book).map((tag) => (
+                          {tagsFor(material).map((tag) => (
                             <span key={tag} className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
                               {tag}
                             </span>
@@ -596,49 +600,49 @@ export function AdminBooksTab({ programsList }: Props) {
                         </div>
                       )}
 
-                      {book.status !== "completed" && total > 0 && (
+                      {material.status !== "completed" && total > 0 && (
                         <div className="mt-3">
                           <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
                             <div className="h-full bg-[#102C57] transition-all" style={{ width: `${percent}%` }} />
                           </div>
                           <p className="mt-1 text-[10px] text-slate-500">
-                            {book.pages_processed} / {total} pages extracted ({percent}%)
+                            {material.pages_processed} / {total} pages extracted ({percent}%)
                           </p>
                         </div>
                       )}
 
-                      {book.status === "failed" && book.error_message && (
-                        <p className="mt-2 text-[11px] font-semibold text-rose-600">{book.error_message}</p>
+                      {material.status === "failed" && material.error_message && (
+                        <p className="mt-2 text-[11px] font-semibold text-rose-600">{material.error_message}</p>
                       )}
 
                       <div className="mt-3 flex flex-wrap items-center gap-2">
-                        {book.pages_processed > 0 && (
+                        {material.pages_processed > 0 && (
                           <button
-                            onClick={() => openViewer(book)}
+                            onClick={() => openViewer(material)}
                             className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50"
                           >
                             <FileText className="h-3.5 w-3.5" /> View Text
                           </button>
                         )}
-                        {book.status !== "completed" &&
+                        {material.status !== "completed" &&
                           (running ? (
                             <button
-                              onClick={() => setJobActive(book.id, false)}
+                              onClick={() => setJobActive(material.id, false)}
                               className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50"
                             >
                               <Loader2 className="h-3.5 w-3.5 animate-spin" /> Extracting… (Pause)
                             </button>
                           ) : (
                             <button
-                              onClick={() => runProcessing(book)}
+                              onClick={() => runProcessing(material)}
                               className="flex items-center gap-1.5 rounded-lg bg-[#102C57] px-3 py-1.5 text-[11px] font-bold text-white hover:bg-[#0b1f3f]"
                             >
                               <Play className="h-3.5 w-3.5" />
-                              {book.status === "failed" ? "Retry" : book.pages_processed > 0 ? "Resume" : "Start OCR"}
+                              {material.status === "failed" ? "Retry" : material.pages_processed > 0 ? "Resume" : "Start OCR"}
                             </button>
                           ))}
                         <button
-                          onClick={() => handleDelete(book)}
+                          onClick={() => handleDelete(material)}
                           className="ml-auto flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-bold text-rose-600 hover:bg-rose-50"
                         >
                           <Trash2 className="h-3.5 w-3.5" /> Delete
@@ -662,9 +666,9 @@ export function AdminBooksTab({ programsList }: Props) {
           >
             <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-5">
               <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-slate-900">{viewer.book.title}</p>
+                <p className="truncate text-sm font-bold text-slate-900">{viewer.material.title}</p>
                 <p className="text-[11px] text-slate-500">
-                  {viewer.book.pages_processed} of {viewer.book.page_count ?? "?"} pages extracted
+                  {viewer.material.pages_processed} of {viewer.material.page_count ?? "?"} pages extracted
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -675,7 +679,7 @@ export function AdminBooksTab({ programsList }: Props) {
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50"
                   >
-                    <ExternalLink className="h-3.5 w-3.5" /> Open PDF
+                    <ExternalLink className="h-3.5 w-3.5" /> Open {isTextFile(viewer.material.file_name) ? "TXT" : "PDF"}
                   </a>
                 )}
                 <button onClick={() => setViewer(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
@@ -708,7 +712,7 @@ export function AdminBooksTab({ programsList }: Props) {
             <div className="flex items-center justify-between border-t border-slate-100 p-4">
               <button
                 disabled={viewer.from <= 1 || viewer.loading}
-                onClick={() => openViewer(viewer.book, Math.max(1, viewer.from - PAGES_PER_VIEW))}
+                onClick={() => openViewer(viewer.material, Math.max(1, viewer.from - PAGES_PER_VIEW))}
                 className="flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-700 disabled:opacity-40"
               >
                 <ChevronLeft className="h-3.5 w-3.5" /> Previous
@@ -718,7 +722,7 @@ export function AdminBooksTab({ programsList }: Props) {
               </span>
               <button
                 disabled={viewer.loading || viewer.pages.length < PAGES_PER_VIEW}
-                onClick={() => openViewer(viewer.book, viewer.from + PAGES_PER_VIEW)}
+                onClick={() => openViewer(viewer.material, viewer.from + PAGES_PER_VIEW)}
                 className="flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-700 disabled:opacity-40"
               >
                 Next <ChevronRight className="h-3.5 w-3.5" />

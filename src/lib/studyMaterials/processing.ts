@@ -3,23 +3,31 @@ import { PDFDocument } from "pdf-lib";
 import { SchemaType } from "@google/generative-ai";
 import { genAI, GEMINI_CHAT_MODEL } from "@/lib/gemini/client";
 
-export const BOOKS_BUCKET = "books";
+export const STUDY_MATERIALS_BUCKET = "books";
 
 /** Pages sent to Gemini per OCR request; small enough to finish well inside a request timeout. */
 export const PAGES_PER_CHUNK = 5;
 
 const OCR_MODEL = process.env.GEMINI_OCR_MODEL || GEMINI_CHAT_MODEL;
 
-export const bookPaths = {
-  original: (bookId: string) => `${bookId}/original.pdf`,
-  chunk: (bookId: string, chunkIndex: number) =>
-    `${bookId}/chunks/${String(chunkIndex).padStart(4, "0")}.pdf`,
-  chunksDir: (bookId: string) => `${bookId}/chunks`,
+/** Characters per stored "page" when a plain-text file is split up. */
+const TEXT_PAGE_CHARS = 3000;
+
+export type MaterialFileKind = "pdf" | "txt";
+
+export const materialFileKind = (fileName: string): MaterialFileKind =>
+  fileName.toLowerCase().endsWith(".txt") ? "txt" : "pdf";
+
+export const materialPaths = {
+  original: (materialId: string, kind: MaterialFileKind = "pdf") => `${materialId}/original.${kind}`,
+  chunk: (materialId: string, chunkIndex: number) =>
+    `${materialId}/chunks/${String(chunkIndex).padStart(4, "0")}.pdf`,
+  chunksDir: (materialId: string) => `${materialId}/chunks`,
 };
 
 /**
  * Splits a PDF into PAGES_PER_CHUNK-page PDFs so each OCR request only
- * downloads and sends a few pages instead of the whole book.
+ * downloads and sends a few pages instead of the whole material.
  */
 export async function splitPdf(bytes: Uint8Array): Promise<{ pageCount: number; chunks: Uint8Array[] }> {
   const source = await PDFDocument.load(bytes, { ignoreEncryption: true });
@@ -38,6 +46,33 @@ export async function splitPdf(bytes: Uint8Array): Promise<{ pageCount: number; 
   }
 
   return { pageCount, chunks };
+}
+
+/**
+ * Splits plain text into page-sized pieces. Form feeds are treated as explicit
+ * page breaks; otherwise text is cut at paragraph (or line) boundaries near
+ * TEXT_PAGE_CHARS so pages stay readable.
+ */
+export function splitTextIntoPages(text: string): string[] {
+  const normalised = text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
+  const sections = normalised.includes("\f") ? normalised.split("\f") : [normalised];
+  const pages: string[] = [];
+
+  for (const section of sections) {
+    let rest = section.trim();
+    while (rest.length > TEXT_PAGE_CHARS) {
+      const window = rest.slice(0, TEXT_PAGE_CHARS);
+      let cut = window.lastIndexOf("\n\n");
+      if (cut < TEXT_PAGE_CHARS / 2) cut = window.lastIndexOf("\n");
+      if (cut < TEXT_PAGE_CHARS / 2) cut = window.lastIndexOf(" ");
+      if (cut < TEXT_PAGE_CHARS / 2) cut = TEXT_PAGE_CHARS;
+      pages.push(rest.slice(0, cut).trim());
+      rest = rest.slice(cut).trim();
+    }
+    if (rest) pages.push(rest);
+  }
+
+  return pages;
 }
 
 /**

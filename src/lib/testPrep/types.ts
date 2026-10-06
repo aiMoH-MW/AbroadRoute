@@ -3,6 +3,18 @@
  * Answer keys live only in the server-side question bank (see questionBank.ts).
  */
 
+export interface TestModuleSettings {
+  examSlug: string;
+  enabled: boolean;
+  durationMinutes: number;
+  questionsPerPaper: number;
+  showAnswerReview: boolean;
+  instructions: string | null;
+  /** Number of questions available in the bank (read-only). */
+  bankSize: number;
+  updatedAt: string | null;
+}
+
 export interface PaperQuestion {
   id: string;
   section: string;
@@ -39,5 +51,6 @@ export interface TestResult {
   total: number;
   percentage: number;
   sections: SectionScore[];
-  review: QuestionReview[];
+  /** Omitted when the admin has turned off the answer review for this exam. */
+  review?: QuestionReview[];
 }

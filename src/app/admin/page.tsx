@@ -19,6 +19,8 @@ import {
   Zap,
   Sparkles,
   Library,
+  SlidersHorizontal,
+  Wand2,
 } from "lucide-react";
 import { Country, University, Program } from "@/types";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -37,7 +39,9 @@ import { AdminCountriesTab } from "@/components/admin/AdminCountriesTab";
 import { AdminProgramsTab } from "@/components/admin/AdminProgramsTab";
 import { AdminLeadsTab } from "@/components/admin/AdminLeadsTab";
 import { AdminAICounsellorKBTab } from "@/components/admin/AdminAICounsellorKBTab";
-import { AdminBooksTab } from "@/components/admin/AdminBooksTab";
+import { AdminStudyDataTab } from "@/components/admin/AdminStudyDataTab";
+import { AdminTestSettingsTab } from "@/components/admin/AdminTestSettingsTab";
+import { AdminQuestionExtractionTab } from "@/components/admin/AdminQuestionExtractionTab";
 
 type AdminTab =
   | "overview"
@@ -47,7 +51,9 @@ type AdminTab =
   | "programs"
   | "leads"
   | "kb"
-  | "books";
+  | "study-data"
+  | "test-settings"
+  | "qa-extraction";
 
 function AdminPortalContent() {
   const router = useRouter();
@@ -79,7 +85,9 @@ function AdminPortalContent() {
         "programs",
         "leads",
         "kb",
-        "books",
+        "study-data",
+        "test-settings",
+        "qa-extraction",
       ].includes(tabParam)
     ) {
       setActiveTab(tabParam);
@@ -336,9 +344,21 @@ function AdminPortalContent() {
       badgeColor: "bg-indigo-600 text-white",
     },
     {
-      id: "books" as AdminTab,
-      label: "Books Library",
+      id: "study-data" as AdminTab,
+      label: "Study Data",
       icon: Library,
+      badge: null,
+    },
+    {
+      id: "qa-extraction" as AdminTab,
+      label: "Q&A Extraction",
+      icon: Wand2,
+      badge: null,
+    },
+    {
+      id: "test-settings" as AdminTab,
+      label: "Test Module Settings",
+      icon: SlidersHorizontal,
       badge: null,
     },
   ];
@@ -482,7 +502,11 @@ function AdminPortalContent() {
 
           {activeTab === "kb" && <AdminAICounsellorKBTab />}
 
-          {activeTab === "books" && <AdminBooksTab programsList={programsList} />}
+          {activeTab === "study-data" && <AdminStudyDataTab programsList={programsList} />}
+
+          {activeTab === "qa-extraction" && <AdminQuestionExtractionTab programsList={programsList} />}
+
+          {activeTab === "test-settings" && <AdminTestSettingsTab />}
         </div>
       </div>
 

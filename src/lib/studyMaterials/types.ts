@@ -1,8 +1,8 @@
-/** Client-safe types for the admin Books Library. */
+/** Client-safe types for the admin Study Data library. */
 
-export type BookStatus = "uploaded" | "processing" | "completed" | "failed";
+export type MaterialStatus = "uploaded" | "processing" | "completed" | "failed";
 
-export interface Book {
+export interface Material {
   id: string;
   title: string;
   author: string | null;
@@ -19,18 +19,18 @@ export interface Book {
   file_size_bytes: number | null;
   page_count: number | null;
   pages_processed: number;
-  status: BookStatus;
+  status: MaterialStatus;
   error_message: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export interface BookPage {
+export interface MaterialPage {
   page_number: number;
   content: string;
 }
 
-export interface BookMetadataInput {
+export interface MaterialMetadataInput {
   title: string;
   author?: string;
   edition?: string;
@@ -44,7 +44,7 @@ export interface BookMetadataInput {
 }
 
 export interface ProcessProgress {
-  status: BookStatus;
+  status: MaterialStatus;
   pageCount: number;
   pagesProcessed: number;
   done: boolean;
