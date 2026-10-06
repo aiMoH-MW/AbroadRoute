@@ -18,7 +18,7 @@ import {
   ShieldCheck,
   Zap,
 } from "lucide-react";
-import { TEST_PREP_EXAMS, TestPrepExam } from "@/lib/data/testPrepData";
+import { fetchTestPrepExams, getTestPrepExamBySlug } from "@/lib/supabase/dataFetchers";
 import { fitMetaDescription } from "@/lib/seo/metaUtils";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -32,17 +32,19 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
+// Exams come from Supabase; refresh at most every 5 minutes.
+export const revalidate = 300;
+
 export async function generateStaticParams() {
-  return TEST_PREP_EXAMS.map((exam) => ({
+  const exams = await fetchTestPrepExams();
+  return exams.map((exam) => ({
     slug: exam.slug,
   }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const exam = TEST_PREP_EXAMS.find(
-    (e) => e.slug.toLowerCase() === slug.toLowerCase(),
-  );
+  const exam = await getTestPrepExamBySlug(slug);
 
   if (!exam) {
     return { title: "Exam Not Found | Abroadroute" };
@@ -68,7 +70,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function TestPrepDetailPage({ params }: Props) {
   const { slug } = await params;
-  const exam = TEST_PREP_EXAMS.find(
+  const allExams = await fetchTestPrepExams();
+  const exam = allExams.find(
     (e) => e.slug.toLowerCase() === slug.toLowerCase(),
   );
 
@@ -77,7 +80,7 @@ export default async function TestPrepDetailPage({ params }: Props) {
   }
 
   // Related exams from the same category or common combinations
-  const relatedExams = TEST_PREP_EXAMS.filter(
+  const relatedExams = allExams.filter(
     (e) =>
       e.id !== exam.id &&
       (e.category === exam.category ||
@@ -494,15 +497,15 @@ export default async function TestPrepDetailPage({ params }: Props) {
                     </p>
 
                     <div className="mt-6 space-y-3">
-                    <Link
-                      href={`/test-prep/${exam.slug}/online-test`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="min-h-[44px] rounded-xl bg-[#D89A3E] px-6 py-3 text-xs sm:text-sm font-bold text-slate-950 shadow-md hover:bg-[#c4872f] transition inline-flex items-center gap-2 cursor-pointer active:scale-98"
-                    >
-                      <span>Take the {exam.shortName} Online Test</span>
-                      <ArrowRight className="h-4 w-4" />
-                    </Link>
+                      <Link
+                        href={`/test-prep/${exam.slug}/online-test`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full min-h-[44px] rounded-xl bg-[#D89A3E] px-6 py-3 text-xs sm:text-sm font-bold text-slate-950 shadow-md hover:bg-[#c4872f] transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                      >
+                        <span>Take the {exam.shortName} Online Test</span>
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
                       {/* <LeadTriggerButton
                         country={exam.targetCountries[0]}
                         className="w-full min-h-[44px] rounded-xl bg-[#D89A3E] py-3 text-xs sm:text-sm font-bold text-slate-950 shadow-xs hover:bg-[#c4872f] transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"

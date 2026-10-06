@@ -29,8 +29,21 @@ import {
   fetchLiveUniversities,
   fetchLiveCountries,
   fetchLivePrograms,
+  fetchTestPrepExams,
 } from "@/lib/supabase/dataFetchers";
-import { University, Country, Program } from "@/types";
+import { University, Country, Program, TestPrepExam } from "@/types";
+
+type TestPrepMenuItem = Pick<TestPrepExam, "id" | "slug" | "name" | "shortName" | "category">;
+
+const TEST_PREP_MENU_GROUPS: {
+  category: TestPrepExam["category"];
+  label: string;
+  color: string;
+}[] = [
+  { category: "English Proficiency", label: "English", color: "text-[#1D5A6C]" },
+  { category: "Graduate Admissions", label: "Graduate & MBA", color: "text-[#D89A3E]" },
+  { category: "Medical & Healthcare Licensing", label: "Medical & Healthcare", color: "text-emerald-700" },
+];
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useHomeModals } from "@/components/home/HomeClientContext";
 import { CountryFlag } from "@/components/ui/CountryFlag";
@@ -68,6 +81,7 @@ export function Header({
   const [countriesList, setCountriesList] = useState<Country[]>([]);
   const [programsList, setProgramsList] = useState<Program[]>([]);
   const [universitiesList, setUniversitiesList] = useState<University[]>([]);
+  const [testPrepExams, setTestPrepExams] = useState<TestPrepMenuItem[]>([]);
 
   useEffect(() => {
     setMounted(true);
@@ -121,6 +135,8 @@ export function Header({
               setProgramsList(data.programs);
             if (data.universities && data.universities.length > 0)
               setUniversitiesList(data.universities);
+            if (data.testPrepExams && data.testPrepExams.length > 0)
+              setTestPrepExams(data.testPrepExams);
             return;
           }
         }
@@ -137,6 +153,9 @@ export function Header({
       );
       fetchLiveUniversities().then(
         (res) => isMounted && res?.length && setUniversitiesList(res),
+      );
+      fetchTestPrepExams().then(
+        (res) => isMounted && res?.length && setTestPrepExams(res),
       );
     }
 
@@ -292,54 +311,7 @@ export function Header({
             )}
           </div>
 
-          {/* Programs Dropdown */}
-          <div
-            className="relative"
-            onMouseEnter={() => setProgramsOpen(true)}
-            onMouseLeave={() => setProgramsOpen(false)}
-          >
-            <button
-              onClick={() => setProgramsOpen((prev) => !prev)}
-              aria-label="Open programs menu"
-              aria-expanded={programsOpen}
-              className="group flex items-center gap-1 py-1.5 text-[13px] font-semibold text-[#103B47] hover:text-[#1D5A6C] transition whitespace-nowrap"
-            >
-              <span>Programs</span>
-              <span className="text-[10px] text-slate-400 font-normal">
-                (8)
-              </span>
-              <ChevronDown
-                className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-150 ${programsOpen ? "rotate-180 text-[#1D5A6C]" : ""}`}
-              />
-            </button>
-
-            {programsOpen && (
-              <div className="absolute left-0 top-full pt-2">
-                <div className="w-72 rounded-2xl border border-[#D9CFB8]/60 bg-white p-4 shadow-2xl">
-                  <ul className="space-y-1.5">
-                    {programsList.map((p) => (
-                      <li key={p.id}>
-                        <Link
-                          href={`/programs/${p.slug}`}
-                          className="block rounded-xl p-2 hover:bg-slate-50 transition"
-                        >
-                          <p className="text-xs font-bold text-[#103B47] hover:text-[#D89A3E]">
-                            {p.name}
-                          </p>
-                          <p className="text-[11px] text-slate-500">
-                            {p.duration} • Top:{" "}
-                            {p.topDestinations.slice(0, 3).join(", ")}
-                          </p>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 3. Universities Dropdown */}
+          {/* 2. Universities Dropdown */}
           <div
             className="relative"
             onMouseEnter={() => setUniversitiesOpen(true)}
@@ -393,6 +365,53 @@ export function Header({
             )}
           </div>
 
+          {/* 3. Programs Dropdown */}
+          <div
+            className="relative"
+            onMouseEnter={() => setProgramsOpen(true)}
+            onMouseLeave={() => setProgramsOpen(false)}
+          >
+            <button
+              onClick={() => setProgramsOpen((prev) => !prev)}
+              aria-label="Open programs menu"
+              aria-expanded={programsOpen}
+              className="group flex items-center gap-1 py-1.5 text-[13px] font-semibold text-[#103B47] hover:text-[#1D5A6C] transition whitespace-nowrap"
+            >
+              <span>Programs</span>
+              <span className="text-[10px] text-slate-400 font-normal">
+                (8)
+              </span>
+              <ChevronDown
+                className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-150 ${programsOpen ? "rotate-180 text-[#1D5A6C]" : ""}`}
+              />
+            </button>
+
+            {programsOpen && (
+              <div className="absolute left-0 top-full pt-2">
+                <div className="w-72 rounded-2xl border border-[#D9CFB8]/60 bg-white p-4 shadow-2xl">
+                  <ul className="space-y-1.5">
+                    {programsList.map((p) => (
+                      <li key={p.id}>
+                        <Link
+                          href={`/programs/${p.slug}`}
+                          className="block rounded-xl p-2 hover:bg-slate-50 transition"
+                        >
+                          <p className="text-xs font-bold text-[#103B47] hover:text-[#D89A3E]">
+                            {p.name}
+                          </p>
+                          <p className="text-[11px] text-slate-500">
+                            {p.duration} • Top:{" "}
+                            {p.topDestinations.slice(0, 3).join(", ")}
+                          </p>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* 4. Test Prep Mega Dropdown */}
           <div
             className="relative"
@@ -406,9 +425,11 @@ export function Header({
               className="group flex items-center gap-1 py-1.5 text-[13px] font-semibold text-[#103B47] hover:text-[#1D5A6C] transition whitespace-nowrap"
             >
               <span>Test Prep</span>
-              <span className="text-[10px] text-slate-400 font-normal">
-                (9)
-              </span>
+              {testPrepExams.length > 0 && (
+                <span className="text-[10px] text-slate-400 font-normal">
+                  ({testPrepExams.length})
+                </span>
+              )}
               <ChevronDown
                 className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-150 ${testPrepOpen ? "rotate-180 text-[#1D5A6C]" : ""}`}
               />
@@ -418,104 +439,32 @@ export function Header({
               <div className="absolute -left-20 top-full pt-2">
                 <div className="w-[520px] rounded-2xl border border-[#D9CFB8]/60 bg-white p-5 shadow-2xl ring-1 ring-slate-900/5">
                   <div className="grid grid-cols-3 gap-4">
-                    {/* English */}
-                    <div>
-                      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-[#1D5A6C]">
-                        English (4)
-                      </p>
-                      <ul className="space-y-1 text-xs">
-                        <li>
-                          <Link
-                            href="/test-prep/ielts"
-                            className="block rounded-lg p-1.5 hover:bg-slate-50 font-medium text-slate-700 hover:text-[#D89A3E]"
+                    {TEST_PREP_MENU_GROUPS.map((group) => {
+                      const groupExams = testPrepExams.filter(
+                        (e) => e.category === group.category,
+                      );
+                      return (
+                        <div key={group.category}>
+                          <p
+                            className={`mb-2 text-[10px] font-bold uppercase tracking-wider ${group.color}`}
                           >
-                            IELTS Academic
-                          </Link>
-                        </li>
-                        <li>
-                          <Link
-                            href="/test-prep/toefl"
-                            className="block rounded-lg p-1.5 hover:bg-slate-50 font-medium text-slate-700 hover:text-[#D89A3E]"
-                          >
-                            TOEFL iBT
-                          </Link>
-                        </li>
-                        <li>
-                          <Link
-                            href="/test-prep/pte"
-                            className="block rounded-lg p-1.5 hover:bg-slate-50 font-medium text-slate-700 hover:text-[#D89A3E]"
-                          >
-                            PTE Academic
-                          </Link>
-                        </li>
-                        <li>
-                          <Link
-                            href="/test-prep/duolingo"
-                            className="block rounded-lg p-1.5 hover:bg-slate-50 font-medium text-slate-700 hover:text-[#D89A3E]"
-                          >
-                            Duolingo DET
-                          </Link>
-                        </li>
-                      </ul>
-                    </div>
-
-                    {/* Graduate */}
-                    <div>
-                      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-[#D89A3E]">
-                        Graduate & MBA (2)
-                      </p>
-                      <ul className="space-y-1 text-xs">
-                        <li>
-                          <Link
-                            href="/test-prep/gre"
-                            className="block rounded-lg p-1.5 hover:bg-slate-50 font-medium text-slate-700 hover:text-[#D89A3E]"
-                          >
-                            GRE General
-                          </Link>
-                        </li>
-                        <li>
-                          <Link
-                            href="/test-prep/gmat"
-                            className="block rounded-lg p-1.5 hover:bg-slate-50 font-medium text-slate-700 hover:text-[#D89A3E]"
-                          >
-                            GMAT Focus
-                          </Link>
-                        </li>
-                      </ul>
-                    </div>
-
-                    {/* Medical */}
-                    <div>
-                      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-                        Medical & Healthcare (3)
-                      </p>
-                      <ul className="space-y-1 text-xs">
-                        <li>
-                          <Link
-                            href="/test-prep/nclex"
-                            className="block rounded-lg p-1.5 hover:bg-slate-50 font-medium text-slate-700 hover:text-[#D89A3E]"
-                          >
-                            NCLEX-RN
-                          </Link>
-                        </li>
-                        <li>
-                          <Link
-                            href="/test-prep/plab"
-                            className="block rounded-lg p-1.5 hover:bg-slate-50 font-medium text-slate-700 hover:text-[#D89A3E]"
-                          >
-                            PLAB / UKMLA
-                          </Link>
-                        </li>
-                        <li>
-                          <Link
-                            href="/test-prep/oet"
-                            className="block rounded-lg p-1.5 hover:bg-slate-50 font-medium text-slate-700 hover:text-[#D89A3E]"
-                          >
-                            OET Healthcare
-                          </Link>
-                        </li>
-                      </ul>
-                    </div>
+                            {group.label} ({groupExams.length})
+                          </p>
+                          <ul className="space-y-1 text-xs">
+                            {groupExams.map((exam) => (
+                              <li key={exam.id}>
+                                <Link
+                                  href={`/test-prep/${exam.slug}`}
+                                  className="block rounded-lg p-1.5 hover:bg-slate-50 font-medium text-slate-700 hover:text-[#D89A3E]"
+                                >
+                                  {exam.name}
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    })}
                   </div>
 
                   <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">

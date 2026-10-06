@@ -146,3 +146,56 @@ export interface CourseItem {
   roiScore: number;
   coreModules: string[];
 }
+
+export type TestPrepCategory =
+  | "English Proficiency"
+  | "Graduate Admissions"
+  | "Medical & Healthcare Licensing";
+
+export interface TestPrepSection {
+  id: string;
+  name: string;
+  duration: string;
+  questionsCount: string;
+  skillsTested: string;
+  tips: string;
+}
+
+/** A test prep exam from the Supabase `test_prep_exams` table (with its sections). */
+export interface TestPrepExam {
+  id: string;
+  slug: string;
+  name: string;
+  shortName: string;
+  fullName: string;
+  category: TestPrepCategory;
+  heroTagline: string;
+  targetPrograms: string[];
+  targetCountries: string[];
+  overview: string;
+  feeINR: string;
+  feeOriginal: string;
+  duration: string;
+  formatMode: string;
+  validityYears: number;
+  scoringScale: string;
+  targetCutoffIndianStudents: string;
+  conductingBody: string;
+  frequency: string;
+  sections: TestPrepSection[];
+  scoreRequirementsByCountry: {
+    country: string;
+    flag: string;
+    minRequired: string;
+    competitiveScore: string;
+  }[];
+  prepRoadmap: {
+    week: string;
+    title: string;
+    milestone: string;
+  }[];
+  faqs: {
+    question: string;
+    answer: string;
+  }[];
+}

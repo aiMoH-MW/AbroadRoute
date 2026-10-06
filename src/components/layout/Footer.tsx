@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Compass, ShieldCheck, Award, HeartHandshake } from "lucide-react";
 import { CountryFlag } from "@/components/ui/CountryFlag";
 import { BrandLogo } from "@/components/ui/BrandSignatures";
+import { FooterTestPrepLinks } from "@/components/layout/FooterTestPrepLinks";
 
 export function Footer() {
   return (
@@ -321,65 +322,214 @@ export function Footer() {
                   href="/test-prep"
                   className="font-semibold text-[#EA5C2B] hover:text-white transition"
                 >
-                  ★ Test Prep Hub (All 9)
+                  ★ Test Prep Hub
+                </Link>
+              </li>
+              <FooterTestPrepLinks />
+              <li>
+                <Link
+                  href="/cost-calculator"
+                  className="text-slate-400 hover:text-white transition"
+                >
+                  Cost Calculator
                 </Link>
               </li>
               <li>
                 <Link
-                  href="/test-prep/ielts"
-                  className="text-slate-400 hover:text-white transition"
+                  href="/compare/universities"
+                  className="text-slate-400 hover:text-white transition font-semibold text-[#EA5C2B]"
                 >
-                  IELTS Academic (IDP)
+                  University Compare Matrix
                 </Link>
               </li>
               <li>
                 <Link
-                  href="/test-prep/gre"
+                  href="/compare/courses"
                   className="text-slate-400 hover:text-white transition"
                 >
-                  GRE General Test
+                  Course & Degree Compare
                 </Link>
               </li>
               <li>
                 <Link
-                  href="/test-prep/gmat"
+                  href="/blog"
                   className="text-slate-400 hover:text-white transition"
                 >
-                  GMAT Focus Edition
+                  Editorial Guides
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Column 2: Popular Destinations */}
+          <div>
+            <h4 className="mb-3.5 text-xs font-bold uppercase tracking-wider text-white">
+              Destinations
+            </h4>
+            <ul className="space-y-2 text-xs">
+              <li>
+                <Link
+                  href="/study-in-usa"
+                  className="flex items-center gap-2 text-slate-400 hover:text-white transition"
+                >
+                  <CountryFlag code="US" name="United States" size="sm" />
+                  <span>Study in USA</span>
                 </Link>
               </li>
               <li>
                 <Link
-                  href="/test-prep/nclex"
-                  className="text-slate-400 hover:text-white transition"
+                  href="/study-in-uk"
+                  className="flex items-center gap-2 text-slate-400 hover:text-white transition"
                 >
-                  NCLEX-RN (Nursing)
+                  <CountryFlag code="GB" name="United Kingdom" size="sm" />
+                  <span>Study in UK</span>
                 </Link>
               </li>
               <li>
                 <Link
-                  href="/test-prep/plab"
-                  className="text-slate-400 hover:text-white transition"
+                  href="/study-in-germany"
+                  className="flex items-center gap-2 text-slate-400 hover:text-white transition"
                 >
-                  PLAB / UKMLA (MBBS)
+                  <CountryFlag code="DE" name="Germany" size="sm" />
+                  <span>Study in Germany</span>
                 </Link>
               </li>
               <li>
                 <Link
-                  href="/test-prep/oet"
-                  className="text-slate-400 hover:text-white transition"
+                  href="/study-in-canada"
+                  className="flex items-center gap-2 text-slate-400 hover:text-white transition"
                 >
-                  OET Healthcare English
+                  <CountryFlag code="CA" name="Canada" size="sm" />
+                  <span>Study in Canada</span>
                 </Link>
               </li>
               <li>
                 <Link
-                  href="/test-prep/pte"
-                  className="text-slate-400 hover:text-white transition"
+                  href="/study-in-australia"
+                  className="flex items-center gap-2 text-slate-400 hover:text-white transition"
                 >
-                  PTE Academic
+                  <CountryFlag code="AU" name="Australia" size="sm" />
+                  <span>Study in Australia</span>
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/study-in-ireland"
+                  className="flex items-center gap-2 text-slate-400 hover:text-white transition"
+                >
+                  <CountryFlag code="IE" name="Ireland" size="sm" />
+                  <span>Study in Ireland</span>
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/study-in-russia"
+                  className="flex items-center gap-2 text-slate-400 hover:text-white transition"
+                >
+                  <CountryFlag code="RU" name="Russia" size="sm" />
+                  <span>MBBS in Russia</span>
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/study-in-georgia"
+                  className="flex items-center gap-2 text-slate-400 hover:text-white transition"
+                >
+                  <CountryFlag code="GE" name="Georgia" size="sm" />
+                  <span>MBBS in Georgia</span>
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Column 3: Programs & Degrees */}
+          <div>
+            <h4 className="mb-3.5 text-xs font-bold uppercase tracking-wider text-white">
+              Programs
+            </h4>
+            <ul className="space-y-2 text-xs">
+              <li>
+                <Link
+                  href="/programs/ms"
+                  className="text-slate-400 hover:text-white transition"
+                >
+                  MS & STEM Masters
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/programs/mba"
+                  className="text-slate-400 hover:text-white transition"
+                >
+                  MBA & Management
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/programs/mbbs"
+                  className="text-slate-400 hover:text-white transition"
+                >
+                  MBBS Abroad
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/programs/nursing"
+                  className="text-slate-400 hover:text-white transition"
+                >
+                  Nursing Migration
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/programs/ausbildung"
+                  className="text-slate-400 hover:text-white transition"
+                >
+                  Germany Ausbildung
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/programs/bachelors"
+                  className="text-slate-400 hover:text-white transition"
+                >
+                  Bachelor&apos;s Degrees
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/programs/emba"
+                  className="text-slate-400 hover:text-white transition"
+                >
+                  Executive MBA
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/programs/phd"
+                  className="text-slate-400 hover:text-white transition"
+                >
+                  PhD & Research
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Column 4: Test Prep & Resources */}
+          <div>
+            <h4 className="mb-3.5 text-xs font-bold uppercase tracking-wider text-white">
+              Test Prep & Hub
+            </h4>
+            <ul className="space-y-2 text-xs">
+              <li>
+                <Link
+                  href="/test-prep"
+                  className="font-semibold text-[#EA5C2B] hover:text-white transition"
+                >
+                  ★ Test Prep Hub
+                </Link>
+              </li>
+              <FooterTestPrepLinks />
               <li>
                 <Link
                   href="/cost-calculator"

@@ -1,6 +1,13 @@
 import { supabase } from "./client";
 import { supabaseAdmin } from "./server";
-import { Country, University, CourseItem, Program, Specialisation } from "@/types";
+import {
+  Country,
+  University,
+  CourseItem,
+  Program,
+  Specialisation,
+  TestPrepExam,
+} from "@/types";
 import {
   mapSupabaseCountry,
   mapSanityCountry,
@@ -533,392 +540,34 @@ export async function fetchLiveCourses(): Promise<CourseItem[]> {
   return Array.from(courseMap.values());
 }
 
-export const STATIC_SPECIALISATIONS: Specialisation[] = [
-  // Anchor 1: Master's Degree (MS / MSc / MA)
-  {
-    id: "spec-ms-1",
-    programSlug: "ms",
-    anchorCategory: "Anchor 1 — Master's Degree (MS / MSc / MA)",
-    name: "Computer Science, Data Science, AI/ML & Business Analytics",
-    slug: "ms-cs-data-science-ai-ml",
-    description:
-      "Primary volume driver aligned to high-growth tech and analytical demand in global tech hubs.",
-    focusAreas: [
-      "Computer Science",
-      "Data Science",
-      "AI/ML",
-      "Business Analytics",
-    ],
-    targetDestinations: [
-      "USA",
-      "Germany",
-      "UK",
-      "Canada",
-      "Australia",
-      "Ireland",
-      "Netherlands",
-    ],
-    durationFormats: ["1 Year", "1.5 Years", "2 Years"],
-    licensingPathways: [],
-    contentInvestmentShare: "35%",
-    isYearOneAnchor: true,
-  },
-  {
-    id: "spec-ms-2",
-    programSlug: "ms",
-    anchorCategory: "Anchor 1 — Master's Degree (MS / MSc / MA)",
-    name: "Core Engineering & Financial Engineering",
-    slug: "ms-engineering-disciplines",
-    description:
-      "Traditional and quantitative STEM disciplines across premier technical institutions.",
-    focusAreas: [
-      "Electrical Engineering",
-      "Mechanical Engineering",
-      "Civil Engineering",
-      "Chemical Engineering",
-      "Aerospace Engineering",
-      "Financial Engineering",
-    ],
-    targetDestinations: [
-      "Germany",
-      "USA",
-      "UK",
-      "Australia",
-      "Canada",
-      "Netherlands",
-    ],
-    durationFormats: ["1.5 Years", "2 Years"],
-    licensingPathways: [],
-    contentInvestmentShare: "35%",
-    isYearOneAnchor: true,
-  },
-  {
-    id: "spec-ms-3",
-    programSlug: "ms",
-    anchorCategory: "Anchor 1 — Master's Degree (MS / MSc / MA)",
-    name: "Cybersecurity, FinTech & Software Engineering",
-    slug: "ms-cybersecurity-fintech-swe",
-    description:
-      "High-demand applied computing, enterprise security, and financial technology engineering tracks.",
-    focusAreas: ["Cybersecurity", "FinTech", "Software Engineering"],
-    targetDestinations: [
-      "USA",
-      "UK",
-      "Ireland",
-      "Singapore",
-      "Canada",
-      "Australia",
-    ],
-    durationFormats: ["1 Year", "2 Years"],
-    licensingPathways: [],
-    contentInvestmentShare: "35%",
-    isYearOneAnchor: true,
-  },
-  {
-    id: "spec-ms-4",
-    programSlug: "ms",
-    anchorCategory: "Anchor 1 — Master's Degree (MS / MSc / MA)",
-    name: "Finance, Economics & Public Health (MPH)",
-    slug: "ms-finance-economics-mph",
-    description:
-      "Quantitative economic policy, corporate finance, and public health epidemiology tracks.",
-    focusAreas: ["Finance", "Economics", "Public Health (MPH)"],
-    targetDestinations: [
-      "USA",
-      "UK",
-      "Canada",
-      "Australia",
-      "Netherlands",
-      "Germany",
-    ],
-    durationFormats: ["1 Year", "2 Years"],
-    licensingPathways: [],
-    contentInvestmentShare: "35%",
-    isYearOneAnchor: true,
-  },
-  {
-    id: "spec-ms-5",
-    programSlug: "ms",
-    anchorCategory: "Anchor 1 — Master's Degree (MS / MSc / MA)",
-    name: "Biotechnology, Biomedical Sciences & Bioinformatics",
-    slug: "ms-biotech-biomedical-bioinformatics",
-    description:
-      "Cutting-edge life sciences, pharmaceutical development, and computational biology programs.",
-    focusAreas: ["Biotechnology", "Biomedical Sciences", "Bioinformatics"],
-    targetDestinations: [
-      "Germany",
-      "USA",
-      "UK",
-      "Canada",
-      "Ireland",
-      "Australia",
-    ],
-    durationFormats: ["2 Years"],
-    licensingPathways: [],
-    contentInvestmentShare: "35%",
-    isYearOneAnchor: true,
-  },
-
-  // Anchor 2: MBA Abroad (Full-time)
-  {
-    id: "spec-mba-1",
-    programSlug: "mba",
-    anchorCategory: "Anchor 2 — MBA Abroad (Full-time)",
-    name: "Full-time MBA Management & Functional Specializations",
-    slug: "mba-fulltime-specializations",
-    description:
-      "Strategic management foundation across top business schools with accelerated 1-year and standard 2-year tracks.",
-    focusAreas: [
-      "Finance",
-      "Marketing",
-      "Human Resources (HR)",
-      "Operations",
-      "Business Analytics",
-      "International Business",
-      "Entrepreneurship",
-      "Strategy",
-      "Supply Chain Management",
-    ],
-    targetDestinations: [
-      "USA",
-      "UK",
-      "France",
-      "Germany",
-      "Canada",
-      "Australia",
-      "Singapore",
-      "Spain",
-    ],
-    durationFormats: [
-      "1-year MBA (UK, Europe)",
-      "2-year MBA (USA, Canada, Australia)",
-    ],
-    licensingPathways: [],
-    contentInvestmentShare: "12%",
-    isYearOneAnchor: true,
-  },
-
-  // Anchor 3: Executive MBA / Online MBA / Global MBA
-  {
-    id: "spec-emba-1",
-    programSlug: "emba",
-    anchorCategory: "Anchor 3 — Executive MBA / Online MBA / Global MBA",
-    name: "Executive MBA (EMBA), Online MBA & Global Modular Programs",
-    slug: "emba-global-online-modular",
-    description:
-      "High-value executive programs for working professionals with leadership DNA and flexible modular formats.",
-    focusAreas: [
-      "Global Executive MBA (INSEAD, Kellogg, Wharton, Booth, LBS, IMD, HEC, Warwick)",
-      "Online MBA / Global MBA",
-      "Part-time Executive Formats",
-      "Weekend Executive Formats",
-    ],
-    targetDestinations: [
-      "USA",
-      "UK",
-      "France",
-      "Switzerland",
-      "Singapore",
-      "UAE",
-      "Germany",
-    ],
-    durationFormats: ["12 Months", "15 Months", "18 Months", "21 Months"],
-    licensingPathways: [],
-    contentInvestmentShare: "13%",
-    isYearOneAnchor: true,
-  },
-
-  // Anchor 4: MBA in Healthcare Management
-  {
-    id: "spec-mba-2",
-    programSlug: "mba",
-    anchorCategory: "Anchor 4 — MBA in Healthcare Management",
-    name: "MBA in Healthcare Management & Hospital Administration",
-    slug: "mba-healthcare-management",
-    description:
-      "Natural cross-vertical bridge connecting clinical medicine/nursing with modern hospital leadership.",
-    focusAreas: [
-      "Healthcare Management",
-      "Hospital Administration",
-      "Health Systems Management",
-    ],
-    targetDestinations: [
-      "UK",
-      "USA",
-      "Canada",
-      "Australia",
-      "Germany",
-      "Ireland",
-      "Singapore",
-      "UAE",
-    ],
-    durationFormats: ["1 Year", "2 Years"],
-    licensingPathways: [],
-    contentInvestmentShare: "Included in MBA + EMBA 25%",
-    isYearOneAnchor: true,
-  },
-
-  // Anchor 5: MBBS / Medical Abroad
-  {
-    id: "spec-mbbs-1",
-    programSlug: "mbbs",
-    anchorCategory: "Anchor 5 — MBBS / Medical Abroad",
-    name: "MBBS & Medical Education Abroad (NMC Approved)",
-    slug: "mbbs-medicine-abroad-pathways",
-    description:
-      "NMC-compliant global medical colleges with structured licensing and residency pathways for Indian aspirants.",
-    focusAreas: [
-      "MBBS Abroad (Primary Vertical)",
-      "Doctor of Medicine (MD)",
-      "Bachelor of Dental Surgery (BDS)",
-    ],
-    targetDestinations: [
-      "Georgia",
-      "Uzbekistan",
-      "Russia",
-      "Philippines",
-      "Kazakhstan",
-      "UK",
-      "Nepal",
-    ],
-    durationFormats: ["5 Years + 1 Year Internship", "6 Years"],
-    licensingPathways: [
-      "PLAB (UK)",
-      "USMLE (USA)",
-      "AMC (Australia)",
-      "MCCQE (Canada)",
-      "NExT (India)",
-    ],
-    contentInvestmentShare: "20%",
-    isYearOneAnchor: true,
-  },
-
-  // Anchor 6: Nursing & Allied Health (Career Migration)
-  {
-    id: "spec-nursing-1",
-    programSlug: "nursing",
-    anchorCategory: "Anchor 6 — Nursing & Allied Health (Career Migration)",
-    name: "BSc Nursing Abroad & Global Career Migration Pathways",
-    slug: "nursing-bsc-career-migration",
-    description:
-      "Targeted career-migration pathway focusing on study, licensing exams, and immediate nursing workforce integration.",
-    focusAreas: [
-      "BSc Nursing Abroad",
-      "Nursing Ausbildung (Germany)",
-      "Career Migration Pathways (UK NHS, Ireland HSE, Australia AHPRA, US NCLEX-RN)",
-    ],
-    targetDestinations: [
-      "UK",
-      "Ireland",
-      "Germany",
-      "Australia",
-      "USA",
-      "Canada",
-      "New Zealand",
-    ],
-    durationFormats: ["3 Years", "4 Years"],
-    licensingPathways: [
-      "NCLEX-RN (USA)",
-      "NMC UK CBT/OSCE",
-      "AHPRA (Australia)",
-      "OET (Occupational English Test)",
-    ],
-    contentInvestmentShare: "12%",
-    isYearOneAnchor: true,
-  },
-  {
-    id: "spec-nursing-2",
-    programSlug: "nursing",
-    anchorCategory: "Anchor 6 — Nursing & Allied Health (Career Migration)",
-    name: "Allied Health Sciences & Rehabilitation",
-    slug: "allied-health-sciences",
-    description:
-      "High-demand paramedical and allied healthcare clinical professions worldwide.",
-    focusAreas: ["Physiotherapy", "Radiology", "Occupational Therapy"],
-    targetDestinations: ["UK", "Australia", "Ireland", "Canada", "Germany"],
-    durationFormats: ["3 Years", "4 Years"],
-    licensingPathways: ["HCPC (UK)", "AHPRA (Australia)"],
-    contentInvestmentShare: "12%",
-    isYearOneAnchor: true,
-  },
-
-  // Anchor 7: Bachelor's Degree Abroad (Focused Niches)
-  {
-    id: "spec-bachelors-1",
-    programSlug: "bachelors",
-    anchorCategory: "Anchor 7 — Bachelor's Degree Abroad (Focused Niches)",
-    name: "Undergraduate Degree Tracks & High-Value Professional Niches",
-    slug: "bachelors-focused-niches",
-    description:
-      "Selective high-ROI undergraduate degree tracks and specialized vocational leadership niches.",
-    focusAreas: [
-      "BSc / BA / BBA / BEng at Reputed Universities",
-      "Hotel Management Abroad (+75% YoY)",
-      "Fashion / Interior / Product Design Abroad",
-      "Pilot Training / Aviation Abroad",
-      "Culinary Arts (Le Cordon Bleu, ICE, ICMS)",
-    ],
-    targetDestinations: [
-      "UK",
-      "USA",
-      "Canada",
-      "Australia",
-      "Switzerland",
-      "France",
-      "Germany",
-      "Ireland",
-    ],
-    durationFormats: [
-      "3 Years (UK/Europe/Australia)",
-      "4 Years (USA/Canada)",
-    ],
-    licensingPathways: [],
-    contentInvestmentShare: "3%",
-    isYearOneAnchor: true,
-  },
-
-  // Anchor 8: Germany Ausbildung (Vocational + Employment)
-  {
-    id: "spec-ausbildung-1",
-    programSlug: "ausbildung",
-    anchorCategory:
-      "Anchor 8 — Germany Ausbildung (Vocational + Employment)",
-    name: "Dual Vocational Training & Guaranteed Employment (Ausbildung)",
-    slug: "ausbildung-germany-vocational",
-    description:
-      "Tuition-free German dual vocational training with monthly stipend (€1,000–€1,400/mo) and direct transition to permanent residency.",
-    focusAreas: [
-      "Nursing Ausbildung (Pflegefachkraft)",
-      "IT Ausbildung (Fachinformatiker)",
-      "Mechatronics / Automotive Ausbildung (Kraftfahrzeugmechatroniker)",
-      "Hospitality Ausbildung (Hotelfachmann/-frau)",
-      "Retail / Business Ausbildung (Kaufmann/-frau)",
-    ],
-    targetDestinations: ["Germany"],
-    durationFormats: ["3 Years (Dual System: 50% Theory + 50% Paid Work)"],
-    licensingPathways: [
-      "B2 German Certificate (Goethe/Telc)",
-      "German State Chamber Examination (IHK/HWK)",
-    ],
-    contentInvestmentShare: "5%",
-    isYearOneAnchor: true,
-  },
-];
-
+/**
+ * Specialisations live only in the Supabase `specialisations` table (no static
+ * fallback), ordered by `display_order` so tracks render in a fixed sequence.
+ */
 export async function fetchLiveSpecialisations(): Promise<Specialisation[]> {
   try {
     const client = typeof window === "undefined" ? supabaseAdmin : supabase;
     const response = await queryWithTimeout(
       () => client.from("specialisations").select("*"),
-      2000,
+      5000,
     );
-    if (
-      response &&
-      !(response as any).error &&
-      (response as any).data &&
-      (response as any).data.length > 0
-    ) {
-      return (response as any).data.map((s: any) => ({
+    if (!response) {
+      console.warn("Supabase specialisations fetch timed out.");
+      return [];
+    }
+    if ((response as any).error) {
+      console.warn("Supabase specialisations fetch error:", (response as any).error);
+      return [];
+    }
+
+    return ((response as any).data ?? [])
+      .slice()
+      .sort(
+        (a: any, b: any) =>
+          (a.display_order ?? Number.MAX_SAFE_INTEGER) - (b.display_order ?? Number.MAX_SAFE_INTEGER) ||
+          String(a.program_slug).localeCompare(String(b.program_slug)),
+      )
+      .map((s: any) => ({
         id: s.id,
         programSlug: s.program_slug,
         anchorCategory: s.anchor_category,
@@ -938,12 +587,10 @@ export async function fetchLiveSpecialisations(): Promise<Specialisation[]> {
         contentInvestmentShare: s.content_investment_share || "",
         isYearOneAnchor: s.is_year_one_anchor ?? true,
       }));
-    }
   } catch (err) {
     console.warn("Supabase specialisations fetch error:", err);
+    return [];
   }
-
-  return STATIC_SPECIALISATIONS;
 }
 
 export async function getSpecialisationsByProgramSlug(
@@ -959,3 +606,80 @@ export async function getSpecialisationsByProgramSlug(
   );
 }
 
+
+const byDisplayOrder = (a: any, b: any) =>
+  (a.display_order ?? Number.MAX_SAFE_INTEGER) - (b.display_order ?? Number.MAX_SAFE_INTEGER);
+
+function mapTestPrepExam(e: any): TestPrepExam {
+  return {
+    id: e.id,
+    slug: e.slug,
+    name: e.name,
+    shortName: e.short_name,
+    fullName: e.full_name,
+    category: e.category,
+    heroTagline: e.hero_tagline || "",
+    targetPrograms: Array.isArray(e.target_programs) ? e.target_programs : [],
+    targetCountries: Array.isArray(e.target_countries) ? e.target_countries : [],
+    overview: e.overview || "",
+    feeINR: e.fee_inr || "",
+    feeOriginal: e.fee_original || "",
+    duration: e.duration || "",
+    formatMode: e.format_mode || "",
+    validityYears: e.validity_years ?? 0,
+    scoringScale: e.scoring_scale || "",
+    targetCutoffIndianStudents: e.target_cutoff_indian_students || "",
+    conductingBody: e.conducting_body || "",
+    frequency: e.frequency || "",
+    sections: (Array.isArray(e.test_prep_sections) ? e.test_prep_sections : [])
+      .slice()
+      .sort(byDisplayOrder)
+      .map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        duration: s.duration || "",
+        questionsCount: s.questions_count || "",
+        skillsTested: s.skills_tested || "",
+        tips: s.tips || "",
+      })),
+    scoreRequirementsByCountry: Array.isArray(e.score_requirements) ? e.score_requirements : [],
+    prepRoadmap: Array.isArray(e.prep_roadmap) ? e.prep_roadmap : [],
+    faqs: Array.isArray(e.faqs) ? e.faqs : [],
+  };
+}
+
+/**
+ * Active test prep exams (with sections) from the Supabase `test_prep_exams`
+ * table, in `display_order`. Returns [] if the database is unavailable.
+ */
+export async function fetchTestPrepExams(): Promise<TestPrepExam[]> {
+  try {
+    const client = typeof window === "undefined" ? supabaseAdmin : supabase;
+    const response = await queryWithTimeout(
+      () =>
+        client
+          .from("test_prep_exams")
+          .select("*, test_prep_sections(*)")
+          .eq("is_active", true),
+      5000,
+    );
+    if (!response) {
+      console.warn("Supabase test_prep_exams fetch timed out.");
+      return [];
+    }
+    if ((response as any).error) {
+      console.warn("Supabase test_prep_exams fetch error:", (response as any).error);
+      return [];
+    }
+    return ((response as any).data ?? []).slice().sort(byDisplayOrder).map(mapTestPrepExam);
+  } catch (err) {
+    console.warn("Supabase test_prep_exams fetch error:", err);
+    return [];
+  }
+}
+
+export async function getTestPrepExamBySlug(slug: string): Promise<TestPrepExam | null> {
+  const normalized = slug.toLowerCase().trim();
+  const exams = await fetchTestPrepExams();
+  return exams.find((e) => e.slug.toLowerCase() === normalized) ?? null;
+}

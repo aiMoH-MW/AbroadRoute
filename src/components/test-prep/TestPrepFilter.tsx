@@ -15,7 +15,7 @@ import {
   Stethoscope,
   GraduationCap,
 } from "lucide-react";
-import { TEST_PREP_EXAMS, TestPrepExam } from "@/lib/data/testPrepData";
+import type { TestPrepExam } from "@/types";
 import { LeadTriggerButton } from "@/components/home/HomeClientContext";
 
 type CategoryFilter =
@@ -24,7 +24,7 @@ type CategoryFilter =
   | "Graduate Admissions"
   | "Medical & Healthcare Licensing";
 
-export function TestPrepFilter() {
+export function TestPrepFilter({ exams }: { exams: TestPrepExam[] }) {
   const [selectedCategory, setSelectedCategory] =
     useState<CategoryFilter>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
@@ -33,14 +33,14 @@ export function TestPrepFilter() {
   // All unique countries across all exams
   const allCountries = useMemo(() => {
     const set = new Set<string>();
-    TEST_PREP_EXAMS.forEach((exam) => {
+    exams.forEach((exam) => {
       exam.targetCountries.forEach((c) => set.add(c));
     });
     return Array.from(set).sort();
-  }, []);
+  }, [exams]);
 
   const filteredExams = useMemo(() => {
-    return TEST_PREP_EXAMS.filter((exam) => {
+    return exams.filter((exam) => {
       const matchCategory =
         selectedCategory === "ALL" || exam.category === selectedCategory;
       const matchCountry =
@@ -58,22 +58,22 @@ export function TestPrepFilter() {
 
       return matchCategory && matchCountry && matchSearch;
     });
-  }, [selectedCategory, selectedCountry, searchQuery]);
+  }, [exams, selectedCategory, selectedCountry, searchQuery]);
 
   const categoryCounts = useMemo(() => {
     return {
-      ALL: TEST_PREP_EXAMS.length,
-      "English Proficiency": TEST_PREP_EXAMS.filter(
+      ALL: exams.length,
+      "English Proficiency": exams.filter(
         (e) => e.category === "English Proficiency",
       ).length,
-      "Graduate Admissions": TEST_PREP_EXAMS.filter(
+      "Graduate Admissions": exams.filter(
         (e) => e.category === "Graduate Admissions",
       ).length,
-      "Medical & Healthcare Licensing": TEST_PREP_EXAMS.filter(
+      "Medical & Healthcare Licensing": exams.filter(
         (e) => e.category === "Medical & Healthcare Licensing",
       ).length,
     };
-  }, []);
+  }, [exams]);
 
   return (
     <div className="space-y-8">

@@ -19,7 +19,8 @@ export interface MaterialQuestion {
   id: string;
   material_id: string;
   run_id: string | null;
-  exam_slug: string | null;
+  exam_id: string | null;
+  section_id: string | null;
   program_slug: string | null;
   specialisation_slug: string | null;
   subject: string | null;
@@ -36,6 +37,8 @@ export interface MaterialQuestion {
   created_at: string;
   updated_at: string;
   material?: { title: string } | null;
+  exam?: { short_name: string } | null;
+  section?: { name: string } | null;
 }
 
 export interface ExtractionRun {

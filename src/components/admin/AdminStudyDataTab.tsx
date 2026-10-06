@@ -17,10 +17,9 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { Program, Specialisation } from "@/types";
+import { Program, Specialisation, TestPrepExam } from "@/types";
 import { supabase } from "@/lib/supabase/client";
-import { fetchLiveSpecialisations } from "@/lib/supabase/dataFetchers";
-import { TEST_PREP_EXAMS } from "@/lib/data/testPrepData";
+import { fetchLiveSpecialisations, fetchTestPrepExams } from "@/lib/supabase/dataFetchers";
 import type { Material, MaterialPage, ProcessProgress } from "@/lib/studyMaterials/types";
 
 interface Props {
@@ -46,7 +45,7 @@ const EMPTY_FORM = {
   author: "",
   edition: "",
   description: "",
-  examSlug: "",
+  examId: "",
   programSlug: "",
   specialisationSlug: "",
   subject: "",
@@ -67,6 +66,7 @@ export function AdminStudyDataTab({ programsList }: Props) {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [specialisations, setSpecialisations] = useState<Specialisation[]>([]);
+  const [exams, setExams] = useState<TestPrepExam[]>([]);
 
   const [form, setForm] = useState(EMPTY_FORM);
   const [file, setFile] = useState<File | null>(null);
@@ -97,8 +97,8 @@ export function AdminStudyDataTab({ programsList }: Props) {
   } | null>(null);
 
   const examNames = useMemo(
-    () => Object.fromEntries(TEST_PREP_EXAMS.map((e) => [e.slug, e.shortName])),
-    [],
+    () => Object.fromEntries(exams.map((e) => [e.id, e.shortName])),
+    [exams],
   );
   const programNames = useMemo(
     () => Object.fromEntries(programsList.map((p) => [p.slug, p.name])),
@@ -139,6 +139,7 @@ export function AdminStudyDataTab({ programsList }: Props) {
 
   useEffect(() => {
     fetchLiveSpecialisations().then(setSpecialisations);
+    fetchTestPrepExams().then(setExams);
   }, []);
 
   const updateMaterial = (id: string, patch: Partial<Material>) =>
@@ -295,7 +296,7 @@ export function AdminStudyDataTab({ programsList }: Props) {
 
   const tagsFor = (material: Material) =>
     [
-      material.exam_slug && (examNames[material.exam_slug] || material.exam_slug),
+      material.exam_id && (examNames[material.exam_id] || "Unknown exam"),
       material.program_slug && (programNames[material.program_slug] || material.program_slug),
       material.specialisation_slug && (specialisationNames[material.specialisation_slug] || material.specialisation_slug),
       material.subject,
@@ -411,13 +412,13 @@ export function AdminStudyDataTab({ programsList }: Props) {
               <div>
                 <label className={labelClass}>Exam</label>
                 <select
-                  value={form.examSlug}
-                  onChange={(e) => setForm({ ...form, examSlug: e.target.value })}
+                  value={form.examId}
+                  onChange={(e) => setForm({ ...form, examId: e.target.value })}
                   className={inputClass}
                 >
                   <option value="">Not exam-specific</option>
-                  {TEST_PREP_EXAMS.map((exam) => (
-                    <option key={exam.slug} value={exam.slug}>
+                  {exams.map((exam) => (
+                    <option key={exam.id} value={exam.id}>
                       {exam.name}
                     </option>
                   ))}
@@ -544,8 +545,8 @@ export function AdminStudyDataTab({ programsList }: Props) {
               </div>
               <select value={filterExam} onChange={(e) => setFilterExam(e.target.value)} className={inputClass}>
                 <option value="">All exams</option>
-                {TEST_PREP_EXAMS.map((exam) => (
-                  <option key={exam.slug} value={exam.slug}>
+                {exams.map((exam) => (
+                  <option key={exam.id} value={exam.id}>
                     {exam.shortName}
                   </option>
                 ))}

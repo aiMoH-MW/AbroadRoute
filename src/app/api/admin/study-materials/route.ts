@@ -23,7 +23,10 @@ const createMaterialSchema = z.object({
     .max(4000)
     .optional()
     .transform((v) => (v ? v : null)),
-  examSlug: optionalText,
+  examId: z
+    .union([z.string().uuid("Invalid exam"), z.literal("")])
+    .optional()
+    .transform((v) => v || null),
   programSlug: optionalText,
   specialisationSlug: optionalText,
   subject: optionalText,
@@ -55,7 +58,7 @@ export async function GET(req: NextRequest) {
   const specialisation = searchParams.get("specialisation");
   const q = searchParams.get("q")?.trim().replace(/[%,()]/g, "");
 
-  if (exam) query = query.eq("exam_slug", exam);
+  if (exam) query = query.eq("exam_id", exam);
   if (program) query = query.eq("program_slug", program);
   if (specialisation) query = query.eq("specialisation_slug", specialisation);
   if (q) query = query.or(`title.ilike.%${q}%,author.ilike.%${q}%,subject.ilike.%${q}%`);
@@ -100,7 +103,7 @@ export async function POST(req: NextRequest) {
         author: input.author,
         edition: input.edition,
         description: input.description,
-        exam_slug: input.examSlug,
+        exam_id: input.examId,
         program_slug: input.programSlug,
         specialisation_slug: input.specialisationSlug,
         subject: input.subject,

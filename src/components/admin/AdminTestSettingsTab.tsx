@@ -1,18 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
   ExternalLink,
+  FileText,
   Loader2,
   RefreshCw,
   Save,
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { TEST_PREP_EXAMS } from "@/lib/data/testPrepData";
-import type { TestModuleSettings } from "@/lib/testPrep/types";
+import type { PaperBlueprintGroup, TestModuleSettings } from "@/lib/testPrep/types";
+import { PaperBlueprintEditor } from "@/components/admin/PaperBlueprintEditor";
 
 const inputClass =
   "w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:border-[#102C57] focus:outline-none focus:ring-1 focus:ring-[#102C57]";
@@ -52,12 +53,8 @@ export function AdminTestSettingsTab() {
   const [drafts, setDrafts] = useState<Record<string, TestModuleSettings>>({});
   const [loading, setLoading] = useState(true);
   const [savingSlug, setSavingSlug] = useState<string | null>(null);
+  const [editingFormatSlug, setEditingFormatSlug] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
-  const examNames = useMemo(
-    () => Object.fromEntries(TEST_PREP_EXAMS.map((e) => [e.slug, e.name])),
-    [],
-  );
 
   const fetchSettings = async () => {
     setLoading(true);
@@ -90,12 +87,14 @@ export function AdminTestSettingsTab() {
       saved.durationMinutes !== draft.durationMinutes ||
       saved.questionsPerPaper !== draft.questionsPerPaper ||
       saved.showAnswerReview !== draft.showAnswerReview ||
-      (saved.instructions ?? "") !== (draft.instructions ?? "")
+      (saved.instructions ?? "") !== (draft.instructions ?? "") ||
+      JSON.stringify(saved.blueprint) !== JSON.stringify(draft.blueprint)
     );
   };
 
-  const save = async (slug: string) => {
-    const draft = drafts[slug];
+  /** Saves the exam's draft; `blueprint` overrides the draft's paper format (used by the format editor). */
+  const save = async (slug: string, blueprint?: PaperBlueprintGroup[]) => {
+    const draft = { ...drafts[slug], ...(blueprint && { blueprint }) };
     setSavingSlug(slug);
     setStatusMessage(null);
     try {
@@ -109,6 +108,7 @@ export function AdminTestSettingsTab() {
           questionsPerPaper: draft.questionsPerPaper,
           showAnswerReview: draft.showAnswerReview,
           instructions: draft.instructions,
+          blueprint: draft.blueprint,
         }),
       });
       const data = await res.json();
@@ -116,7 +116,8 @@ export function AdminTestSettingsTab() {
 
       setItems((prev) => prev.map((i) => (i.examSlug === slug ? data.item : i)));
       setDrafts((prev) => ({ ...prev, [slug]: data.item }));
-      setStatusMessage({ type: "success", text: `${examNames[slug] || slug} settings saved.` });
+      setStatusMessage({ type: "success", text: `${data.item.examName} settings saved.` });
+      setEditingFormatSlug(null);
     } catch (err) {
       setStatusMessage({ type: "error", text: err instanceof Error ? err.message : "Failed to save settings" });
     } finally {
@@ -176,10 +177,16 @@ export function AdminTestSettingsTab() {
           </div>
         ) : (
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            {items.map(({ examSlug, bankSize, updatedAt }) => {
+            {items.map(({ examSlug, examName, bankSize, updatedAt }) => {
               const draft = drafts[examSlug];
               if (!draft) return null;
               const dirty = isDirty(examSlug);
+              const formatQuestions = draft.blueprint.reduce((sum, g) => sum + g.items.length, 0);
+              const formatMarks =
+                Math.round(
+                  draft.blueprint.reduce((sum, g) => sum + g.items.reduce((m, i) => m + i.marks, 0), 0) * 100,
+                ) / 100;
+              const approvedCount = draft.questionPool.reduce((sum, p) => sum + p.count, 0);
               return (
                 <div
                   key={examSlug}
@@ -187,9 +194,9 @@ export function AdminTestSettingsTab() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-bold text-slate-900">{examNames[examSlug] || examSlug}</p>
+                      <p className="text-sm font-bold text-slate-900">{examName}</p>
                       <p className="text-[11px] text-slate-500">
-                        {bankSize} questions in bank ·{" "}
+                        {approvedCount} approved Q&amp;A · {bankSize} in built-in bank ·{" "}
                         {updatedAt ? `Saved ${new Date(updatedAt).toLocaleString()}` : "Using defaults"}
                       </p>
                     </div>
@@ -222,18 +229,38 @@ export function AdminTestSettingsTab() {
                     </div>
                     <div>
                       <label className={labelClass} htmlFor={`${examSlug}-questions`}>
-                        Questions per paper (max {bankSize})
+                        {draft.blueprint.length ? "Questions per paper (from format)" : `Questions per paper (max ${bankSize})`}
                       </label>
                       <input
                         id={`${examSlug}-questions`}
                         type="number"
                         min={1}
                         max={bankSize}
-                        value={draft.questionsPerPaper}
+                        value={draft.blueprint.length ? formatQuestions : draft.questionsPerPaper}
+                        disabled={draft.blueprint.length > 0}
                         onChange={(e) => updateDraft(examSlug, { questionsPerPaper: Number(e.target.value) })}
-                        className={inputClass}
+                        className={`${inputClass} disabled:bg-slate-50 disabled:text-slate-500`}
                       />
                     </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-indigo-100 bg-indigo-50/40 px-3.5 py-2.5">
+                    <div>
+                      <p className="text-xs font-bold text-slate-700">Paper format</p>
+                      <p className="text-[10px] text-slate-500">
+                        {draft.blueprint.length
+                          ? `${draft.blueprint.length} questions · ${formatQuestions} sub-questions · ${formatMarks} marks`
+                          : "Not set — random questions from the bank"}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditingFormatSlug(examSlug)}
+                      className="flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-[11px] font-bold text-indigo-700 hover:bg-indigo-50"
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      {draft.blueprint.length ? "Edit format" : "Set up format"}
+                    </button>
                   </div>
 
                   <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-slate-100 px-3.5 py-2.5">
@@ -302,6 +329,15 @@ export function AdminTestSettingsTab() {
           </div>
         )}
       </div>
+
+      {editingFormatSlug && drafts[editingFormatSlug] && (
+        <PaperBlueprintEditor
+          settings={drafts[editingFormatSlug]}
+          saving={savingSlug === editingFormatSlug}
+          onCancel={() => setEditingFormatSlug(null)}
+          onSave={(blueprint) => save(editingFormatSlug, blueprint)}
+        />
+      )}
     </div>
   );
 }

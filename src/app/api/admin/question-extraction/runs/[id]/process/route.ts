@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { TEST_PREP_EXAMS } from "@/lib/data/testPrepData";
 import { extractQuestions, questionHash } from "@/lib/studyMaterials/questionExtraction";
 import { EXTRACTION_PAGES_PER_CHUNK } from "@/lib/studyMaterials/questionTypes";
 
@@ -20,7 +19,7 @@ export async function POST(_req: NextRequest, { params }: Params) {
 
   const { data: run, error } = await supabaseAdmin
     .from("question_extraction_runs")
-    .select("*, material:study_materials(*)")
+    .select("*, material:study_materials(*, exam:test_prep_exams(name, sections:test_prep_sections(id, name)))")
     .eq("id", id)
     .single();
 
@@ -74,12 +73,16 @@ export async function POST(_req: NextRequest, { params }: Params) {
         specialisationName = spec?.name ?? material.specialisation_slug;
       }
 
+      const examSections: { id: string; name: string }[] = material.exam?.sections ?? [];
+      const sectionIds = new Map(examSections.map((s) => [s.name, s.id]));
+
       const questions = await extractQuestions({
         mode: run.mode,
         prompt: run.prompt,
         material: {
           title: material.title,
-          examName: TEST_PREP_EXAMS.find((e) => e.slug === material.exam_slug)?.name ?? material.exam_slug,
+          examName: material.exam?.name ?? null,
+          sections: examSections.map((s) => s.name),
           program: material.program_slug,
           specialisation: specialisationName,
           subject: material.subject,
@@ -93,11 +96,12 @@ export async function POST(_req: NextRequest, { params }: Params) {
         const { data: rows, error: insertError } = await supabaseAdmin
           .from("study_questions")
           .upsert(
-            Array.from(unique, ([hash, q]) => ({
+            Array.from(unique, ([hash, { section, ...q }]) => ({
               ...q,
               material_id: material.id,
               run_id: run.id,
-              exam_slug: material.exam_slug,
+              exam_id: material.exam_id,
+              section_id: section ? (sectionIds.get(section) ?? null) : null,
               program_slug: material.program_slug,
               specialisation_slug: material.specialisation_slug,
               subject: material.subject,

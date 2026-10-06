@@ -20,7 +20,6 @@ import {
   Sparkles,
   Library,
   SlidersHorizontal,
-  Wand2,
 } from "lucide-react";
 import { Country, University, Program } from "@/types";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -40,8 +39,7 @@ import { AdminProgramsTab } from "@/components/admin/AdminProgramsTab";
 import { AdminLeadsTab } from "@/components/admin/AdminLeadsTab";
 import { AdminAICounsellorKBTab } from "@/components/admin/AdminAICounsellorKBTab";
 import { AdminStudyDataTab } from "@/components/admin/AdminStudyDataTab";
-import { AdminTestSettingsTab } from "@/components/admin/AdminTestSettingsTab";
-import { AdminQuestionExtractionTab } from "@/components/admin/AdminQuestionExtractionTab";
+import { AdminTestModuleTab, type TestModuleSection } from "@/components/admin/AdminTestModuleTab";
 
 type AdminTab =
   | "overview"
@@ -52,8 +50,7 @@ type AdminTab =
   | "leads"
   | "kb"
   | "study-data"
-  | "test-settings"
-  | "qa-extraction";
+  | "test-settings";
 
 function AdminPortalContent() {
   const router = useRouter();
@@ -61,6 +58,7 @@ function AdminPortalContent() {
   const { user, isLoggedIn, isLoading, login, logout } = useAuth();
 
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
+  const [testModuleSection, setTestModuleSection] = useState<TestModuleSection>("settings");
   const [countriesList, setCountriesList] = useState<Country[]>([]);
   const [universitiesList, setUniversitiesList] = useState<University[]>([]);
   const [programsList, setProgramsList] = useState<Program[]>([]);
@@ -75,6 +73,12 @@ function AdminPortalContent() {
   // Sync tab from URL query params if provided
   useEffect(() => {
     const tabParam = searchParams.get("tab") as AdminTab;
+    // Q&A Extraction now lives inside Test Module Settings; keep old links working.
+    if ((tabParam as string) === "qa-extraction" || searchParams.get("section") === "qa") {
+      setActiveTab("test-settings");
+      setTestModuleSection("qa");
+      return;
+    }
     if (
       tabParam &&
       [
@@ -87,7 +91,6 @@ function AdminPortalContent() {
         "kb",
         "study-data",
         "test-settings",
-        "qa-extraction",
       ].includes(tabParam)
     ) {
       setActiveTab(tabParam);
@@ -350,12 +353,6 @@ function AdminPortalContent() {
       badge: null,
     },
     {
-      id: "qa-extraction" as AdminTab,
-      label: "Q&A Extraction",
-      icon: Wand2,
-      badge: null,
-    },
-    {
       id: "test-settings" as AdminTab,
       label: "Test Module Settings",
       icon: SlidersHorizontal,
@@ -504,9 +501,10 @@ function AdminPortalContent() {
 
           {activeTab === "study-data" && <AdminStudyDataTab programsList={programsList} />}
 
-          {activeTab === "qa-extraction" && <AdminQuestionExtractionTab programsList={programsList} />}
 
-          {activeTab === "test-settings" && <AdminTestSettingsTab />}
+          {activeTab === "test-settings" && (
+            <AdminTestModuleTab programsList={programsList} initialSection={testModuleSection} />
+          )}
         </div>
       </div>
 

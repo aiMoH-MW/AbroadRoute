@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Metadata } from "next";
-import { TEST_PREP_EXAMS } from "@/lib/data/testPrepData";
+import { getTestPrepExamBySlug } from "@/lib/supabase/dataFetchers";
 import { OnlineTestRegistration } from "@/components/test-prep/OnlineTestRegistration";
 import { getTestSettings } from "@/lib/testPrep/settings";
 
@@ -14,9 +14,7 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const exam = TEST_PREP_EXAMS.find(
-    (e) => e.slug.toLowerCase() === slug.toLowerCase(),
-  );
+  const exam = await getTestPrepExamBySlug(slug);
 
   if (!exam) {
     return { title: "Exam Not Found | Abroadroute" };
@@ -31,9 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function OnlineTestPage({ params }: Props) {
   const { slug } = await params;
-  const exam = TEST_PREP_EXAMS.find(
-    (e) => e.slug.toLowerCase() === slug.toLowerCase(),
-  );
+  const exam = await getTestPrepExamBySlug(slug);
 
   if (!exam) {
     notFound();

@@ -4,9 +4,9 @@ import {
   fetchLiveCourses,
   fetchLivePrograms,
   fetchLiveCountries,
+  fetchTestPrepExams,
 } from "@/lib/supabase/dataFetchers";
 import { getAllArticles } from "@/lib/sanity/fetchers";
-import { TEST_PREP_EXAMS } from "@/lib/data/testPrepData";
 
 export const dynamic = "force-dynamic";
 
@@ -494,7 +494,7 @@ export async function GET(request: Request) {
 
     // 7. Search Test Prep & Exams
     if (categoryFilter === "all" || categoryFilter === "test_prep") {
-      TEST_PREP_EXAMS.forEach((t) => {
+      (await fetchTestPrepExams()).forEach((t) => {
         const sectionsText = t.sections
           ? t.sections.map((s) => `${s.name} ${s.skillsTested}`).join(" ")
           : "";

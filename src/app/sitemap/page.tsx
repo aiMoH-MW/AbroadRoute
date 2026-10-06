@@ -22,8 +22,35 @@ import {
   fetchLiveCountries,
   fetchLivePrograms,
   fetchLiveUniversities,
+  fetchTestPrepExams,
 } from "@/lib/supabase/dataFetchers";
-import { TEST_PREP_EXAMS } from "@/lib/data/testPrepData";
+import type { TestPrepExam } from "@/types";
+
+const TEST_PREP_SITEMAP_GROUPS: {
+  category: TestPrepExam["category"];
+  label: string;
+  color: string;
+  hover: string;
+}[] = [
+  {
+    category: "English Proficiency",
+    label: "English Language Tests",
+    color: "text-blue-700",
+    hover: "hover:bg-blue-50/70",
+  },
+  {
+    category: "Graduate Admissions",
+    label: "Graduate Aptitude Tests",
+    color: "text-indigo-700",
+    hover: "hover:bg-indigo-50/70",
+  },
+  {
+    category: "Medical & Healthcare Licensing",
+    label: "Medical & Healthcare Licensing",
+    color: "text-emerald-800",
+    hover: "hover:bg-emerald-50/70",
+  },
+];
 
 export const metadata: Metadata = {
   title: "HTML Sitemap & Complete URL Directory | Abroadroute",
@@ -39,10 +66,11 @@ export const metadata: Metadata = {
 };
 
 export default async function SitemapPage() {
-  const [countries, programs, universities] = await Promise.all([
+  const [countries, programs, universities, testPrepExams] = await Promise.all([
     fetchLiveCountries(),
     fetchLivePrograms(),
     fetchLiveUniversities(),
+    fetchTestPrepExams(),
   ]);
 
   const tier1Countries = countries.filter((c) => c.tier === "Tier 1");
@@ -286,194 +314,43 @@ export default async function SitemapPage() {
             </div>
           </div>
 
-          {/* Section 4: 9 Test Preparation & Licensing Guides */}
+          {/* Section 4: Test Preparation & Licensing Guides */}
           <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs">
             <h2 className="text-lg font-bold text-[#102C57] flex items-center gap-2 border-b border-slate-100 pb-4">
               <BookOpen className="h-5 w-5 text-[#EA5C2B]" />
-              <span>Test Prep & Licensing Blueprints (9 Global Exams)</span>
+              <span>
+                Test Prep & Licensing Blueprints ({testPrepExams.length} Global Exams)
+              </span>
             </h2>
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 text-xs">
-              {/* English */}
-              <div>
-                <p className="font-bold text-blue-700 uppercase tracking-wider text-[11px] mb-2.5">
-                  English Language Tests
-                </p>
-                <ul className="space-y-2">
-                  <li>
-                    <Link
-                      href="/test-prep/ielts"
-                      className="block rounded-xl p-2.5 bg-slate-50 hover:bg-blue-50/70 border border-slate-100 transition"
-                    >
-                      <p className="font-bold text-slate-900">IELTS Academic</p>
-                      <p className="text-[10px] text-slate-500">
-                        IDP India • ₹17,000
-                      </p>
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/test-prep/toefl"
-                      className="block rounded-xl p-2.5 bg-slate-50 hover:bg-blue-50/70 border border-slate-100 transition"
-                    >
-                      <p className="font-bold text-slate-900">TOEFL iBT</p>
-                      <p className="text-[10px] text-slate-500">
-                        ETS • ₹16,900
-                      </p>
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/test-prep/pte"
-                      className="block rounded-xl p-2.5 bg-slate-50 hover:bg-blue-50/70 border border-slate-100 transition"
-                    >
-                      <p className="font-bold text-slate-900">PTE Academic</p>
-                      <p className="text-[10px] text-slate-500">
-                        Pearson • ₹17,000
-                      </p>
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/test-prep/duolingo-det"
-                      className="block rounded-xl p-2.5 bg-slate-50 hover:bg-blue-50/70 border border-slate-100 transition"
-                    >
-                      <p className="font-bold text-slate-900">Duolingo (DET)</p>
-                      <p className="text-[10px] text-slate-500">
-                        Duolingo • ₹4,900
-                      </p>
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-
-              {/* German */}
-              <div>
-                <p className="font-bold text-amber-700 uppercase tracking-wider text-[11px] mb-2.5">
-                  German Language (Free Tuition)
-                </p>
-                <ul className="space-y-2">
-                  <li>
-                    <Link
-                      href="/test-prep/goethe-zertifikat"
-                      className="block rounded-xl p-2.5 bg-slate-50 hover:bg-amber-50/70 border border-slate-100 transition"
-                    >
-                      <p className="font-bold text-slate-900">
-                        Goethe-Zertifikat B1/B2
-                      </p>
-                      <p className="text-[10px] text-slate-500">
-                        Max Mueller Bhavan • ₹9,800
-                      </p>
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/test-prep/testdaf"
-                      className="block rounded-xl p-2.5 bg-slate-50 hover:bg-amber-50/70 border border-slate-100 transition"
-                    >
-                      <p className="font-bold text-slate-900">TestDaF</p>
-                      <p className="text-[10px] text-slate-500">
-                        g.a.s.t. • TDN 4/5
-                      </p>
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Graduate */}
-              <div>
-                <p className="font-bold text-indigo-700 uppercase tracking-wider text-[11px] mb-2.5">
-                  Graduate Aptitude Tests
-                </p>
-                <ul className="space-y-2">
-                  <li>
-                    <Link
-                      href="/test-prep/gre"
-                      className="block rounded-xl p-2.5 bg-slate-50 hover:bg-indigo-50/70 border border-slate-100 transition"
-                    >
-                      <p className="font-bold text-slate-900">
-                        GRE General Test
-                      </p>
-                      <p className="text-[10px] text-slate-500">
-                        ETS • ₹22,550
-                      </p>
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/test-prep/gmat"
-                      className="block rounded-xl p-2.5 bg-slate-50 hover:bg-indigo-50/70 border border-slate-100 transition"
-                    >
-                      <p className="font-bold text-slate-900">
-                        GMAT Focus Edition
-                      </p>
-                      <p className="text-[10px] text-slate-500">
-                        GMAC • ₹24,000
-                      </p>
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Medical */}
-              <div>
-                <p className="font-bold text-emerald-800 uppercase tracking-wider text-[11px] mb-2.5">
-                  Medical & Healthcare Licensing
-                </p>
-                <ul className="space-y-2">
-                  <li>
-                    <Link
-                      href="/test-prep/nclex"
-                      className="block rounded-xl p-2.5 bg-slate-50 hover:bg-emerald-50/70 border border-slate-100 transition"
-                    >
-                      <p className="font-bold text-slate-900">
-                        NCLEX-RN (Nursing)
-                      </p>
-                      <p className="text-[10px] text-slate-500">
-                        NCSBN • ₹16,600
-                      </p>
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/test-prep/plab"
-                      className="block rounded-xl p-2.5 bg-slate-50 hover:bg-emerald-50/70 border border-slate-100 transition"
-                    >
-                      <p className="font-bold text-slate-900">
-                        PLAB / UKMLA (MBBS)
-                      </p>
-                      <p className="text-[10px] text-slate-500">
-                        GMC UK • Part 1 & Part 2
-                      </p>
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/test-prep/oet"
-                      className="block rounded-xl p-2.5 bg-slate-50 hover:bg-emerald-50/70 border border-slate-100 transition"
-                    >
-                      <p className="font-bold text-slate-900">
-                        OET (Healthcare English)
-                      </p>
-                      <p className="text-[10px] text-slate-500">
-                        CBLA • ₹33,000
-                      </p>
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/test-prep/fmge-next"
-                      className="block rounded-xl p-2.5 bg-slate-50 hover:bg-emerald-50/70 border border-slate-100 transition"
-                    >
-                      <p className="font-bold text-slate-900">
-                        FMGE / NExT (India)
-                      </p>
-                      <p className="text-[10px] text-slate-500">
-                        NBEMS • Licensing in India
-                      </p>
-                    </Link>
-                  </li>
-                </ul>
-              </div>
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs">
+              {TEST_PREP_SITEMAP_GROUPS.map((group) => (
+                <div key={group.category}>
+                  <p
+                    className={`font-bold uppercase tracking-wider text-[11px] mb-2.5 ${group.color}`}
+                  >
+                    {group.label}
+                  </p>
+                  <ul className="space-y-2">
+                    {testPrepExams
+                      .filter((exam) => exam.category === group.category)
+                      .map((exam) => (
+                        <li key={exam.id}>
+                          <Link
+                            href={`/test-prep/${exam.slug}`}
+                            className={`block rounded-xl p-2.5 bg-slate-50 border border-slate-100 transition ${group.hover}`}
+                          >
+                            <p className="font-bold text-slate-900">{exam.name}</p>
+                            <p className="text-[10px] text-slate-500">
+                              {[exam.conductingBody, exam.feeINR]
+                                .filter(Boolean)
+                                .join(" • ")}
+                            </p>
+                          </Link>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              ))}
             </div>
           </div>
 

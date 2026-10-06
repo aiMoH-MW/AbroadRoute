@@ -11,12 +11,13 @@ import {
   Stethoscope,
   GraduationCap
 } from "lucide-react";
-import { TEST_PREP_EXAMS } from "@/lib/data/testPrepData";
+import { fetchTestPrepExams } from "@/lib/supabase/dataFetchers";
 
-export function TestPrepShowcase() {
-  const englishExams = TEST_PREP_EXAMS.filter((e) => e.category === "English Proficiency").slice(0, 3);
-  const graduateExams = TEST_PREP_EXAMS.filter((e) => e.category === "Graduate Admissions");
-  const healthcareExams = TEST_PREP_EXAMS.filter((e) => e.category === "Medical & Healthcare Licensing");
+export async function TestPrepShowcase() {
+  const exams = await fetchTestPrepExams();
+  const englishExams = exams.filter((e) => e.category === "English Proficiency").slice(0, 3);
+  const graduateExams = exams.filter((e) => e.category === "Graduate Admissions");
+  const healthcareExams = exams.filter((e) => e.category === "Medical & Healthcare Licensing");
 
   return (
     <section id="test-prep-hub" className="cv-auto border-t border-[#D9CFB8]/70 bg-white py-16 sm:py-20">

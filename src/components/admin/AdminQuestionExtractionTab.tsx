@@ -18,9 +18,8 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { Program, Specialisation } from "@/types";
-import { fetchLiveSpecialisations } from "@/lib/supabase/dataFetchers";
-import { TEST_PREP_EXAMS } from "@/lib/data/testPrepData";
+import { Program, Specialisation, TestPrepExam } from "@/types";
+import { fetchLiveSpecialisations, fetchTestPrepExams } from "@/lib/supabase/dataFetchers";
 import type { Material } from "@/lib/studyMaterials/types";
 import {
   DEFAULT_PROMPTS,
@@ -54,6 +53,7 @@ const RUN_STATUS_STYLES: Record<ExtractionRun["status"], string> = {
 };
 
 interface Filters {
+  /** test_prep_exams.id */
   exam: string;
   program: string;
   specialisation: string;
@@ -63,11 +63,11 @@ interface Filters {
 const EMPTY_FILTERS: Filters = { exam: "", program: "", specialisation: "", subject: "" };
 
 function matchesFilters(
-  item: { exam_slug: string | null; program_slug: string | null; specialisation_slug: string | null; subject: string | null },
+  item: { exam_id: string | null; program_slug: string | null; specialisation_slug: string | null; subject: string | null },
   f: Filters,
 ) {
   return (
-    (!f.exam || item.exam_slug === f.exam) &&
+    (!f.exam || item.exam_id === f.exam) &&
     (!f.program || item.program_slug === f.program) &&
     (!f.specialisation || item.specialisation_slug === f.specialisation) &&
     (!f.subject || item.subject === f.subject)
@@ -77,6 +77,7 @@ function matchesFilters(
 export function AdminQuestionExtractionTab({ programsList }: Props) {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [specialisations, setSpecialisations] = useState<Specialisation[]>([]);
+  const [exams, setExams] = useState<TestPrepExam[]>([]);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // --- Extraction setup ---
@@ -94,8 +95,11 @@ export function AdminQuestionExtractionTab({ programsList }: Props) {
   const activeRunsRef = useRef<Set<string>>(new Set());
 
   // --- Review ---
-  const [reviewFilters, setReviewFilters] = useState<Filters & { material: string; status: string; type: string }>({
+  const [reviewFilters, setReviewFilters] = useState<
+    Filters & { section: string; material: string; status: string; type: string }
+  >({
     ...EMPTY_FILTERS,
+    section: "",
     material: "",
     status: "draft",
     type: "",
@@ -111,7 +115,9 @@ export function AdminQuestionExtractionTab({ programsList }: Props) {
   const [editing, setEditing] = useState<MaterialQuestion | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
 
-  const examNames = useMemo(() => Object.fromEntries(TEST_PREP_EXAMS.map((e) => [e.slug, e.shortName])), []);
+  const examNames = useMemo(() => Object.fromEntries(exams.map((e) => [e.id, e.shortName])), [exams]);
+  const reviewExamSections = exams.find((e) => e.id === reviewFilters.exam)?.sections ?? [];
+  const editingExamSections = exams.find((e) => e.id === editing?.exam_id)?.sections ?? [];
   const programNames = useMemo(() => Object.fromEntries(programsList.map((p) => [p.slug, p.name])), [programsList]);
   const specialisationNames = useMemo(
     () => Object.fromEntries(specialisations.map((s) => [s.slug, s.name])),
@@ -163,6 +169,7 @@ export function AdminQuestionExtractionTab({ programsList }: Props) {
     fetchMaterials().catch(() => setStatusMessage({ type: "error", text: "Failed to load materials." }));
     fetchRuns().catch(() => undefined);
     fetchLiveSpecialisations().then(setSpecialisations);
+    fetchTestPrepExams().then(setExams);
   }, [fetchMaterials, fetchRuns]);
 
   useEffect(() => {
@@ -300,6 +307,7 @@ export function AdminQuestionExtractionTab({ programsList }: Props) {
           explanation: editing.explanation,
           topic: editing.topic,
           difficulty: editing.difficulty,
+          section_id: editing.section_id,
           status: editing.status,
         }),
       });
@@ -331,8 +339,8 @@ export function AdminQuestionExtractionTab({ programsList }: Props) {
     <>
       <select value={value.exam} onChange={(e) => onChange({ exam: e.target.value })} className={inputClass}>
         <option value="">All exams</option>
-        {TEST_PREP_EXAMS.map((exam) => (
-          <option key={exam.slug} value={exam.slug}>
+        {exams.map((exam) => (
+          <option key={exam.id} value={exam.id}>
             {exam.shortName}
           </option>
         ))}
@@ -376,7 +384,7 @@ export function AdminQuestionExtractionTab({ programsList }: Props) {
 
   const materialTags = (b: Material) =>
     [
-      b.exam_slug && (examNames[b.exam_slug] || b.exam_slug),
+      b.exam_id && (examNames[b.exam_id] || "Unknown exam"),
       b.program_slug && (programNames[b.program_slug] || b.program_slug),
       b.specialisation_slug && (specialisationNames[b.specialisation_slug] || b.specialisation_slug),
       b.subject,
@@ -677,7 +685,7 @@ export function AdminQuestionExtractionTab({ programsList }: Props) {
           ))}
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2 mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2 mb-4">
           <div className="relative col-span-2 md:col-span-4 xl:col-span-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
             <input
@@ -688,7 +696,23 @@ export function AdminQuestionExtractionTab({ programsList }: Props) {
               className={`${inputClass} pl-8`}
             />
           </div>
-          {filterSelects(reviewFilters, (patch) => setReviewFilters((f) => ({ ...f, ...patch })))}
+          {filterSelects(reviewFilters, (patch) =>
+            // Sections belong to one exam, so changing the exam clears the section.
+            setReviewFilters((f) => ({ ...f, ...patch, ...(patch.exam !== undefined && { section: "" }) })),
+          )}
+          <select
+            value={reviewFilters.section}
+            onChange={(e) => setReviewFilters((f) => ({ ...f, section: e.target.value }))}
+            disabled={!reviewFilters.exam}
+            className={`${inputClass} disabled:bg-slate-50 disabled:text-slate-400`}
+          >
+            <option value="">{reviewFilters.exam ? "All sections" : "Pick an exam for sections"}</option>
+            {reviewExamSections.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
           <select
             value={reviewFilters.material}
             onChange={(e) => setReviewFilters((f) => ({ ...f, material: e.target.value }))}
@@ -784,6 +808,12 @@ export function AdminQuestionExtractionTab({ programsList }: Props) {
                       </span>
                       {q.difficulty && (
                         <span className="rounded-md bg-slate-100 px-2 py-0.5 capitalize text-slate-600">{q.difficulty}</span>
+                      )}
+                      {q.exam && (
+                        <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-indigo-700">
+                          {q.exam.short_name}
+                          {q.section && ` · ${q.section.name}`}
+                        </span>
                       )}
                       {q.topic && <span className="rounded-md bg-slate-100 px-2 py-0.5 text-slate-600">{q.topic}</span>}
                       <span className="text-slate-400">
@@ -899,6 +929,24 @@ export function AdminQuestionExtractionTab({ programsList }: Props) {
                   className={inputClass}
                 />
               </div>
+
+              {editing.exam_id && (
+                <div>
+                  <label className={labelClass}>Exam section ({examNames[editing.exam_id] || "exam"})</label>
+                  <select
+                    value={editing.section_id ?? ""}
+                    onChange={(e) => setEditing({ ...editing, section_id: e.target.value || null })}
+                    className={inputClass}
+                  >
+                    <option value="">No section</option>
+                    {editingExamSections.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="grid grid-cols-3 gap-2">
                 <div>

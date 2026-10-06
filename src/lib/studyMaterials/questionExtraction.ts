@@ -21,11 +21,15 @@ export interface ExtractedQuestion {
   topic: string | null;
   difficulty: Difficulty | null;
   source_page: number | null;
+  /** One of MaterialContext.sections (exact name), or null if none fits. */
+  section: string | null;
 }
 
 export interface MaterialContext {
   title: string;
   examName?: string | null;
+  /** Section names of the material's exam; the AI assigns each question to one. */
+  sections?: string[];
   subject?: string | null;
   specialisation?: string | null;
   program?: string | null;
@@ -47,6 +51,7 @@ const RESPONSE_SCHEMA: ResponseSchema = {
           topic: { type: SchemaType.STRING },
           difficulty: { type: SchemaType.STRING, description: DIFFICULTIES.join(" | ") },
           source_page: { type: SchemaType.INTEGER },
+          section: { type: SchemaType.STRING },
         },
         required: ["question", "question_type", "answer", "source_page"],
       },
@@ -65,7 +70,7 @@ function cleanText(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function normalise(raw: unknown, pageFrom: number, pageTo: number): ExtractedQuestion | null {
+function normalise(raw: unknown, pageFrom: number, pageTo: number, sections: string[]): ExtractedQuestion | null {
   if (!raw || typeof raw !== "object") return null;
   const q = raw as Record<string, unknown>;
   const question = cleanText(q.question);
@@ -81,6 +86,8 @@ function normalise(raw: unknown, pageFrom: number, pageTo: number): ExtractedQue
 
   const difficulty = DIFFICULTIES.includes(q.difficulty as Difficulty) ? (q.difficulty as Difficulty) : null;
   const page = Number(q.source_page);
+  const sectionName = cleanText(q.section)?.toLowerCase();
+  const section = sections.find((s) => s.toLowerCase() === sectionName) ?? null;
 
   return {
     question,
@@ -91,6 +98,7 @@ function normalise(raw: unknown, pageFrom: number, pageTo: number): ExtractedQue
     topic: cleanText(q.topic),
     difficulty,
     source_page: Number.isInteger(page) && page >= pageFrom && page <= pageTo ? page : null,
+    section,
   };
 }
 
@@ -111,6 +119,7 @@ export async function extractQuestions(params: {
   const { mode, prompt, material, pages } = params;
   const pageFrom = pages[0].page_number;
   const pageTo = pages[pages.length - 1].page_number;
+  const sections = material.sections ?? [];
 
   const context = [
     `Material: ${material.title}`,
@@ -148,7 +157,11 @@ Output rules:
 - For true_false, set "answer" to "True" or "False".
 - difficulty is one of: ${DIFFICULTIES.join(", ")}.
 - source_page is the page number (from the "=== Page N ===" markers) where the question appears.
-- Use an empty string for unknown values.
+${
+  sections.length
+    ? `- section is the exam section the question tests, exactly one of: ${sections.join(", ")}. Use "" if none fits.\n`
+    : ""
+}- Use an empty string for unknown values.
 
 <material_text pages="${pageFrom}-${pageTo}">
 ${materialText}
@@ -168,6 +181,6 @@ ${materialText}
   }
 
   return items
-    .map((item) => normalise(item, pageFrom, pageTo))
+    .map((item) => normalise(item, pageFrom, pageTo, sections))
     .filter((q): q is ExtractedQuestion => q !== null);
 }

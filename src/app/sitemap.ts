@@ -3,8 +3,8 @@ import {
   fetchLiveCountries,
   fetchLivePrograms,
   fetchLiveUniversities,
+  fetchTestPrepExams,
 } from "@/lib/supabase/dataFetchers";
-import { TEST_PREP_EXAMS } from "@/lib/data/testPrepData";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://abroadroute.com";
 
@@ -214,7 +214,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   // 9 Test Prep Blueprints
-  const testPrepPages: MetadataRoute.Sitemap = TEST_PREP_EXAMS.map((t) => ({
+  const testPrepPages: MetadataRoute.Sitemap = (await fetchTestPrepExams()).map((t) => ({
     url: `${BASE_URL}/test-prep/${t.slug}`,
     lastModified: now,
     changeFrequency: "weekly",

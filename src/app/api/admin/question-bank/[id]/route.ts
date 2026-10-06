@@ -24,6 +24,7 @@ const updateSchema = z.object({
   explanation: nullableText(4000),
   topic: nullableText(200),
   difficulty: z.enum(["easy", "medium", "hard"]).nullable().optional(),
+  section_id: z.string().uuid().nullable().optional(),
   status: z.enum(["draft", "approved", "rejected"]),
 });
 
@@ -39,17 +40,32 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       );
     }
 
+    // A section must belong to the question's exam.
+    if (input.section_id) {
+      const [{ data: current }, { data: section }] = await Promise.all([
+        supabaseAdmin.from("study_questions").select("exam_id").eq("id", id).single(),
+        supabaseAdmin.from("test_prep_sections").select("exam_id").eq("id", input.section_id).single(),
+      ]);
+      if (!section || section.exam_id !== current?.exam_id) {
+        return NextResponse.json(
+          { success: false, error: "That section does not belong to this question's exam." },
+          { status: 400 },
+        );
+      }
+    }
+
     const { data, error } = await supabaseAdmin
       .from("study_questions")
       .update({
         ...input,
         options: input.question_type === "mcq" ? input.options : [],
         difficulty: input.difficulty ?? null,
+        section_id: input.section_id ?? null,
         question_hash: questionHash(input.question),
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
-      .select("*, material:study_materials(title)")
+      .select("*, material:study_materials(title), exam:test_prep_exams(short_name), section:test_prep_sections(name)")
       .single();
 
     if (error) {

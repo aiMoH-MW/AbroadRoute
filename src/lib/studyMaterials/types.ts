@@ -8,7 +8,7 @@ export interface Material {
   author: string | null;
   edition: string | null;
   description: string | null;
-  exam_slug: string | null;
+  exam_id: string | null;
   program_slug: string | null;
   specialisation_slug: string | null;
   subject: string | null;
@@ -35,7 +35,7 @@ export interface MaterialMetadataInput {
   author?: string;
   edition?: string;
   description?: string;
-  examSlug?: string;
+  examId?: string;
   programSlug?: string;
   specialisationSlug?: string;
   subject?: string;

@@ -15,7 +15,7 @@ import {
   Stethoscope,
   GraduationCap,
 } from "lucide-react";
-import { TEST_PREP_EXAMS } from "@/lib/data/testPrepData";
+import { fetchTestPrepExams } from "@/lib/supabase/dataFetchers";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import {
@@ -71,7 +71,12 @@ const TEST_PREP_FAQS = [
   },
 ];
 
-export default function TestPrepHubPage() {
+// Exams come from Supabase; refresh at most every 5 minutes.
+export const revalidate = 300;
+
+export default async function TestPrepHubPage() {
+  const exams = await fetchTestPrepExams();
+
   const faqJsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -165,7 +170,7 @@ export default function TestPrepHubPage() {
 
           {/* Main Filter & Exams Catalog */}
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 -mt-6">
-            <TestPrepFilter />
+            <TestPrepFilter exams={exams} />
           </div>
 
           {/* Decision Matrix Section */}
@@ -439,7 +444,7 @@ export default function TestPrepHubPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#D9CFB8]/40 text-slate-600">
-                    {TEST_PREP_EXAMS.map((exam) => (
+                    {exams.map((exam) => (
                       <tr
                         key={exam.id}
                         className="hover:bg-[#FDFCF7]/80 transition"

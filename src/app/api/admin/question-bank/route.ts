@@ -10,7 +10,7 @@ const bulkSchema = z.object({
 });
 
 /**
- * GET /api/admin/question-bank?exam=&program=&specialisation=&subject=&material=&status=&type=&q=&page=1
+ * GET /api/admin/question-bank?exam=&section=&program=&specialisation=&subject=&material=&status=&type=&q=&page=1
  * Paginated list of extracted questions.
  */
 export async function GET(req: NextRequest) {
@@ -19,13 +19,14 @@ export async function GET(req: NextRequest) {
 
   let query = supabaseAdmin
     .from("study_questions")
-    .select("*, material:study_materials(title)", { count: "exact" })
+    .select("*, material:study_materials(title), exam:test_prep_exams(short_name), section:test_prep_sections(name)", { count: "exact" })
     .order("created_at", { ascending: false })
     .order("source_page", { ascending: true })
     .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
 
   const filters: [string, string][] = [
-    ["exam", "exam_slug"],
+    ["exam", "exam_id"],
+    ["section", "section_id"],
     ["program", "program_slug"],
     ["specialisation", "specialisation_slug"],
     ["subject", "subject"],
