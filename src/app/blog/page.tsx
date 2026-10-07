@@ -33,11 +33,11 @@ export default async function BlogDirectoryPage() {
                 <BookOpen className="h-3.5 w-3.5 text-[#D89A3E]" />
                 <span>Official Abroadroute Admissions Journal</span>
               </div>
-              <h1 className="mt-4 font-serif text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white leading-tight">
+              <h1 className="mt-4 font-display text-3xl sm:text-4xl lg:text-5xl font-medium tracking-tight text-white leading-tight">
                 Admissions News, Insights &{" "}
                 <span className="text-[#EBC783]">Visa Updates</span>
               </h1>
-              <p className="mt-3 text-xs sm:text-sm md:text-base text-[#A8CDBD] leading-relaxed max-w-2xl">
+              <p className="mt-3 font-sans text-xs sm:text-sm md:text-base text-[#A8CDBD] leading-relaxed max-w-2xl font-normal">
                 Real-time regulatory analyses, blocked account cost changes in{" "}
                 <span className="font-mono font-semibold text-white">
                   ₹ Lakhs
@@ -54,17 +54,17 @@ export default async function BlogDirectoryPage() {
           {/* Section Heading & Stats */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#D9CFB8]/60 pb-5">
             <div>
-              <h2 className="text-xl sm:text-2xl font-serif font-bold text-[#103B47]">
+              <h2 className="text-xl sm:text-2xl font-display font-medium text-[#103B47]">
                 Latest Blog Posts & Guides ({articles.length})
               </h2>
-              <p className="text-xs text-[#6B6B6B] mt-0.5 font-mono">
+              <p className="text-xs text-[#6B6B6B] mt-0.5 font-sans">
                 Published via Sanity Content Lake. Live regulatory updates for
                 2027 intake applicants.
               </p>
             </div>
             <Link
               href="/studio"
-              className="min-h-[44px] inline-flex items-center gap-1.5 rounded-xl border border-[#1D5A6C] bg-white px-4 py-2 text-xs font-bold text-[#1D5A6C] hover:bg-[#1D5A6C] hover:text-white transition shadow-xs self-start sm:self-auto"
+              className="min-h-[44px] inline-flex items-center gap-1.5 rounded-xl border border-[#1D5A6C] bg-white px-4 py-2 text-xs font-sans font-semibold text-[#1D5A6C] hover:bg-[#1D5A6C] hover:text-[#F5EFE0] transition shadow-xs self-start sm:self-auto"
             >
               Author Studio →
             </Link>
@@ -89,12 +89,12 @@ export default async function BlogDirectoryPage() {
                   </div>
 
                   <Link href={`/blog/${article.slug}`}>
-                    <h3 className="mt-4 font-serif text-base sm:text-lg font-bold leading-snug text-[#103B47] group-hover:text-[#D89A3E] transition">
+                    <h3 className="mt-4 font-display text-lg sm:text-xl font-medium leading-snug text-[#103B47] group-hover:text-[#D89A3E] transition">
                       {article.title}
                     </h3>
                   </Link>
 
-                  <p className="mt-2.5 text-xs sm:text-[13px] leading-relaxed text-[#6B6B6B] line-clamp-3">
+                  <p className="mt-2.5 text-xs sm:text-[13px] leading-relaxed text-[#3A3A3A] font-sans font-normal line-clamp-3">
                     {article.excerpt}
                   </p>
                 </div>
@@ -107,7 +107,7 @@ export default async function BlogDirectoryPage() {
 
                   <Link
                     href={`/blog/${article.slug}`}
-                    className="min-h-[44px] font-bold text-[#1D5A6C] group-hover:text-[#D89A3E] inline-flex items-center gap-1 text-xs transition"
+                    className="min-h-[44px] font-sans font-semibold text-[#1D5A6C] group-hover:text-[#D89A3E] inline-flex items-center gap-1 text-xs transition"
                   >
                     Read Article <ArrowRight className="h-3.5 w-3.5" />
                   </Link>

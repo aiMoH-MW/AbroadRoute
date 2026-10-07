@@ -92,23 +92,36 @@ export function EditUniversityProfileModal({
     };
 
     try {
-      // 1. Persist to Supabase if table exists
-      if (initialData.id) {
-        await supabase
-          .from("universities")
-          .update({
-            name: updatedObj.name,
-            city: updatedObj.city,
-            country: updatedObj.country,
-            ranking_global: updatedObj.rankingGlobal,
-            ranking_national: updatedObj.rankingNational,
-            tuition_fee_range_inr: updatedObj.tuitionFeeRangeINR,
-            ielts_min_score: updatedObj.ieltsMinScore,
-            acceptance_rate: updatedObj.acceptanceRate,
-            post_study_work_months: updatedObj.postStudyWorkMonths,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", initialData.id);
+      // 1. Persist to Supabase via server API route
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("Your session has expired. Please sign in again.");
+      }
+
+      const res = await fetch("/api/universities", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          name: updatedObj.name,
+          slug: (initialData.id || updatedObj.name).toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          country: updatedObj.country,
+          city: updatedObj.city,
+          ranking_global: updatedObj.rankingGlobal,
+          ranking_national: updatedObj.rankingNational,
+          tuition_fee_range_inr: updatedObj.tuitionFeeRangeINR,
+          ielts_min_score: updatedObj.ieltsMinScore,
+          acceptance_rate: updatedObj.acceptanceRate,
+          post_study_work_months: updatedObj.postStudyWorkMonths,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Failed to save university profile.");
       }
 
       onSave(updatedObj);
@@ -118,13 +131,8 @@ export function EditUniversityProfileModal({
         onClose();
       }, 1200);
     } catch (err: any) {
-      console.warn("Supabase update error fallback:", err);
-      onSave(updatedObj);
-      setSuccess(true);
-      setTimeout(() => {
-        setSuccess(false);
-        onClose();
-      }, 1200);
+      console.warn("University profile update error:", err);
+      setErrorMsg(err?.message || "Failed to save university profile.");
     } finally {
       setSaving(false);
     }

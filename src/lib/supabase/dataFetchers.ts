@@ -1,4 +1,4 @@
-import { supabase } from "./client";
+import { supabase, getAuthHeaders } from "./client";
 import { supabaseAdmin } from "./server";
 import {
   Country,
@@ -320,7 +320,10 @@ export interface ClaimItem {
 export async function fetchLiveClaims(): Promise<ClaimItem[]> {
   try {
     if (typeof window !== "undefined") {
-      const res = await fetch("/api/claims", { cache: "no-store" });
+      const res = await fetch("/api/claims", {
+        cache: "no-store",
+        headers: await getAuthHeaders(),
+      });
       const json = await res.json();
       if (json.success && json.claims && json.claims.length > 0) {
         return json.claims;

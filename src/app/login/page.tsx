@@ -74,13 +74,8 @@ function LoginForm() {
       lower.includes("auckland.ac.nz")
     )
       return "university";
-    if (
-      lower.includes("admin@abroadroute") ||
-      lower.includes("admin@studyabroadvista") ||
-      lower.includes("admin")
-    )
-      return "admin";
-    return activeRoleTab;
+    // Admin is never inferred client-side; it comes from app_metadata only
+    return activeRoleTab === "admin" ? "student" : activeRoleTab;
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -131,18 +126,21 @@ function LoginForm() {
       const authedUser = data.user;
       const meta = authedUser.user_metadata || {};
 
-      // 2. Determine user role from user_metadata or detection
-      let userRole: UserRole = (meta.role as UserRole) || activeRoleTab;
-      if (!meta.role) {
-        if (redirectParam.includes("university")) {
-          userRole = "university";
-        } else if (redirectParam.includes("buyer")) {
-          userRole = "buyer";
-        } else if (redirectParam.includes("admin")) {
-          userRole = "admin";
-        } else {
-          userRole = detectRole(userEmail);
-        }
+      // 2. Determine user role. Admin comes only from server-controlled
+      // app_metadata; user_metadata is user-editable and can't grant it.
+      const metaRole =
+        meta.role && meta.role !== "admin" ? (meta.role as UserRole) : null;
+      let userRole: UserRole;
+      if (authedUser.app_metadata?.role === "admin") {
+        userRole = "admin";
+      } else if (metaRole) {
+        userRole = metaRole;
+      } else if (redirectParam.includes("university")) {
+        userRole = "university";
+      } else if (redirectParam.includes("buyer")) {
+        userRole = "buyer";
+      } else {
+        userRole = detectRole(userEmail);
       }
 
       // Dynamic default name

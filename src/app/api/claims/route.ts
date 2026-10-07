@@ -1,15 +1,34 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { getRequestUser, isAdminUser } from "@/lib/supabase/requestAuth";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const { data, error } = await supabaseAdmin
+    const user = await getRequestUser(request);
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Authentication required" },
+        { status: 401 },
+      );
+    }
+
+    const { data: allClaims, error } = await supabaseAdmin
       .from("university_claims")
       .select("*")
       .order("created_at", { ascending: false });
+
+    // Admins see every claim; everyone else only sees their own
+    const userEmail = user.email?.toLowerCase();
+    const data = isAdminUser(user)
+      ? allClaims
+      : (allClaims || []).filter(
+          (c: any) =>
+            c.user_id === user.id ||
+            (!!userEmail && c.official_email?.toLowerCase() === userEmail),
+        );
 
     if (error) {
       console.warn("Supabase claims fetch error:", error.message);

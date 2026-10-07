@@ -37,7 +37,12 @@ export function AdminClaimsTab({
 
   const filteredClaims = useMemo(() => {
     return claimsList.filter((c) => {
-      const matchesStatus = statusFilter === "all" || c.status === statusFilter;
+      const isApprovedOrVerified = c.status === "approved" || c.status === "verified";
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "approved" && isApprovedOrVerified) ||
+        (statusFilter === "pending" && c.status === "pending") ||
+        (statusFilter === "rejected" && (c.status === "rejected" || c.status === "declined"));
       const q = searchQuery.toLowerCase();
       const matchesSearch =
         !searchQuery ||
@@ -51,13 +56,15 @@ export function AdminClaimsTab({
 
   const pendingCount = claimsList.filter((c) => c.status === "pending").length;
   const approvedCount = claimsList.filter(
-    (c) => c.status === "approved",
+    (c) => c.status === "approved" || c.status === "verified",
   ).length;
 
   const handleApprove = async (claim: any) => {
     setApprovingId(claim.id);
     try {
       await onApproveClaim(claim);
+    } catch (err: any) {
+      window.alert(err?.message || "Failed to approve claim.");
     } finally {
       setApprovingId(null);
     }
@@ -185,14 +192,14 @@ export function AdminClaimsTab({
                   </span>
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                      claim.status === "approved"
+                      claim.status === "approved" || claim.status === "verified"
                         ? "bg-emerald-100 text-emerald-800"
-                        : claim.status === "rejected"
+                        : claim.status === "rejected" || claim.status === "declined"
                           ? "bg-red-100 text-red-800"
                           : "bg-amber-100 text-amber-800 animate-pulse"
                     }`}
                   >
-                    {claim.status}
+                    {claim.status === "verified" ? "verified partner" : claim.status}
                   </span>
                 </div>
 
@@ -236,7 +243,7 @@ export function AdminClaimsTab({
                         : "Approve Claim & Grant Portal Access"}
                     </span>
                   </button>
-                ) : claim.status === "approved" ? (
+                ) : claim.status === "approved" || claim.status === "verified" ? (
                   <span className="rounded-xl bg-emerald-50 border border-emerald-200 px-3.5 py-1.5 text-xs font-bold text-emerald-800 flex items-center gap-1.5">
                     <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                     Verified Institution Partner

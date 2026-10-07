@@ -269,7 +269,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
     if (item.category === "courses" || item.iconType === "course") {
       if (item.countryCode) {
         return (
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50/70 border border-blue-100 shadow-2xs overflow-hidden">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#1D5A6C]/10 border border-[#1D5A6C]/20 shadow-2xs overflow-hidden">
             <CountryFlag
               code={item.countryCode}
               countryName={item.subtitle}
@@ -279,7 +279,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
         );
       }
       return (
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#1D5A6C]/10 text-[#1D5A6C] border border-[#1D5A6C]/20">
           <BookOpen className="h-4 w-4" />
         </span>
       );
@@ -289,7 +289,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
     if (item.category === "universities" || item.iconType === "university") {
       if (item.countryCode) {
         return (
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-50/70 border border-orange-100/70 shadow-2xs overflow-hidden">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#D89A3E]/15 border border-[#D89A3E]/30 shadow-2xs overflow-hidden">
             <CountryFlag
               code={item.countryCode}
               countryName={item.subtitle}
@@ -299,7 +299,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
         );
       }
       return (
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-[#EA5C2B]">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#D89A3E]/15 text-[#D89A3E] border border-[#D89A3E]/30">
           <Building2 className="h-4 w-4" />
         </span>
       );
@@ -308,7 +308,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
     // 4. Program Item
     if (item.category === "programs" || item.iconType === "program") {
       return (
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-purple-700">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#7C6BAE]/15 text-[#7C6BAE] border border-[#7C6BAE]/30">
           <GraduationCap className="h-4 w-4" />
         </span>
       );
@@ -317,7 +317,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
     // 5. Guide / Blog Item
     if (item.category === "guides" || item.iconType === "guide") {
       return (
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#A8CDBD]/25 text-[#1D5A6C] border border-[#A8CDBD]/40">
           <FileText className="h-4 w-4" />
         </span>
       );
@@ -326,7 +326,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
     // 6. Tool Item
     if (item.category === "tools" || item.iconType === "tool") {
       return (
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#D89A3E]/15 text-[#A67E2F] border border-[#D89A3E]/30">
           <Calculator className="h-4 w-4" />
         </span>
       );
@@ -335,7 +335,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
     // 7. Test Prep Exam Item
     if (item.category === "test_prep" || item.iconType === "test_prep") {
       return (
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-700">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#1D5A6C]/15 text-[#1D5A6C] border border-[#1D5A6C]/30">
           <ShieldCheck className="h-4 w-4" />
         </span>
       );
@@ -350,19 +350,19 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/60 p-3 sm:p-6 pt-12 sm:pt-20 backdrop-blur-sm animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/60 p-3 sm:p-6 pt-12 sm:pt-20 backdrop-blur-sm animate-in fade-in duration-150 font-sans"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
-        className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150"
+        className="w-full max-w-2xl rounded-2xl border border-[#D9CFB8] bg-white shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150"
         onKeyDown={handleKeyDown}
       >
         {/* Top Search Input Bar */}
-        <div className="relative flex items-center border-b border-slate-100 px-4 py-3.5 sm:px-5 bg-white">
+        <div className="relative flex items-center border-b border-[#D9CFB8]/50 px-4 py-3.5 sm:px-5 bg-white">
           {isLoading ? (
-            <Loader2 className="h-5 w-5 text-[#EA5C2B] animate-spin shrink-0" />
+            <Loader2 className="h-5 w-5 text-[#1D5A6C] animate-spin shrink-0" />
           ) : (
             <Search className="h-5 w-5 text-slate-400 shrink-0" />
           )}
@@ -372,7 +372,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search universities, courses, programs, countries, guides, tools..."
-            className="flex-1 border-0 bg-transparent px-3 text-sm sm:text-base text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-0"
+            className="flex-1 border-0 bg-transparent px-3 text-sm sm:text-base text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-0 font-sans font-normal"
           />
           {query && (
             <button
@@ -388,14 +388,14 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
           )}
           <button
             onClick={onClose}
-            className="flex h-7 items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 text-[11px] font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition cursor-pointer"
+            className="flex h-7 items-center gap-1 rounded-lg border border-[#D9CFB8] bg-[#FDFCF7] px-2 text-[11px] font-semibold text-[#6B6B6B] hover:bg-[#F2ECD9] hover:text-[#103B47] transition cursor-pointer"
           >
             <span>ESC</span>
           </button>
         </div>
 
         {/* Filter Tabs [FR-SEARCH-001] Grouped by content type */}
-        <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-100 bg-slate-50/70 px-3 py-2 text-xs no-scrollbar">
+        <div className="flex items-center gap-1 overflow-x-auto border-b border-[#D9CFB8]/60 bg-[#FDFCF7] px-3 py-2 text-xs no-scrollbar font-sans">
           {[
             { key: "all", label: "All Results", count: counts.all },
             {
@@ -419,17 +419,17 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
               onClick={() => setCategory(tab.key as CategoryTab)}
               className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1 font-medium transition cursor-pointer ${
                 category === tab.key
-                  ? "bg-[#102C57] text-white shadow-2xs font-bold"
-                  : "text-slate-600 hover:bg-slate-200/70 hover:text-slate-900"
+                  ? "bg-[#1D5A6C] text-[#F5EFE0] shadow-2xs font-semibold"
+                  : "text-[#3A3A3A] hover:bg-[#F2ECD9] hover:text-[#103B47]"
               }`}
             >
               <span>{tab.label}</span>
               {tab.count !== undefined && tab.count > 0 && (
                 <span
-                  className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                  className={`rounded-full px-1.5 py-0.2 text-[10px] font-mono font-bold ${
                     category === tab.key
                       ? "bg-white/20 text-white"
-                      : "bg-slate-200 text-slate-600"
+                      : "bg-[#D9CFB8]/50 text-[#103B47]"
                   }`}
                 >
                   {tab.count}
@@ -448,13 +448,13 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
               {recentSearches.length > 0 && (
                 <div>
                   <div className="mb-2 flex items-center justify-between px-1">
-                    <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      <Clock className="h-3.5 w-3.5" />
+                    <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#6B6B6B]">
+                      <Clock className="h-3.5 w-3.5 text-[#D89A3E]" />
                       Recent Searches
                     </span>
                     <button
                       onClick={clearRecentSearches}
-                      className="flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-rose-600 cursor-pointer"
+                      className="flex items-center gap-1 text-[11px] font-medium text-[#6B6B6B] hover:text-[#B8593E] cursor-pointer"
                     >
                       <Trash2 className="h-3 w-3" />
                       Clear
@@ -468,9 +468,9 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
                           setQuery(s);
                           inputRef.current?.focus();
                         }}
-                        className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-slate-700 hover:border-[#EA5C2B] hover:text-[#EA5C2B] transition shadow-2xs cursor-pointer"
+                        className="flex items-center gap-1.5 rounded-xl border border-[#D9CFB8] bg-white px-3 py-1.5 text-[#3A3A3A] hover:border-[#D89A3E] hover:text-[#103B47] transition shadow-2xs cursor-pointer font-sans"
                       >
-                        <Search className="h-3 w-3 text-slate-400" />
+                        <Search className="h-3 w-3 text-[#6B6B6B]" />
                         <span className="font-medium">{s}</span>
                       </button>
                     ))}
@@ -480,8 +480,8 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
 
               {/* Popular Database Searches */}
               <div>
-                <div className="mb-2 flex items-center gap-1.5 px-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  <Sparkles className="h-3.5 w-3.5 text-[#EA5C2B]" />
+                <div className="mb-2 flex items-center gap-1.5 px-1 text-[11px] font-bold uppercase tracking-wider text-[#6B6B6B]">
+                  <Sparkles className="h-3.5 w-3.5 text-[#D89A3E]" />
                   Popular Suggestions
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -492,19 +492,19 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
                         setQuery(s.query);
                         inputRef.current?.focus();
                       }}
-                      className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-2.5 text-left hover:bg-slate-100 hover:border-slate-200 transition group cursor-pointer"
+                      className="flex items-center justify-between rounded-xl border border-[#D9CFB8]/60 bg-[#FDFCF7] p-2.5 text-left hover:bg-white hover:border-[#1D5A6C]/40 transition group cursor-pointer"
                     >
                       <div className="flex items-center gap-2.5">
                         {s.countryCode ? (
                           <CountryFlag code={s.countryCode} size="sm" />
                         ) : (
-                          <Search className="h-3.5 w-3.5 text-slate-400 group-hover:text-[#EA5C2B]" />
+                          <Search className="h-3.5 w-3.5 text-[#6B6B6B] group-hover:text-[#D89A3E]" />
                         )}
-                        <span className="font-bold text-slate-800 group-hover:text-[#102C57]">
+                        <span className="font-bold text-[#1A1A1A] group-hover:text-[#103B47] font-sans">
                           {s.label}
                         </span>
                       </div>
-                      <span className="rounded-md bg-white px-1.5 py-0.5 text-[9px] font-bold text-slate-500 border border-slate-200">
+                      <span className="rounded-md bg-white px-1.5 py-0.5 text-[9px] font-bold text-[#6B6B6B] border border-[#D9CFB8] font-mono">
                         {s.tag}
                       </span>
                     </button>
@@ -527,22 +527,22 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
                       onMouseEnter={() => setSelectedIndex(idx)}
                       className={`group flex items-center justify-between rounded-xl p-2.5 transition cursor-pointer ${
                         isSelected
-                          ? "bg-orange-50/90 border border-[#EA5C2B]/30 shadow-2xs"
-                          : "hover:bg-slate-50 border border-transparent"
+                          ? "bg-[#F5EFE0] border border-[#D89A3E]/60 shadow-2xs"
+                          : "hover:bg-[#FDFCF7] border border-transparent"
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0 pr-2">
                         {renderIcon(item)}
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-bold text-slate-900 truncate text-[13px] group-hover:text-[#102C57]">
+                            <p className="font-bold text-[#1A1A1A] truncate text-[13px] group-hover:text-[#103B47] font-sans">
                               {item.title}
                             </p>
-                            <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-500 shrink-0">
+                            <span className="rounded-md bg-[#F2ECD9] px-1.5 py-0.5 text-[9px] font-bold text-[#103B47] shrink-0 font-mono">
                               {item.categoryLabel}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                          <p className="text-[11px] text-[#6B6B6B] truncate mt-0.5 font-sans">
                             {item.subtitle}
                           </p>
                         </div>
@@ -550,15 +550,15 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
 
                       <div className="flex items-center gap-2.5 shrink-0">
                         {item.badge && (
-                          <span className="hidden sm:inline-block rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-100">
+                          <span className="hidden sm:inline-block rounded-md bg-[#1D5A6C]/10 px-2 py-0.5 text-[10px] font-bold text-[#103B47] border border-[#1D5A6C]/20 font-mono">
                             {item.badge}
                           </span>
                         )}
                         <ArrowRight
                           className={`h-4 w-4 transition-transform ${
                             isSelected
-                              ? "text-[#EA5C2B] translate-x-1"
-                              : "text-slate-300 group-hover:text-slate-600"
+                              ? "text-[#D89A3E] translate-x-1"
+                              : "text-[#D9CFB8] group-hover:text-[#103B47]"
                           }`}
                         />
                       </div>
@@ -569,15 +569,15 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
                 /* [FR-SEARCH-003] Empty Search State with AI Counsellor CTA */
                 <div className="py-10 text-center space-y-4">
                   <div className="flex justify-center">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-50 text-[#EA5C2B] border border-orange-100 shadow-2xs">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#D89A3E]/15 text-[#D89A3E] border border-[#D89A3E]/30 shadow-2xs">
                       <Bot className="h-7 w-7" />
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-sm font-bold text-slate-800">
+                    <p className="text-base font-display font-medium text-[#103B47]">
                       Nothing exact — but our AI Counsellor can help you explore
                     </p>
-                    <p className="text-[12px] text-slate-500 max-w-md mx-auto">
+                    <p className="text-[12px] text-[#6B6B6B] max-w-md mx-auto font-sans">
                       Get instant personalized recommendations, eligibility
                       advice, and university shortlists for &ldquo;{query}
                       &rdquo;.
@@ -592,9 +592,9 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
                           `Can you help me explore universities, programs, or requirements for "${targetQuery}"?`,
                         );
                       }}
-                      className="inline-flex items-center gap-2 rounded-xl bg-[#102C57] px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-[#0c2242] transition cursor-pointer"
+                      className="inline-flex items-center gap-2 rounded-xl bg-[#1D5A6C] px-5 py-2.5 text-xs font-sans font-medium text-[#F5EFE0] shadow-md hover:bg-[#103B47] transition cursor-pointer"
                     >
-                      <Sparkles className="h-3.5 w-3.5 text-[#EA5C2B]" />
+                      <Sparkles className="h-3.5 w-3.5 text-[#D89A3E]" />
                       <span>
                         Ask AI Counsellor about &ldquo;{query}&rdquo; →
                       </span>
@@ -607,25 +607,25 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
         </div>
 
         {/* Footer Hint Bar */}
-        <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/90 px-4 py-2 text-[11px] text-slate-400">
+        <div className="flex items-center justify-between border-t border-[#D9CFB8]/60 bg-[#FDFCF7] px-4 py-2 text-[11px] text-[#6B6B6B] font-sans">
           <div className="flex items-center gap-3">
             <span>
-              <kbd className="rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[9px] font-bold text-slate-600">
+              <kbd className="rounded border border-[#D9CFB8] bg-white px-1.5 py-0.5 font-mono text-[9px] font-bold text-[#3A3A3A]">
                 ↑
               </kbd>{" "}
-              <kbd className="rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[9px] font-bold text-slate-600">
+              <kbd className="rounded border border-[#D9CFB8] bg-white px-1.5 py-0.5 font-mono text-[9px] font-bold text-[#3A3A3A]">
                 ↓
               </kbd>{" "}
               navigate
             </span>
             <span>
-              <kbd className="rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[9px] font-bold text-slate-600">
+              <kbd className="rounded border border-[#D9CFB8] bg-white px-1.5 py-0.5 font-mono text-[9px] font-bold text-[#3A3A3A]">
                 ↵
               </kbd>{" "}
               select
             </span>
             <span>
-              <kbd className="rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[9px] font-bold text-slate-600">
+              <kbd className="rounded border border-[#D9CFB8] bg-white px-1.5 py-0.5 font-mono text-[9px] font-bold text-[#3A3A3A]">
                 esc
               </kbd>{" "}
               close

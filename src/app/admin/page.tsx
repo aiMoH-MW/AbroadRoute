@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Country, University, Program } from "@/types";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { supabase, getAuthHeaders } from "@/lib/supabase/client";
 import {
   fetchLiveCountries,
   fetchLiveUniversities,
@@ -55,7 +56,7 @@ type AdminTab =
 function AdminPortalContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isLoggedIn, isLoading, login, logout } = useAuth();
+  const { user, isLoggedIn, isLoading, logout } = useAuth();
 
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
   const [testModuleSection, setTestModuleSection] = useState<TestModuleSection>("settings");
@@ -69,6 +70,30 @@ function AdminPortalContent() {
   );
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [isRefreshingClaims, setIsRefreshingClaims] = useState(false);
+  // Admin access is verified against the Supabase session's server-controlled
+  // app_metadata, never the cached client-side role.
+  const [isVerifiedAdmin, setIsVerifiedAdmin] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!user) {
+      setIsVerifiedAdmin(null);
+      return;
+    }
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (!cancelled) {
+          setIsVerifiedAdmin(session?.user?.app_metadata?.role === "admin");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setIsVerifiedAdmin(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   // Sync tab from URL query params if provided
   useEffect(() => {
@@ -104,20 +129,23 @@ function AdminPortalContent() {
   };
 
   const handleApproveClaim = async (claim: any) => {
-    try {
-      await fetch("/api/claims/approve", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          claimId: claim.id,
-          action: "approved",
-          universityId: claim.universityId || claim.universitySlug,
-          universityName: claim.universityName,
-          userId: claim.userId,
-        }),
-      });
-    } catch {
-      // ignore
+    const res = await fetch("/api/claims/approve", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(await getAuthHeaders()),
+      },
+      body: JSON.stringify({
+        claimId: claim.id,
+        action: "approved",
+        universityId: claim.universityId || claim.universitySlug,
+        universityName: claim.universityName,
+        userId: claim.userId,
+      }),
+    });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      throw new Error(json.error || "Failed to approve claim.");
     }
 
     setClaimsList((prev) =>
@@ -150,7 +178,7 @@ function AdminPortalContent() {
   }, [user, isLoading, router]);
 
   useEffect(() => {
-    if (user && user.role === "admin") {
+    if (user && isVerifiedAdmin) {
       fetchLiveCountries().then((res) => setCountriesList(res));
       fetchLiveUniversities().then((res) => setUniversitiesList(res));
       fetchLivePrograms().then((res) => setProgramsList(res));
@@ -163,10 +191,10 @@ function AdminPortalContent() {
 
       return () => clearInterval(pollInterval);
     }
-  }, [user]);
+  }, [user, isVerifiedAdmin]);
 
-  // 1. Loading State during session hydration
-  if (isLoading) {
+  // 1. Loading State during session hydration / admin verification
+  if (isLoading || (user && isVerifiedAdmin === null)) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-white">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-md mb-4 border border-white/10 animate-pulse">
@@ -202,20 +230,6 @@ function AdminPortalContent() {
           </p>
 
           <div className="mt-6 flex flex-col gap-3">
-            <button
-              onClick={() => {
-                login(
-                  "admin@abroadroute.com",
-                  "admin",
-                  "Super Admin (Operations Lead)",
-                );
-                router.push("/admin");
-              }}
-              className="flex items-center justify-center gap-2 rounded-xl bg-[#EA5C2B] py-3 text-xs font-bold text-white shadow-lg transition hover:bg-[#d94f20] active:scale-[0.99] cursor-pointer"
-            >
-              <ShieldCheck className="h-4 w-4" />
-              <span>⚡ Instant 1-Click Sign In as Super Admin</span>
-            </button>
 
             <Link
               href="/login?redirect=/admin"
@@ -237,7 +251,7 @@ function AdminPortalContent() {
   }
 
   // 3. Authenticated but Unauthorized Role
-  if (user.role !== "admin") {
+  if (!isVerifiedAdmin) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 text-white selection:bg-[#EA5C2B]/30">
         <div className="w-full max-w-md rounded-3xl border border-amber-900/40 bg-slate-900/80 p-8 shadow-2xl backdrop-blur-xl text-center">
@@ -262,20 +276,6 @@ function AdminPortalContent() {
           </p>
 
           <div className="mt-6 flex flex-col gap-3">
-            <button
-              onClick={() => {
-                login(
-                  "admin@abroadroute.com",
-                  "admin",
-                  "Super Admin (Operations Lead)",
-                );
-                router.push("/admin");
-              }}
-              className="flex items-center justify-center gap-2 rounded-xl bg-[#EA5C2B] py-3 text-xs font-bold text-white shadow-lg transition hover:bg-[#d94f20] cursor-pointer"
-            >
-              <ShieldCheck className="h-4 w-4" />
-              <span>⚡ Instant 1-Click Switch to Super Admin</span>
-            </button>
 
             <button
               onClick={() => {

@@ -158,14 +158,14 @@ export default async function TestPrepDetailPage({ params }: Props) {
                 </span>
               </div>
 
-              <h1 className="mt-4 font-serif text-3xl sm:text-5xl font-black text-white tracking-tight">
+              <h1 className="mt-4 font-display text-3xl sm:text-5xl font-medium text-white tracking-tight">
                 {exam.name}
               </h1>
-              <p className="mt-1 text-sm sm:text-base font-medium text-slate-300">
+              <p className="mt-1 font-serif italic text-lg sm:text-xl text-[#A8CDBD]">
                 {exam.fullName}
               </p>
 
-              <p className="mt-4 text-sm sm:text-base text-slate-200 max-w-3xl leading-relaxed">
+              <p className="mt-4 font-sans text-sm sm:text-base text-slate-200 max-w-3xl leading-relaxed">
                 {exam.heroTagline}
               </p>
 
@@ -259,24 +259,24 @@ export default async function TestPrepDetailPage({ params }: Props) {
               <div className="lg:col-span-2 space-y-10">
                 {/* 1. Overview Section */}
                 <section className="rounded-3xl border border-[#D9CFB8]/80 bg-white p-6 sm:p-8 shadow-2xs">
-                  <h2 className="text-xl sm:text-2xl font-serif font-bold text-[#103B47] flex items-center gap-2">
+                  <h2 className="text-xl sm:text-2xl font-display font-medium text-[#103B47] flex items-center gap-2.5">
                     <BookOpen className="h-5 w-5 text-[#D89A3E]" />
                     <span>About {exam.name}</span>
                   </h2>
-                  <p className="mt-4 text-xs sm:text-sm leading-relaxed text-slate-600">
+                  <p className="mt-4 text-xs sm:text-sm leading-relaxed text-[#3A3A3A] font-sans font-normal">
                     {exam.overview}
                   </p>
 
                   <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-[#D9CFB8]/40 pt-6">
                     <div>
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-[#6B6B6B] font-sans">
                         Target Degrees & Programs
                       </h3>
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {exam.targetPrograms.map((prog) => (
                           <span
                             key={prog}
-                            className="rounded-lg bg-[#1D5A6C]/10 border border-[#1D5A6C]/20 px-2.5 py-1 text-xs font-semibold text-[#103B47]"
+                            className="rounded-lg bg-[#1D5A6C]/10 border border-[#1D5A6C]/20 px-2.5 py-1 text-xs font-bold text-[#103B47] font-sans"
                           >
                             {prog}
                           </span>
@@ -284,13 +284,13 @@ export default async function TestPrepDetailPage({ params }: Props) {
                       </div>
                     </div>
                     <div>
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-[#6B6B6B] font-sans">
                         Conducting Body & Frequency
                       </h3>
-                      <p className="mt-2 text-xs font-bold text-slate-900">
+                      <p className="mt-2 text-xs font-bold text-slate-900 font-sans">
                         {exam.conductingBody}
                       </p>
-                      <p className="text-xs text-slate-500">{exam.frequency}</p>
+                      <p className="text-xs text-[#6B6B6B] font-sans">{exam.frequency}</p>
                     </div>
                   </div>
                 </section>
@@ -298,11 +298,11 @@ export default async function TestPrepDetailPage({ params }: Props) {
                 {/* 2. Section-by-Section Exam Format */}
                 <section className="rounded-3xl border border-[#D9CFB8]/80 bg-white p-6 sm:p-8 shadow-2xs">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-xl sm:text-2xl font-serif font-bold text-[#103B47] flex items-center gap-2">
+                    <h2 className="text-xl sm:text-2xl font-display font-medium text-[#103B47] flex items-center gap-2.5">
                       <Layers className="h-5 w-5 text-[#D89A3E]" />
                       <span>{exam.shortName} Section Breakdown & Syllabus</span>
                     </h2>
-                    <span className="text-xs font-bold text-slate-400 font-mono">
+                    <span className="text-xs font-bold text-[#6B6B6B] font-mono">
                       {exam.sections.length} Sections
                     </span>
                   </div>
@@ -311,14 +311,14 @@ export default async function TestPrepDetailPage({ params }: Props) {
                     {exam.sections.map((sec, idx) => (
                       <div
                         key={idx}
-                        className="rounded-2xl border border-[#D9CFB8]/70 bg-[#FDFCF7]/60 p-5 hover:border-[#103B47]/30 transition"
+                        className="rounded-2xl border border-[#D9CFB8]/70 bg-[#FDFCF7]/60 p-5 hover:border-[#1D5A6C]/30 transition"
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                           <div className="flex items-center gap-2">
                             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#103B47] text-[10px] font-bold text-white font-mono">
                               {idx + 1}
                             </span>
-                            <h3 className="text-sm font-bold text-slate-900">
+                            <h3 className="text-sm font-bold text-slate-900 font-sans">
                               {sec.name}
                             </h3>
                           </div>
@@ -334,18 +334,18 @@ export default async function TestPrepDetailPage({ params }: Props) {
                           </div>
                         </div>
 
-                        <div className="mt-3 text-xs text-slate-600">
+                        <div className="mt-3 text-xs text-[#3A3A3A] font-sans">
                           <p>
-                            <strong className="text-slate-800">
+                            <strong className="text-slate-900">
                               Skills Tested:
                             </strong>{" "}
                             {sec.skillsTested}
                           </p>
-                          <div className="mt-2.5 rounded-xl bg-[#D89A3E]/10 border border-[#D89A3E]/30 p-3 text-slate-800">
-                            <p className="text-[11px] font-bold text-[#D89A3E] uppercase tracking-wider mb-0.5">
+                          <div className="mt-2.5 rounded-xl bg-amber-50 border border-amber-200/80 p-3 text-slate-800">
+                            <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider mb-0.5 font-sans">
                               Strategy for Indian Students:
                             </p>
-                            <p className="text-xs leading-relaxed">
+                            <p className="text-xs leading-relaxed text-[#3A3A3A] font-sans">
                               {sec.tips}
                             </p>
                           </div>
@@ -357,11 +357,11 @@ export default async function TestPrepDetailPage({ params }: Props) {
 
                 {/* 3. Minimum Cutoffs & Country Score Requirements */}
                 <section className="rounded-3xl border border-[#D9CFB8]/80 bg-white p-6 sm:p-8 shadow-2xs">
-                  <h2 className="text-xl sm:text-2xl font-serif font-bold text-[#103B47] flex items-center gap-2">
+                  <h2 className="text-xl sm:text-2xl font-display font-medium text-[#103B47] flex items-center gap-2.5">
                     <Globe2 className="h-5 w-5 text-[#D89A3E]" />
                     <span>Target Score Requirements by Destination</span>
                   </h2>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-[#6B6B6B] font-sans">
                     Minimum eligibility thresholds vs. competitive scores for
                     top-tier university admissions and visa approvals:
                   </p>
@@ -370,23 +370,23 @@ export default async function TestPrepDetailPage({ params }: Props) {
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
                         <tr className="border-b border-[#D9CFB8]/70 bg-[#FDFCF7] text-slate-700">
-                          <th className="p-3 font-bold">Destination Country</th>
-                          <th className="p-3 font-bold">Minimum Threshold</th>
-                          <th className="p-3 font-bold text-emerald-800">
+                          <th className="p-3 font-bold font-sans">Destination Country</th>
+                          <th className="p-3 font-bold font-sans">Minimum Threshold</th>
+                          <th className="p-3 font-bold text-emerald-800 font-sans">
                             Competitive Target Score
                           </th>
-                          <th className="p-3 font-bold text-right">
+                          <th className="p-3 font-bold text-right font-sans">
                             Destination Guide
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#D9CFB8]/40 text-slate-600">
+                      <tbody className="divide-y divide-[#D9CFB8]/40 text-[#3A3A3A]">
                         {exam.scoreRequirementsByCountry.map((req, idx) => (
                           <tr
                             key={idx}
                             className="hover:bg-[#FDFCF7]/80 transition"
                           >
-                            <td className="p-3 font-bold text-slate-900 flex items-center gap-2">
+                            <td className="p-3 font-bold text-slate-900 flex items-center gap-2 font-sans">
                               <span className="text-xl">{req.flag}</span>
                               <span>{req.country}</span>
                             </td>
@@ -399,7 +399,7 @@ export default async function TestPrepDetailPage({ params }: Props) {
                             <td className="p-3 text-right">
                               <Link
                                 href={`/destinations/${req.country.toLowerCase().replace(/\s+/g, "-")}`}
-                                className="font-bold text-[#103B47] hover:text-[#D89A3E] hover:underline"
+                                className="font-bold text-[#103B47] hover:text-[#D89A3E] hover:underline font-sans"
                               >
                                 View Country
                               </Link>
@@ -414,7 +414,7 @@ export default async function TestPrepDetailPage({ params }: Props) {
                 {/* 4. 8-Week Preparation Roadmap */}
                 <section className="rounded-3xl border border-[#D9CFB8]/80 bg-white p-6 sm:p-8 shadow-2xs">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-xl sm:text-2xl font-serif font-bold text-[#103B47] flex items-center gap-2">
+                    <h2 className="text-xl sm:text-2xl font-display font-medium text-[#103B47] flex items-center gap-2.5">
                       <Zap className="h-5 w-5 text-[#D89A3E]" />
                       <span>8-Week Structured Study Roadmap</span>
                     </h2>
@@ -422,7 +422,7 @@ export default async function TestPrepDetailPage({ params }: Props) {
                       Step-by-Step
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-[#6B6B6B] font-sans">
                     Proven phased roadmap designed for working professionals and
                     university students in India:
                   </p>
@@ -438,14 +438,14 @@ export default async function TestPrepDetailPage({ params }: Props) {
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="rounded-md bg-[#D89A3E]/15 px-2 py-0.5 text-[10px] font-bold text-[#D89A3E] font-mono">
+                            <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 font-mono">
                               {item.week}
                             </span>
-                            <h3 className="text-sm font-bold text-slate-900">
+                            <h3 className="text-sm font-bold text-slate-900 font-sans">
                               {item.title}
                             </h3>
                           </div>
-                          <p className="mt-2 text-xs leading-relaxed text-slate-600">
+                          <p className="mt-2 text-xs leading-relaxed text-[#3A3A3A] font-sans font-normal">
                             {item.milestone}
                           </p>
                         </div>
@@ -456,7 +456,7 @@ export default async function TestPrepDetailPage({ params }: Props) {
 
                 {/* 5. Frequently Asked Questions */}
                 <section className="rounded-3xl border border-[#D9CFB8]/80 bg-white p-6 sm:p-8 shadow-2xs">
-                  <h2 className="text-xl sm:text-2xl font-serif font-bold text-[#103B47] flex items-center gap-2">
+                  <h2 className="text-xl sm:text-2xl font-display font-medium text-[#103B47] flex items-center gap-2.5">
                     <HelpCircle className="h-5 w-5 text-[#D89A3E]" />
                     <span>Frequently Asked Questions about {exam.name}</span>
                   </h2>
@@ -483,14 +483,14 @@ export default async function TestPrepDetailPage({ params }: Props) {
               <div className="space-y-6">
                 {/* 1. Quick Profile Assessment Card */}
                 <div className="sticky top-24 space-y-6">
-                  <div className="rounded-3xl border border-[#D9CFB8]/80 bg-white p-6 shadow-sm">
+                  <div className="rounded-3xl border border-[#D9CFB8] bg-white p-6 sm:p-7 shadow-lg">
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#D89A3E]/15 text-[#D89A3E] mb-4">
-                      <Sparkles className="h-6 w-6" />
+                      <Sparkles className="h-6 w-6 text-[#D89A3E]" />
                     </div>
-                    <h3 className="text-lg font-serif font-bold text-[#103B47]">
+                    <h3 className="text-2xl font-display font-medium text-[#103B47] tracking-tight leading-snug">
                       Get Free {exam.shortName} Readiness Evaluation
                     </h3>
-                    <p className="mt-2 text-xs text-slate-500 leading-relaxed">
+                    <p className="mt-2.5 text-xs sm:text-sm text-[#3A3A3A] leading-relaxed font-normal font-sans">
                       Share your target intake, destination, and current score
                       to receive personalized university shortlisting and fee
                       waiver tips.
@@ -520,7 +520,7 @@ export default async function TestPrepDetailPage({ params }: Props) {
                       </AICounsellorTriggerButton>
                     </div>
 
-                    <div className="mt-6 border-t border-[#D9CFB8]/40 pt-4 text-[11px] text-slate-400 space-y-2">
+                    <div className="mt-6 border-t border-[#D9CFB8]/60 pt-4 text-xs text-[#6B6B6B] space-y-2.5 font-sans font-medium">
                       <div className="flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                         <span>100% Free Zero-Bias Counseling</span>

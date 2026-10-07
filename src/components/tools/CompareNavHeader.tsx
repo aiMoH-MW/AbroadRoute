@@ -15,7 +15,7 @@ export function CompareNavHeader({ activeTab }: CompareNavHeaderProps) {
           <span className="text-[10px] font-bold uppercase tracking-widest text-[#D89A3E] font-mono">
             Multi-Item Comparison Engine • Template T-09
           </span>
-          <h2 className="text-xl font-serif font-black text-white mt-0.5">
+          <h2 className="text-xl font-display font-bold text-white mt-0.5">
             Side-by-Side Comparison Matrix
           </h2>
         </div>

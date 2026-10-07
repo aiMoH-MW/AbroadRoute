@@ -18,6 +18,10 @@ export async function POST(request: Request) {
       marketingOptIn,
     } = body;
 
+    // Admin cannot be self-assigned at signup
+    const SIGNUP_ROLES = ["student", "buyer", "university"];
+    const safeRole = SIGNUP_ROLES.includes(role) ? role : "student";
+
     if (!email || !password) {
       return NextResponse.json(
         { error: "Email and password are required." },
@@ -116,7 +120,7 @@ export async function POST(request: Request) {
         name: name || `${firstName || ""} ${lastName || ""}`.trim(),
         first_name: firstName,
         last_name: lastName,
-        role: role || "student",
+        role: safeRole,
         phone: phone ? `+91${phone}` : "",
         organization: finalOrg,
         country_slug: finalCountrySlug,
@@ -127,21 +131,24 @@ export async function POST(request: Request) {
       },
     });
 
-    if (data?.user?.id && role === "university") {
+    if (data?.user?.id && safeRole === "university") {
       const uniSlug = finalOrg.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-      // Create or update claim entry
-      await supabaseAdmin.from("university_claims").upsert(
-        {
+
+      // Create claim entry in pending state for admin review
+      const { error: claimErr } = await supabaseAdmin
+        .from("university_claims")
+        .insert({
           university_id: uniSlug,
           university_name: finalOrg,
           country_id: finalCountrySlug,
           user_id: data.user.id,
           applicant_name: name || `${firstName || ""} ${lastName || ""}`.trim(),
           official_email: email.trim(),
-          verification_status: "verified",
-        },
-        { onConflict: "id" },
-      );
+          verification_status: "pending",
+        });
+      if (claimErr) {
+        console.warn("university_claims insert error:", claimErr.message);
+      }
     }
 
     if (error) {

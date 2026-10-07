@@ -77,7 +77,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
         if (session?.user) {
           const emailLower = (session.user.email || "").toLowerCase();
-          const metaRole = session.user.user_metadata?.role as UserRole;
+          // Admin comes only from server-controlled app_metadata
+          const isAdmin = session.user.app_metadata?.role === "admin";
+          const rawMetaRole = session.user.user_metadata?.role as UserRole;
+          const metaRole = rawMetaRole === "admin" ? undefined : rawMetaRole;
 
           // Check if user is already logged in with an institutional role
           let existingStored: AuthUser | null = null;
@@ -89,14 +92,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (
             existingStored &&
             existingStored.role &&
-            existingStored.role !== "student"
+            existingStored.role !== "student" &&
+            (existingStored.role !== "admin" || isAdmin)
           ) {
             // Never downgrade an active university, buyer, or admin session
             return;
           }
 
           let role: UserRole = metaRole || "student";
-          if (
+          if (isAdmin) {
+            role = "admin";
+          } else if (
             emailLower.includes(".edu") ||
             emailLower.includes(".ac.") ||
             emailLower.includes("uni") ||
@@ -113,12 +119,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             emailLower.includes("auckland.ac.nz")
           ) {
             role = "university";
-          } else if (
-            emailLower.includes("admin@abroadroute") ||
-            emailLower.includes("admin@studyabroadvista") ||
-            emailLower.includes("admin")
-          ) {
-            role = "admin";
           } else if (
             emailLower.includes("consult") ||
             emailLower.includes("agency") ||

@@ -162,10 +162,10 @@ export function UniversityCompareClient() {
               Side-by-Side
             </span>
           </div>
-          <h1 className="font-serif text-3xl font-black text-[#103B47] sm:text-4xl lg:text-5xl">
+          <h1 className="font-display text-3xl font-bold tracking-tight text-[#103B47] sm:text-4xl lg:text-5xl">
             University Comparison Matrix
           </h1>
-          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600 sm:text-base font-normal">
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600 sm:text-base font-sans font-normal">
             Compare QS global rankings, annual tuition in INR, admission cutoffs
             (IELTS, GRE/GMAT, Acceptance Rates), intake windows, scholarship
             schemes, degree programs offered, and application deadlines
@@ -224,7 +224,7 @@ export function UniversityCompareClient() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-xs">
             <div className="relative w-full max-w-lg rounded-3xl border border-[#D9CFB8] bg-[#FDFCF7] p-6 shadow-2xl animate-in fade-in zoom-in-95">
               <div className="flex items-center justify-between border-b border-[#D9CFB8]/60 pb-4">
-                <h3 className="text-base font-serif font-bold text-[#103B47]">
+                <h3 className="text-base font-display font-bold text-[#103B47]">
                   Select University to Compare
                 </h3>
                 <button
@@ -297,7 +297,7 @@ export function UniversityCompareClient() {
                         </div>
                         <Link
                           href={`/universities/${uni.slug}`}
-                          className="font-serif font-bold text-[#103B47] hover:text-[#D89A3E] transition text-sm leading-snug block"
+                          className="font-display font-bold text-[#103B47] hover:text-[#D89A3E] transition text-sm leading-snug block"
                         >
                           {uni.name}
                         </Link>

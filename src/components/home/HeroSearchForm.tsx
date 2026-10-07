@@ -238,7 +238,7 @@ export function HeroSearchForm() {
             onChange={(e) => setSelectedCountry(e.target.value)}
             className="w-full bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer [&>option]:text-slate-900 [&>optgroup]:text-slate-900"
           >
-            <optgroup label="Anchor Six (Priority)">
+            <optgroup label="Anchor Six (Tier 1)">
               {anchorCountries.map((c) => (
                 <option key={c.id || c.slug} value={c.slug}>
                   {c.name}
@@ -246,7 +246,7 @@ export function HeroSearchForm() {
               ))}
             </optgroup>
             {tier2Countries.length > 0 && (
-              <optgroup label="Europe & Asia">
+              <optgroup label="Europe & Asia (Tier 2)">
                 {tier2Countries.map((c) => (
                   <option key={c.id || c.slug} value={c.slug}>
                     {c.name}
@@ -255,7 +255,7 @@ export function HeroSearchForm() {
               </optgroup>
             )}
             {tier3Countries.length > 0 && (
-              <optgroup label="Medical / Low-Cost">
+              <optgroup label="Medical & Value (Tier 3)">
                 {tier3Countries.map((c) => (
                   <option key={c.id || c.slug} value={c.slug}>
                     {c.name}
