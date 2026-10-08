@@ -15,9 +15,7 @@ import {
   MessageSquare,
   Bot,
   Zap,
-  ArrowRight,
   Clock,
-  Layers,
   HelpCircle,
 } from "lucide-react";
 
@@ -28,43 +26,9 @@ export interface KBEntry {
   comment?: string | null;
   created_date?: string;
   updated_date?: string;
+  hasEmbedding?: boolean;
 }
 
-const PRESET_TOPICS = [
-  {
-    title: "Germany Public University Free Tuition & Blocked Account",
-    content:
-      "Public universities in Germany offer €0 tuition fees for both Bachelor's and Master's degrees. International students must open a Blocked Account (Sperrkonto) deposited with approx. €11,904/year (~₹10.5 Lakhs) for living expenses. Graduates receive an 18-month post-study work / jobseeker visa.",
-    comment:
-      "Verified from DAAD & German Federal Foreign Office 2026 regulations.",
-  },
-  {
-    title: "NMC FMGL Regulations 2021 for MBBS Abroad",
-    content:
-      "Under National Medical Commission (NMC) Foreign Medical Graduate Licentiate (FMGL) Regulations 2021, Indian students pursuing MBBS abroad must complete: (1) Minimum 54 months theoretical & clinical course duration; (2) 12 months mandatory internship in the same foreign institution; (3) 100% English medium of instruction; (4) Valid license to practice in host nation; (5) Mandatory NEXT / FMGE licensing examination in India.",
-    comment:
-      "Crucial compliance rule for Russia, Georgia, Kazakhstan, Kyrgyzstan & Uzbekistan applicants.",
-  },
-  {
-    title: "Germany Ausbildung Dual Vocational Training Stipends",
-    content:
-      "Ausbildung is a 3-year government-recognized dual vocational training program in Germany. Key benefits: (1) Zero tuition fees; (2) Monthly stipend of €1,000 to €1,400 (~₹90,000 to ₹1,25,000/month); (3) High demand fields include Nursing, IT, Mechatronics, and Hospitality; (4) Eligibility: Class 12th pass + German language B1/B2 level.",
-    comment:
-      "High ROI vocational program for Indian school leavers and diploma holders.",
-  },
-  {
-    title: "USA 3-Year STEM OPT Work Authorization",
-    content:
-      "Graduates from US universities with STEM-designated degree programs (Science, Technology, Engineering, Math, Data Science, AI) are eligible for a 24-month STEM OPT extension in addition to the standard 12-month OPT period, providing a total of 3 years (36 months) of legal work authorization in the USA.",
-    comment: "Applicable to MS CS, Data Science, AI, and STEM-MBA programs.",
-  },
-  {
-    title: "UK 1-Year Master's and 2-Year Graduate Route Visa",
-    content:
-      "The UK offers intensive 1-year Master's programs (180 credits) that save one full year of living expenses. International graduates are eligible for the 2-year Graduate Route Post-Study Work (PSW) Visa (3 years for PhD graduates) without needing employer sponsorship during this period.",
-    comment: "UK Home Office Graduate Route guidelines 2026.",
-  },
-];
 
 export function AdminAICounsellorKBTab() {
   const [entries, setEntries] = useState<KBEntry[]>([]);
@@ -83,11 +47,6 @@ export function AdminAICounsellorKBTab() {
     type: "success" | "error";
     text: string;
   } | null>(null);
-
-  // Vector Search Test Simulator State
-  const [testQuery, setTestQuery] = useState("");
-  const [testResults, setTestResults] = useState<KBEntry[]>([]);
-  const [isTestingSearch, setIsTestingSearch] = useState(false);
 
   // Fetch existing KB entries
   const fetchEntries = async () => {
@@ -159,8 +118,8 @@ export function AdminAICounsellorKBTab() {
         setStatusMessage({
           type: "success",
           text: editingId
-            ? `Knowledge entry #${editingId} updated & re-vectorized successfully!`
-            : `New entry converted to 3072-dim vector & saved to Supabase (ai_counsellor_kb)!`,
+            ? `Knowledge entry #${editingId} updated${data.vectorDimensions ? ` and re-embedded (${data.vectorDimensions}-dim)` : " (no embedding generated)"}.`
+            : `New entry saved${data.vectorDimensions ? ` with a ${data.vectorDimensions}-dim embedding` : " (no embedding generated)"}.`,
         });
         resetForm();
         fetchEntries();
@@ -218,16 +177,6 @@ export function AdminAICounsellorKBTab() {
     }
   };
 
-  const handleFillPreset = (preset: {
-    title: string;
-    content: string;
-    comment: string;
-  }) => {
-    setTitle(preset.title);
-    setContent(preset.content);
-    setComment(preset.comment);
-  };
-
   const filteredEntries = entries.filter((entry) => {
     const q = searchQuery.toLowerCase().trim();
     if (!q) return true;
@@ -259,9 +208,8 @@ export function AdminAICounsellorKBTab() {
               <p className="mt-1 text-xs text-slate-300 max-w-2xl leading-relaxed">
                 Add and manage study abroad domain knowledge. Whenever you add
                 or update an entry, Title and Content are automatically
-                vectorized into <strong>3072-dimensional embeddings</strong>{" "}
-                using Google Gemini (<code>gemini-embedding-001</code>) for
-                semantic RAG search.
+                turned into embeddings with Google Gemini for semantic RAG
+                search.
               </p>
             </div>
           </div>
@@ -305,7 +253,7 @@ export function AdminAICounsellorKBTab() {
         </div>
       )}
 
-      {/* Main Grid: Add/Edit Form & Presets */}
+      {/* Main Grid: Add/Edit Form & Schema Info */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Form Column (7 cols) */}
         <div className="lg:col-span-8 space-y-6">
@@ -393,7 +341,7 @@ export function AdminAICounsellorKBTab() {
                 <Zap className="h-4 w-4 text-[#EA5C2B] shrink-0 mt-0.5" />
                 <div className="text-[11px] leading-relaxed">
                   <p className="font-bold text-indigo-950">
-                    Automatic Gemini Vector Embedding (3072 Dimensions)
+                    Automatic Gemini Vector Embedding
                   </p>
                   <p className="text-indigo-800/80 mt-0.5">
                     Upon saving, the backend will call Google Generative AI to
@@ -442,40 +390,8 @@ export function AdminAICounsellorKBTab() {
           </div>
         </div>
 
-        {/* Quick Templates & Schema Info (4 cols) */}
+        {/* Schema Info (4 cols) */}
         <div className="lg:col-span-4 space-y-6">
-          {/* Quick Preset Templates */}
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-xs">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-3">
-              <Layers className="h-4 w-4 text-[#EA5C2B]" />
-              <h4 className="text-xs font-bold text-slate-900">
-                1-Click Domain Fact Presets
-              </h4>
-            </div>
-            <p className="text-[11px] text-slate-500 mb-3">
-              Click any preset to auto-fill the form and index verified study
-              abroad rules:
-            </p>
-            <div className="space-y-2">
-              {PRESET_TOPICS.map((p, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => handleFillPreset(p)}
-                  className="w-full text-left rounded-xl border border-slate-100 bg-slate-50 p-2.5 text-xs hover:border-[#102C57] hover:bg-slate-100 transition group cursor-pointer"
-                >
-                  <p className="font-bold text-slate-800 group-hover:text-[#102C57] flex items-center justify-between">
-                    <span>{p.title}</span>
-                    <ArrowRight className="h-3 w-3 text-slate-400 group-hover:text-[#EA5C2B] transition shrink-0 ml-1" />
-                  </p>
-                  <p className="text-[10px] text-slate-500 mt-1 line-clamp-2">
-                    {p.content}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Database Details */}
           <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-slate-700 text-xs">
             <h4 className="font-bold text-slate-900 flex items-center gap-1.5 mb-2">
@@ -493,10 +409,8 @@ export function AdminAICounsellorKBTab() {
                 <code>updated_date</code>
               </p>
               <p>
-                • <strong>Embedding:</strong> <code>vector(3072)</code>
-              </p>
-              <p>
-                • <strong>Model:</strong> <code>gemini-embedding-001</code>
+                • <strong>Model:</strong> <code>gemini-embedding-001</code>{" "}
+                unless <code>GEMINI_EMBEDDING_MODEL</code> is set
               </p>
             </div>
           </div>
@@ -565,10 +479,16 @@ export function AdminAICounsellorKBTab() {
                     <h4 className="text-xs font-bold text-slate-900">
                       {entry.title}
                     </h4>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
-                      <CheckCircle2 className="h-2.5 w-2.5 text-emerald-600" />
-                      Vectorized (3072-dim)
-                    </span>
+                    {entry.hasEmbedding ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
+                        <CheckCircle2 className="h-2.5 w-2.5 text-emerald-600" />
+                        Embedded
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[9px] font-bold text-amber-700">
+                        No embedding
+                      </span>
+                    )}
                   </div>
 
                   <p className="text-xs text-slate-600 leading-relaxed">

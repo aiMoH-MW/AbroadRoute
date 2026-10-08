@@ -8,12 +8,18 @@ import {
   Program,
   Specialisation,
   TestPrepExam,
+  ApplicationDeadline,
+  DeadlineMilestone,
 } from "@/types";
 import {
   mapSupabaseCountry,
   mapSanityCountry,
   mapSupabaseUniversity,
   mapSanityUniversity,
+  mapSupabaseDeadline,
+  DEADLINE_SELECT,
+  mapSupabaseMilestone,
+  MILESTONE_SELECT,
 } from "@/lib/data/mappers";
 import {
   getSanityUniversities,
@@ -329,13 +335,15 @@ export interface ClaimItem {
   id: string;
   universityId: string;
   universityName: string;
-  countryName?: string;
+  countryId?: string | null;
+  countryCode?: string | null;
+  countryName?: string | null;
   applicantName: string;
   officialEmail: string;
-  designation: string;
+  designation: string | null;
   proofDocumentUrl?: string;
   status: string;
-  createdAt: string;
+  createdAt: string | null;
   userId?: string;
 }
 
@@ -372,10 +380,12 @@ export async function fetchLiveClaims(): Promise<ClaimItem[]> {
           universityName: c.university_name,
           applicantName: c.applicant_name,
           officialEmail: c.official_email,
-          designation: c.designation || "Admissions Representative",
+          designation: c.designation || null,
           proofDocumentUrl: c.proof_document_url,
           status: c.verification_status || "pending",
-          createdAt: new Date(c.created_at || Date.now()).toLocaleDateString(),
+          createdAt: c.created_at
+            ? new Date(c.created_at).toLocaleDateString()
+            : null,
         }));
       }
     }
@@ -761,6 +771,82 @@ export async function fetchLiveCities(): Promise<City[]> {
       .sort((a: City, b: City) => a.name.localeCompare(b.name));
   } catch (err) {
     console.warn("Supabase cities fetch error:", err);
+    return [];
+  }
+}
+
+// Active application deadlines, soonest first. Empty when none are added.
+export async function fetchLiveDeadlines(): Promise<ApplicationDeadline[]> {
+  // Client-side: via the API route, which can read the joined names
+  if (typeof window !== "undefined") {
+    try {
+      const res = await fetch("/api/application-deadlines");
+      const json = await res.json();
+      return res.ok && Array.isArray(json.deadlines) ? json.deadlines : [];
+    } catch (err) {
+      console.warn("Client fetch /api/application-deadlines error:", err);
+      return [];
+    }
+  }
+
+  try {
+    const response = await queryWithTimeout(
+      () =>
+        supabaseAdmin
+          .from("application_deadlines")
+          .select(DEADLINE_SELECT)
+          .eq("is_active", true)
+          .order("deadline_date", { ascending: true }),
+      5000,
+    );
+    if (!response || (response as any).error) {
+      console.warn(
+        "Supabase application_deadlines fetch error:",
+        (response as any)?.error,
+      );
+      return [];
+    }
+    return ((response as any).data ?? []).map(mapSupabaseDeadline);
+  } catch (err) {
+    console.warn("Supabase application_deadlines fetch error:", err);
+    return [];
+  }
+}
+
+// Active countdown milestones, furthest first. Empty when none are added.
+export async function fetchLiveMilestones(): Promise<DeadlineMilestone[]> {
+  // Client-side: via the API route, which can read the joined names
+  if (typeof window !== "undefined") {
+    try {
+      const res = await fetch("/api/deadline-milestones");
+      const json = await res.json();
+      return res.ok && Array.isArray(json.milestones) ? json.milestones : [];
+    } catch (err) {
+      console.warn("Client fetch /api/deadline-milestones error:", err);
+      return [];
+    }
+  }
+
+  try {
+    const response = await queryWithTimeout(
+      () =>
+        supabaseAdmin
+          .from("deadline_milestones")
+          .select(MILESTONE_SELECT)
+          .eq("is_active", true)
+          .order("days_before", { ascending: false }),
+      5000,
+    );
+    if (!response || (response as any).error) {
+      console.warn(
+        "Supabase deadline_milestones fetch error:",
+        (response as any)?.error,
+      );
+      return [];
+    }
+    return ((response as any).data ?? []).map(mapSupabaseMilestone);
+  } catch (err) {
+    console.warn("Supabase deadline_milestones fetch error:", err);
     return [];
   }
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   Users,
   IndianRupee,
@@ -12,8 +13,11 @@ import {
   BookOpen,
   Clock,
   Activity,
+  AlertCircle,
 } from "lucide-react";
-import { Country, University, Program } from "@/types";
+import { getAuthHeaders } from "@/lib/supabase/client";
+import { formatINRExact } from "@/lib/utils";
+import type { LeadStats } from "@/lib/leadStats";
 
 interface AdminOverviewTabProps {
   countriesCount: number;
@@ -32,6 +36,36 @@ export function AdminOverviewTab({
   onNavigateTab,
   claimsList,
 }: AdminOverviewTabProps) {
+  // null while loading or when it fails
+  const [leadStats, setLeadStats] = useState<LeadStats | null>(null);
+  const [statsFailed, setStatsFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/leads/stats", {
+          headers: await getAuthHeaders(),
+          cache: "no-store",
+        });
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.success) setLeadStats(data.stats);
+        else setStatsFailed(true);
+      } catch {
+        if (!cancelled) setStatsFailed(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const verifiedPct =
+    leadStats && leadStats.totalLeads > 0
+      ? Math.round((leadStats.phoneVerified / leadStats.totalLeads) * 100)
+      : 0;
+
   return (
     <div className="space-y-8 animate-in fade-in duration-200">
       {/* Top Operational Metrics */}
@@ -49,9 +83,13 @@ export function AdminOverviewTab({
             </div>
             <ArrowRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-[#102C57] transition-transform group-hover:translate-x-0.5" />
           </div>
-          <p className="mt-3 text-3xl font-black text-[#102C57]">3,420</p>
+          <p className="mt-3 text-3xl font-black text-[#102C57]">
+            {leadStats ? leadStats.totalLeads.toLocaleString("en-IN") : "—"}
+          </p>
           <span className="text-[11px] text-slate-500">
-            100% Indian SMS OTP verified
+            {leadStats
+              ? `${leadStats.phoneVerified.toLocaleString("en-IN")} phone verified (${verifiedPct}%)`
+              : "Loading…"}
           </span>
         </div>
 
@@ -63,16 +101,18 @@ export function AdminOverviewTab({
             <div className="flex items-center gap-2 text-slate-500">
               <IndianRupee className="h-4 w-4 text-emerald-600" />
               <span className="text-xs font-bold uppercase tracking-wider">
-                Wallet Revenue
+                Wallet Balance
               </span>
             </div>
             <ArrowRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-emerald-600 transition-transform group-hover:translate-x-0.5" />
           </div>
           <p className="mt-3 text-3xl font-black text-emerald-700">
-            ₹4.85 Lakhs
+            {leadStats ? formatINRExact(leadStats.walletBalanceINR) : "—"}
           </p>
           <span className="text-[11px] text-slate-500">
-            B2B Consultant prepaid balance
+            {leadStats
+              ? `Prepaid across ${leadStats.walletCount} B2B wallet${leadStats.walletCount === 1 ? "" : "s"}`
+              : "Loading…"}
           </span>
         </div>
 
@@ -221,45 +261,74 @@ export function AdminOverviewTab({
           </button>
         </div>
 
-        {/* Security & System Health */}
+        {/* Lead Engine Summary */}
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <Activity className="h-5 w-5 text-emerald-600" />
                 <h3 className="text-sm font-black text-[#102C57]">
-                  System Operations
+                  Lead Engine Summary
                 </h3>
               </div>
-              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800 flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3" /> Live
+              {/* Reflects whether the stats request reached the database */}
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-bold flex items-center gap-1 ${
+                  statsFailed
+                    ? "bg-rose-100 text-rose-700"
+                    : leadStats
+                      ? "bg-emerald-100 text-emerald-800"
+                      : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {statsFailed ? (
+                  <>
+                    <AlertCircle className="h-3 w-3" /> Database unreachable
+                  </>
+                ) : leadStats ? (
+                  <>
+                    <CheckCircle2 className="h-3 w-3" /> Database connected
+                  </>
+                ) : (
+                  "Checking…"
+                )}
               </span>
             </div>
             <div className="mt-4 space-y-3 text-xs">
-              <div className="flex items-center justify-between border-b border-slate-50 pb-2">
-                <span className="text-slate-500">Database Connection</span>
-                <span className="font-bold text-emerald-700">
-                  Supabase Connected
-                </span>
-              </div>
-              <div className="flex items-center justify-between border-b border-slate-50 pb-2">
-                <span className="text-slate-500">DPDP Compliance</span>
-                <span className="font-bold text-purple-700">
-                  100% Encrypted & Audited
-                </span>
-              </div>
-              <div className="flex items-center justify-between border-b border-slate-50 pb-2">
-                <span className="text-slate-500">OTP Gateway</span>
-                <span className="font-bold text-emerald-700">
-                  99.9% Delivery
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Lead Engine Distribution</span>
-                <span className="font-bold text-[#102C57]">
-                  Active (Instant B2B)
-                </span>
-              </div>
+              {[
+                {
+                  label: "Phone-verified leads",
+                  value: leadStats
+                    ? `${leadStats.phoneVerified.toLocaleString("en-IN")} of ${leadStats.totalLeads.toLocaleString("en-IN")}`
+                    : "—",
+                },
+                {
+                  label: "Deliveries to agencies",
+                  value: leadStats
+                    ? leadStats.deliveries.toLocaleString("en-IN")
+                    : "—",
+                },
+                {
+                  label: "Delivery revenue",
+                  value: leadStats
+                    ? formatINRExact(leadStats.deliveryRevenueINR)
+                    : "—",
+                },
+                {
+                  label: "Buyer wallets",
+                  value: leadStats
+                    ? leadStats.walletCount.toLocaleString("en-IN")
+                    : "—",
+                },
+              ].map((row, i, rows) => (
+                <div
+                  key={row.label}
+                  className={`flex items-center justify-between ${i < rows.length - 1 ? "border-b border-slate-50 pb-2" : ""}`}
+                >
+                  <span className="text-slate-500">{row.label}</span>
+                  <span className="font-bold text-[#102C57]">{row.value}</span>
+                </div>
+              ))}
             </div>
           </div>
           <button

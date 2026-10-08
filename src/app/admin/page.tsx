@@ -14,12 +14,12 @@ import {
   LogOut,
   Loader2,
   AlertOctagon,
-  CheckCircle2,
   LayoutDashboard,
   Zap,
   Sparkles,
   Library,
   SlidersHorizontal,
+  CalendarClock,
 } from "lucide-react";
 import { Country, University, Program } from "@/types";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -37,6 +37,7 @@ import { AdminClaimsTab } from "@/components/admin/AdminClaimsTab";
 import { AdminUniversitiesTab } from "@/components/admin/AdminUniversitiesTab";
 import { AdminCountriesTab } from "@/components/admin/AdminCountriesTab";
 import { AdminProgramsTab } from "@/components/admin/AdminProgramsTab";
+import { AdminDeadlinesTab } from "@/components/admin/AdminDeadlinesTab";
 import { AdminLeadsTab } from "@/components/admin/AdminLeadsTab";
 import { AdminAICounsellorKBTab } from "@/components/admin/AdminAICounsellorKBTab";
 import { AdminStudyDataTab } from "@/components/admin/AdminStudyDataTab";
@@ -48,6 +49,7 @@ type AdminTab =
   | "universities"
   | "countries"
   | "programs"
+  | "deadlines"
   | "leads"
   | "kb"
   | "study-data"
@@ -112,6 +114,7 @@ function AdminPortalContent() {
         "universities",
         "countries",
         "programs",
+        "deadlines",
         "leads",
         "kb",
         "study-data",
@@ -333,18 +336,22 @@ function AdminPortalContent() {
       badgeColor: "bg-slate-100 text-slate-700",
     },
     {
+      id: "deadlines" as AdminTab,
+      label: "Deadlines",
+      icon: CalendarClock,
+      badge: null,
+    },
+    {
       id: "leads" as AdminTab,
       label: "Lead Engine (LDE)",
       icon: Users,
-      badge: "3.4k",
-      badgeColor: "bg-emerald-100 text-emerald-800",
+      badge: null,
     },
     {
       id: "kb" as AdminTab,
       label: "AI Counsellor KB",
       icon: Sparkles,
-      badge: "Vector RAG",
-      badgeColor: "bg-indigo-600 text-white",
+      badge: null,
     },
     {
       id: "study-data" as AdminTab,
@@ -407,10 +414,6 @@ function AdminPortalContent() {
               authorization, and catalog infrastructure.
             </p>
           </div>
-          <span className="rounded-full bg-emerald-100 px-3.5 py-1 text-xs font-bold text-emerald-800 flex items-center gap-1.5 self-start sm:self-auto border border-emerald-200">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            System Healthy (99.98% Uptime)
-          </span>
         </div>
 
         {/* Navigation Tabs */}
@@ -495,7 +498,15 @@ function AdminPortalContent() {
             <AdminProgramsTab programsList={programsList} />
           )}
 
-          {activeTab === "leads" && <AdminLeadsTab />}
+          {activeTab === "deadlines" && (
+            <AdminDeadlinesTab
+              countriesList={countriesList}
+              universitiesList={universitiesList}
+              programsList={programsList}
+            />
+          )}
+
+          {activeTab === "leads" && <AdminLeadsTab programsList={programsList} />}
 
           {activeTab === "kb" && <AdminAICounsellorKBTab />}
 

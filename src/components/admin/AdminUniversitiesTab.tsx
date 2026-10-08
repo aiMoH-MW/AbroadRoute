@@ -56,20 +56,16 @@ export function AdminUniversitiesTab({
     });
   }, [universitiesList, selectedCountry, searchQuery]);
 
+  // Re-reads the list from the database
   const handleSyncUniversities = async () => {
+    if (!onRefreshUniversities) return;
     setIsSyncing(true);
     setSyncStatus(null);
     try {
-      const res = await fetch("/api/admin/sync-universities", {
-        method: "POST",
-      });
-      const data = await res.json();
-      setSyncStatus(
-        `Successfully synced ${data.count || universitiesList.length} universities!`,
-      );
-      if (onRefreshUniversities) await onRefreshUniversities();
+      await onRefreshUniversities();
+      setSyncStatus("Reloaded from the database.");
     } catch {
-      setSyncStatus("Sync completed.");
+      setSyncStatus("Reload failed. Try again.");
     } finally {
       setIsSyncing(false);
       setTimeout(() => setSyncStatus(null), 3000);
@@ -107,10 +103,10 @@ export function AdminUniversitiesTab({
               <RefreshCw
                 className={`h-3.5 w-3.5 text-[#EA5C2B] ${isSyncing ? "animate-spin" : ""}`}
               />
-              <span>{isSyncing ? "Syncing..." : "Sync Database"}</span>
+              <span>{isSyncing ? "Reloading..." : "Reload"}</span>
             </button>
             <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-[#102C57]">
-              {universitiesList.length} Universities Live
+              {universitiesList.length} Universities
             </span>
           </div>
         </div>
@@ -197,14 +193,15 @@ export function AdminUniversitiesTab({
                           <p className="text-[11px] text-slate-500">
                             {uni.city}, {uni.country}
                           </p>
-                          {uni.programsOffered?.length > 0 && (
+                          {/* Assigned programs (university_programs) */}
+                          {(uni.programs?.length ?? 0) > 0 && (
                             <div className="mt-1 flex flex-wrap gap-1">
-                              {uni.programsOffered.map((slug) => (
+                              {uni.programs!.map((p) => (
                                 <span
-                                  key={slug}
+                                  key={p.programId}
                                   className="rounded bg-indigo-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-[#102C57]"
                                 >
-                                  {slug}
+                                  {p.programId}
                                 </span>
                               ))}
                             </div>
@@ -213,30 +210,34 @@ export function AdminUniversitiesTab({
                       </div>
                     </td>
                     <td className="px-4 py-3.5">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 font-bold text-slate-700">
-                        <Award className="h-3 w-3 text-amber-500" />#
-                        {uni.rankingGlobal || "N/A"}
-                      </span>
+                      {uni.rankingGlobal ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 font-bold text-slate-700">
+                          <Award className="h-3 w-3 text-amber-500" />#
+                          {uni.rankingGlobal}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className="px-4 py-3.5">
                       <span className="font-semibold text-emerald-800">
-                        {uni.tuitionFeeRangeINR || "N/A"}
+                        {uni.tuitionFeeRangeINR || "—"}
                       </span>
                     </td>
                     <td className="px-4 py-3.5 font-semibold text-slate-700">
-                      {uni.ieltsMinScore ? `${uni.ieltsMinScore} Band` : "6.0"}
+                      {uni.ieltsMinScore ? `${uni.ieltsMinScore} Band` : "—"}
                     </td>
                     <td className="px-4 py-3.5 font-semibold text-slate-700">
-                      {uni.acceptanceRate
-                        ? `${uni.acceptanceRate}%`
-                        : "Competitive"}
+                      {uni.acceptanceRate ? `${uni.acceptanceRate}%` : "—"}
                     </td>
                     <td className="px-4 py-3.5">
-                      <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
-                        {uni.postStudyWorkMonths
-                          ? `${uni.postStudyWorkMonths} Mos`
-                          : "24 Mos"}
-                      </span>
+                      {uni.postStudyWorkMonths ? (
+                        <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                          {uni.postStudyWorkMonths} Mos
+                        </span>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-2">

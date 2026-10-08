@@ -10,7 +10,6 @@ import {
   IndianRupee,
   MapPin,
   Building2,
-  CheckCircle2,
   ShieldCheck,
 } from "lucide-react";
 import { Country, University } from "@/types";
@@ -70,15 +69,15 @@ export function AdminCountriesTab({
                   Global Destinations & Currency Engine
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Master list of all 19 study abroad destinations with live
-                  currency exchange to INR.
+                  Study abroad destinations with their currency exchange rate
+                  to INR.
                 </p>
               </div>
             </div>
           </div>
 
           <span className="rounded-full bg-emerald-50 px-3.5 py-1 text-xs font-bold text-emerald-800 self-start sm:self-auto">
-            {countriesList.length} Active Destinations
+            {countriesList.length} Destinations
           </span>
         </div>
 
@@ -154,9 +153,11 @@ export function AdminCountriesTab({
                       <h3 className="font-extrabold text-[#102C57] text-sm">
                         {c.name}
                       </h3>
-                      <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                        {c.tier || "Global Destination"}
-                      </span>
+                      {c.tier && (
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                          {c.tier}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <Link
@@ -183,12 +184,12 @@ export function AdminCountriesTab({
                   <div className="flex items-center justify-between px-1">
                     <span className="text-slate-500">Post-Study Visa</span>
                     <span className="font-semibold text-slate-800">
-                      {c.postStudyWorkVisa || "Available"}
+                      {c.postStudyWorkVisa || "—"}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between px-1">
-                    <span className="text-slate-500">Live Universities</span>
+                    <span className="text-slate-500">Universities</span>
                     <span className="font-bold text-indigo-700">
                       {uniCount} Institutions
                     </span>
@@ -196,10 +197,7 @@ export function AdminCountriesTab({
                 </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3" /> Visa Path Active
-                </span>
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-end text-[11px]">
                 <Link
                   href={`/countries/${c.slug}`}
                   className="font-bold text-[#EA5C2B] hover:underline"

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { X, Save, Building2, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Program, ProgramCategory, University, UniversityProgram } from "@/types";
-import { supabase, getAuthHeaders } from "@/lib/supabase/client";
+import { getAuthHeaders } from "@/lib/supabase/client";
 import { fetchLivePrograms } from "@/lib/supabase/dataFetchers";
 
 const UUID_PATTERN =
@@ -131,28 +131,30 @@ function EditUniversityForm({
     setErrorMessage("");
 
     try {
-      // 1. Attempt Supabase Table Update
-      const { error } = await supabase
-        .from("universities")
-        .upsert(
-          {
-            id: formData.id || formData.slug,
-            name: formData.name,
-            slug: formData.slug,
-            city: formData.city,
-            country_id: (formData.countrySlug || formData.country || "global").toLowerCase(),
-            ranking_global: Number(formData.rankingGlobal) || 100,
-            tuition_fee_range_inr: formData.tuitionFeeRangeINR,
-            ielts_min_score: Number(formData.ieltsMinScore) || 6.5,
-            acceptance_rate: Number(formData.acceptanceRate) || 30,
-            post_study_work_months: Number(formData.postStudyWorkMonths) || 24,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "slug" }
-        );
-
-      if (error) {
-        console.warn("Supabase update error fallback:", error.message);
+      // 1. University fields, via the admin API. Empty fields are left
+      // unchanged; nothing is filled in.
+      const res = await fetch("/api/universities", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(await getAuthHeaders()),
+        },
+        body: JSON.stringify({
+          slug: formData.slug,
+          name: formData.name,
+          city: formData.city,
+          country: formData.country,
+          ranking_global: formData.rankingGlobal,
+          tuition_fee_range_inr: formData.tuitionFeeRangeINR,
+          ielts_min_score: formData.ieltsMinScore,
+          acceptance_rate: formData.acceptanceRate,
+          post_study_work_months: formData.postStudyWorkMonths,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        setErrorMessage(json.error || "Failed to save university");
+        return;
       }
 
       // 2. Program assignments (surface errors and keep the modal open)
@@ -171,22 +173,15 @@ function EditUniversityForm({
         }
       }
 
-      // 3. Local State Update (Instant reactivity)
       onSave(updated);
-      setSuccessMessage("University updated live successfully!");
+      setSuccessMessage("University saved to the database.");
 
       setTimeout(() => {
         onClose();
         setSuccessMessage("");
       }, 1000);
     } catch (err: any) {
-      console.warn("Save failed, performing fallback update:", err);
-      onSave(formData);
-      setSuccessMessage("Updated locally and live in session!");
-      setTimeout(() => {
-        onClose();
-        setSuccessMessage("");
-      }, 1000);
+      setErrorMessage(err?.message || "Failed to save university");
     } finally {
       setSaving(false);
     }
@@ -203,7 +198,7 @@ function EditUniversityForm({
             </div>
             <div>
               <h2 className="text-base font-black text-[#102C57]">Edit University Details</h2>
-              <p className="text-[11px] text-slate-500">Live updates apply across all public search pages instantly.</p>
+              <p className="text-[11px] text-slate-500">Changes are saved to the database. Empty fields are left unchanged.</p>
             </div>
           </div>
           <button
@@ -270,9 +265,13 @@ function EditUniversityForm({
               <label className="block font-bold text-slate-700 mb-1">QS Global Rank</label>
               <input
                 type="number"
-                required
-                value={formData.rankingGlobal}
-                onChange={(e) => handleChange("rankingGlobal", Number(e.target.value))}
+                value={formData.rankingGlobal || ""}
+                onChange={(e) =>
+                  handleChange(
+                    "rankingGlobal",
+                    e.target.value === "" ? undefined : Number(e.target.value),
+                  )
+                }
                 className="w-full rounded-xl border border-slate-200 py-2 px-3 text-slate-900 font-medium focus:border-[#102C57] focus:outline-none"
               />
             </div>
@@ -281,8 +280,7 @@ function EditUniversityForm({
               <label className="block font-bold text-slate-700 mb-1">Tuition Fee Range (INR)</label>
               <input
                 type="text"
-                required
-                value={formData.tuitionFeeRangeINR}
+                value={formData.tuitionFeeRangeINR || ""}
                 onChange={(e) => handleChange("tuitionFeeRangeINR", e.target.value)}
                 placeholder="e.g. ₹15 - 30 Lakhs / yr"
                 className="w-full rounded-xl border border-slate-200 py-2 px-3 text-slate-900 font-medium focus:border-[#102C57] focus:outline-none"
@@ -296,9 +294,13 @@ function EditUniversityForm({
               <input
                 type="number"
                 step="0.5"
-                required
-                value={formData.ieltsMinScore || 6.5}
-                onChange={(e) => handleChange("ieltsMinScore", parseFloat(e.target.value))}
+                value={formData.ieltsMinScore || ""}
+                onChange={(e) =>
+                  handleChange(
+                    "ieltsMinScore",
+                    e.target.value === "" ? undefined : parseFloat(e.target.value),
+                  )
+                }
                 className="w-full rounded-xl border border-slate-200 py-2 px-3 text-slate-900 font-medium focus:border-[#102C57] focus:outline-none"
               />
             </div>
@@ -307,9 +309,13 @@ function EditUniversityForm({
               <label className="block font-bold text-slate-700 mb-1">Acceptance Rate %</label>
               <input
                 type="number"
-                required
-                value={formData.acceptanceRate || 30}
-                onChange={(e) => handleChange("acceptanceRate", Number(e.target.value))}
+                value={formData.acceptanceRate || ""}
+                onChange={(e) =>
+                  handleChange(
+                    "acceptanceRate",
+                    e.target.value === "" ? undefined : Number(e.target.value),
+                  )
+                }
                 className="w-full rounded-xl border border-slate-200 py-2 px-3 text-slate-900 font-medium focus:border-[#102C57] focus:outline-none"
               />
             </div>
@@ -318,9 +324,13 @@ function EditUniversityForm({
               <label className="block font-bold text-slate-700 mb-1">Work Visa (Months)</label>
               <input
                 type="number"
-                required
-                value={formData.postStudyWorkMonths || 24}
-                onChange={(e) => handleChange("postStudyWorkMonths", Number(e.target.value))}
+                value={formData.postStudyWorkMonths || ""}
+                onChange={(e) =>
+                  handleChange(
+                    "postStudyWorkMonths",
+                    e.target.value === "" ? undefined : Number(e.target.value),
+                  )
+                }
                 className="w-full rounded-xl border border-slate-200 py-2 px-3 text-slate-900 font-medium focus:border-[#102C57] focus:outline-none"
               />
             </div>
@@ -411,12 +421,12 @@ function EditUniversityForm({
               {saving ? (
                 <>
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-[#EA5C2B]" />
-                  <span>Saving Live...</span>
+                  <span>Saving...</span>
                 </>
               ) : (
                 <>
                   <Save className="h-3.5 w-3.5 text-[#EA5C2B]" />
-                  <span>Save & Update Live</span>
+                  <span>Save</span>
                 </>
               )}
             </button>

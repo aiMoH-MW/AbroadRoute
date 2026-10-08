@@ -43,10 +43,21 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Which entries actually have an embedding (without loading the vectors)
+    const { data: embedded } = await supabaseAdmin
+      .from("ai_counsellor_kb")
+      .select("id")
+      .not("embedding", "is", null);
+    const embeddedIds = new Set((embedded || []).map((r: any) => String(r.id)));
+    const items = (data || []).map((item: any) => ({
+      ...item,
+      hasEmbedding: embeddedIds.has(String(item.id)),
+    }));
+
     return NextResponse.json({
       success: true,
-      items: data || [],
-      count: data?.length || 0,
+      items,
+      count: items.length,
     });
   } catch (err: unknown) {
     console.error("KB GET error:", err);

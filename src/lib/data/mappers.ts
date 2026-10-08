@@ -3,6 +3,8 @@ import {
   University,
   ProgramCategory,
   UniversityProgram,
+  ApplicationDeadline,
+  DeadlineMilestone,
 } from "@/types";
 
 // ============================================================
@@ -147,5 +149,48 @@ export function mapSanityUniversity(su: any): University | null {
     acceptanceRate: su.acceptanceRate || 30,
     postStudyWorkMonths: su.postStudyWorkMonths || 24,
     featured: su.featured ?? true,
+  };
+}
+
+// Columns for an `application_deadlines` query, with the linked names
+export const DEADLINE_SELECT =
+  "*, countries(name), universities(name), programs(name)";
+
+export function mapSupabaseDeadline(d: any): ApplicationDeadline {
+  return {
+    id: d.id,
+    countryId: d.country_id,
+    countryName: d.countries?.name ?? null,
+    universityId: d.university_id ?? null,
+    universityName: d.universities?.name ?? null,
+    programId: d.program_id ?? null,
+    programName: d.programs?.name ?? null,
+    intakeTerm: d.intake_term,
+    intakeYear: Number(d.intake_year),
+    intakeStartDate: d.intake_start_date ?? null,
+    deadlineType: d.deadline_type,
+    roundName: d.round_name ?? null,
+    applicationsOpenDate: d.applications_open_date ?? null,
+    deadlineDate: d.deadline_date,
+    isRolling: !!d.is_rolling,
+    sourceUrl: d.source_url ?? null,
+    notes: d.notes ?? null,
+    isActive: d.is_active !== false,
+  };
+}
+
+export const MILESTONE_SELECT = "*, countries(name)";
+
+export function mapSupabaseMilestone(m: any): DeadlineMilestone {
+  return {
+    id: m.id,
+    countryId: m.country_id ?? null,
+    countryName: m.countries?.name ?? null,
+    deadlineType: m.deadline_type ?? null,
+    daysBefore: Number(m.days_before),
+    title: m.title,
+    description: m.description ?? null,
+    actionLabel: m.action_label ?? null,
+    isActive: m.is_active !== false,
   };
 }

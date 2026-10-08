@@ -179,16 +179,18 @@ export function AdminClaimsTab({
             >
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <CountryFlag
-                    code={claim.countryCode || claim.countryId}
-                    name={claim.countryName}
-                    size="sm"
-                  />
+                  {claim.countryCode && (
+                    <CountryFlag
+                      code={claim.countryCode}
+                      name={claim.countryName}
+                      size="sm"
+                    />
+                  )}
                   <h3 className="text-sm font-black text-[#102C57]">
                     {claim.universityName}
                   </h3>
                   <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-600">
-                    {claim.countryName || claim.countryId || "Global"}
+                    {claim.countryName || claim.countryId || "Country not set"}
                   </span>
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
@@ -209,9 +211,11 @@ export function AdminClaimsTab({
                     <strong className="text-slate-900">
                       {claim.applicantName}
                     </strong>
-                    <span className="text-slate-500">
-                      ({claim.designation || "Authorized Official"})
-                    </span>
+                    {claim.designation && (
+                      <span className="text-slate-500">
+                        ({claim.designation})
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Mail className="h-3.5 w-3.5 text-indigo-600" />

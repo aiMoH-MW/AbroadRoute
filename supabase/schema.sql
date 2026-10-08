@@ -146,6 +146,49 @@ CREATE TABLE IF NOT EXISTS university_programs (
 CREATE INDEX IF NOT EXISTS idx_university_programs_university_id ON university_programs(university_id);
 CREATE INDEX IF NOT EXISTS idx_university_programs_program_id ON university_programs(program_id);
 
+-- Application deadlines for the Deadline Tracker
+-- (university_id NULL = whole country, program_id NULL = every program)
+CREATE TABLE IF NOT EXISTS application_deadlines (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    country_id VARCHAR(32) NOT NULL REFERENCES countries(id) ON DELETE CASCADE,
+    university_id UUID REFERENCES universities(id) ON DELETE CASCADE,
+    program_id VARCHAR(32) REFERENCES programs(id) ON DELETE CASCADE,
+    intake_term VARCHAR(32) NOT NULL, -- e.g. 'Fall', 'Winter'
+    intake_year SMALLINT NOT NULL,
+    intake_start_date DATE,
+    deadline_type VARCHAR(16) NOT NULL DEFAULT 'application', -- 'application' | 'scholarship' | 'documents' | 'deposit' | 'visa'
+    round_name VARCHAR(64), -- e.g. 'Round 1', 'Priority'
+    applications_open_date DATE,
+    deadline_date DATE NOT NULL,
+    is_rolling BOOLEAN NOT NULL DEFAULT FALSE,
+    source_url TEXT,
+    notes TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_application_deadlines_country_id ON application_deadlines(country_id);
+CREATE INDEX IF NOT EXISTS idx_application_deadlines_university_id ON application_deadlines(university_id);
+CREATE INDEX IF NOT EXISTS idx_application_deadlines_deadline_date ON application_deadlines(deadline_date);
+
+-- Countdown milestones under a deadline (date = deadline - days_before;
+-- country_id / deadline_type NULL = all; most specific matching set is used)
+CREATE TABLE IF NOT EXISTS deadline_milestones (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    country_id VARCHAR(32) REFERENCES countries(id) ON DELETE CASCADE,
+    deadline_type VARCHAR(16), -- 'application' | 'scholarship' | 'documents' | 'deposit' | 'visa'
+    days_before SMALLINT NOT NULL,
+    title VARCHAR(128) NOT NULL,
+    description TEXT,
+    action_label VARCHAR(64),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_deadline_milestones_country_id ON deadline_milestones(country_id);
+
 CREATE TABLE IF NOT EXISTS university_claims (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     university_id TEXT NOT NULL,

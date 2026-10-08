@@ -5,7 +5,6 @@ import {
   BookOpen,
   Search,
   TrendingUp,
-  CheckCircle2,
   Globe,
   Sparkles,
 } from "lucide-react";
@@ -62,7 +61,7 @@ export function AdminProgramsTab({ programsList }: AdminProgramsTabProps) {
           </div>
 
           <span className="rounded-full bg-purple-50 px-3.5 py-1 text-xs font-bold text-purple-800 self-start sm:self-auto">
-            {programsList.length} Active Stream Disciplines
+            {programsList.length} Programs
           </span>
         </div>
 
@@ -124,9 +123,11 @@ export function AdminProgramsTab({ programsList }: AdminProgramsTabProps) {
             <div>
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                    {p.level || "Degree"}
-                  </span>
+                  {p.level && (
+                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                      {p.level}
+                    </span>
+                  )}
                   <h3 className="mt-2 font-black text-[#102C57] text-sm leading-snug">
                     {p.name}
                   </h3>
@@ -147,7 +148,7 @@ export function AdminProgramsTab({ programsList }: AdminProgramsTabProps) {
                     Standard Duration
                   </span>
                   <span className="font-bold text-slate-800">
-                    {p.duration || "1 - 2 Years"}
+                    {p.duration || "—"}
                   </span>
                 </div>
 
@@ -185,11 +186,8 @@ export function AdminProgramsTab({ programsList }: AdminProgramsTabProps) {
               </div>
             </div>
 
-            <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+            <div className="mt-5 pt-3 border-t border-slate-100 text-[11px]">
               <span className="text-slate-500 font-medium">Slug: {p.slug}</span>
-              <span className="text-emerald-700 font-bold flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3" /> Live in Search
-              </span>
             </div>
           </div>
         ))}

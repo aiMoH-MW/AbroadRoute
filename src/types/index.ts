@@ -116,6 +116,48 @@ export interface UniversityProgram {
   duration: string | null; // null = use the program's default
 }
 
+export type DeadlineType =
+  | "application"
+  | "scholarship"
+  | "documents"
+  | "deposit"
+  | "visa";
+
+/** A row of `application_deadlines`, with the linked names joined in. */
+export interface ApplicationDeadline {
+  id: string;
+  countryId: string;
+  countryName: string | null;
+  universityId: string | null; // null = every university in the country
+  universityName: string | null;
+  programId: string | null; // null = every program
+  programName: string | null;
+  intakeTerm: string; // e.g. "Fall"
+  intakeYear: number;
+  intakeStartDate: string | null; // YYYY-MM-DD
+  deadlineType: DeadlineType;
+  roundName: string | null;
+  applicationsOpenDate: string | null; // YYYY-MM-DD
+  deadlineDate: string; // YYYY-MM-DD
+  isRolling: boolean;
+  sourceUrl: string | null;
+  notes: string | null;
+  isActive: boolean;
+}
+
+/** A row of `deadline_milestones`: a countdown step before a deadline. */
+export interface DeadlineMilestone {
+  id: string;
+  countryId: string | null; // null = every country
+  countryName: string | null;
+  deadlineType: DeadlineType | null; // null = every deadline type
+  daysBefore: number;
+  title: string;
+  description: string | null;
+  actionLabel: string | null;
+  isActive: boolean;
+}
+
 export interface LeadSubmission {
   fullName: string;
   email: string;

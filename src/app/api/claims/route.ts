@@ -5,6 +5,9 @@ import { getRequestUser, isAdminUser } from "@/lib/supabase/requestAuth";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function GET(request: Request) {
   try {
     const user = await getRequestUser(request);
@@ -35,54 +38,62 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
+    // Country of each claim: its own country_id, else the claimed
+    // university's (university_id holds either the university's id or slug).
+    // Null when neither is known.
+    const universityKeys = [
+      ...new Set(
+        (data || [])
+          .filter((c: any) => !c.country_id && c.university_id)
+          .map((c: any) => String(c.university_id)),
+      ),
+    ];
+    const uuidKeys = universityKeys.filter((k) => UUID_RE.test(k));
+    const [countriesRes, byIdRes, bySlugRes] = await Promise.all([
+      supabaseAdmin.from("countries").select("id, name, code"),
+      uuidKeys.length
+        ? supabaseAdmin
+            .from("universities")
+            .select("id, slug, country_id")
+            .in("id", uuidKeys)
+        : Promise.resolve({ data: [] as any[] }),
+      universityKeys.length
+        ? supabaseAdmin
+            .from("universities")
+            .select("id, slug, country_id")
+            .in("slug", universityKeys)
+        : Promise.resolve({ data: [] as any[] }),
+    ]);
+    const countries = new Map(
+      (countriesRes.data || []).map((c: any) => [c.id, c]),
+    );
+    const universityCountry = new Map<string, string>();
+    for (const u of [...(byIdRes.data || []), ...(bySlugRes.data || [])]) {
+      if (!u.country_id) continue;
+      universityCountry.set(u.id, u.country_id);
+      universityCountry.set(u.slug, u.country_id);
+    }
+
     const claims = (data || []).map((c: any) => {
-      const rawCountry = c.country_id || "global";
-      const uniIdLower = (c.university_id || c.university_name || "").toLowerCase();
-
-      let countryId = rawCountry;
-      if (countryId === "global") {
-        if (uniIdLower.includes("melbourne") || uniIdLower.includes("unimelb") || uniIdLower.includes("sydney") || uniIdLower.includes("monash")) {
-          countryId = "australia";
-        } else if (uniIdLower.includes("toronto") || uniIdLower.includes("utoronto") || uniIdLower.includes("mcgill") || uniIdLower.includes("ubc")) {
-          countryId = "canada";
-        } else if (uniIdLower.includes("oxford") || uniIdLower.includes("cambridge") || uniIdLower.includes("imperial") || uniIdLower.includes("lse")) {
-          countryId = "uk";
-        } else if (uniIdLower.includes("stanford") || uniIdLower.includes("harvard") || uniIdLower.includes("mit") || uniIdLower.includes("columbia")) {
-          countryId = "usa";
-        } else if (uniIdLower.includes("tum") || uniIdLower.includes("munich") || uniIdLower.includes("heidelberg") || uniIdLower.includes("berlin")) {
-          countryId = "germany";
-        }
-      }
-
-      const countryCodeMap: Record<string, string> = {
-        australia: "AU",
-        canada: "CA",
-        uk: "GB",
-        usa: "US",
-        germany: "DE",
-        ireland: "IE",
-        singapore: "SG",
-        france: "FR",
-        italy: "IT",
-        russia: "RU",
-      };
-
-      const countryCode = countryCodeMap[countryId.toLowerCase()] || "UN";
-      const formattedCountryName = countryId === "usa" ? "United States" : countryId === "uk" ? "United Kingdom" : countryId.charAt(0).toUpperCase() + countryId.slice(1);
+      const countryId =
+        c.country_id || universityCountry.get(c.university_id) || null;
+      const country = countryId ? countries.get(countryId) : undefined;
 
       return {
         id: c.id,
         universityId: c.university_id,
         universityName: c.university_name,
         countryId,
-        countryCode,
-        countryName: formattedCountryName,
+        countryCode: country?.code ?? null,
+        countryName: country?.name ?? null,
         applicantName: c.applicant_name,
         officialEmail: c.official_email,
-        designation: c.designation || "Admissions Representative",
+        designation: c.designation || null,
         proofDocumentUrl: c.proof_document_url,
         status: c.verification_status || "pending",
-        createdAt: new Date(c.created_at || Date.now()).toLocaleDateString(),
+        createdAt: c.created_at
+          ? new Date(c.created_at).toLocaleDateString()
+          : null,
         userId: c.user_id,
       };
     });
