@@ -281,9 +281,8 @@ export default function Home() {
                     Cost Calculator
                   </h3>
                   <p className="mt-2 text-xs text-slate-500 leading-relaxed">
-                    Estimate tuition fees, monthly living costs, blocked
-                    accounts, and part-time earnings offsets across 19 countries
-                    in ₹ Lakhs.
+                    Estimate tuition fees and living costs by university,
+                    program and city in ₹ Lakhs.
                   </p>
                 </div>
                 <Link

@@ -1,6 +1,7 @@
 import { supabase, getAuthHeaders } from "./client";
 import { supabaseAdmin } from "./server";
 import {
+  City,
   Country,
   University,
   CourseItem,
@@ -18,6 +19,7 @@ import {
   getSanityUniversities,
   getSanityCountries,
 } from "@/lib/sanity/fetchers";
+import { withLiveExchangeRates } from "@/lib/exchangeRates";
 
 async function queryWithTimeout<T>(
   promiseFactory: () => PromiseLike<T>,
@@ -107,7 +109,8 @@ export async function fetchLiveCountries(): Promise<Country[]> {
     console.warn("Sanity countries fetch error:", err);
   }
 
-  return list;
+  // 3. Live exchange rates; the stored rate stays as the fallback
+  return withLiveExchangeRates(list);
 }
 
 export async function fetchLiveUniversities(): Promise<University[]> {
@@ -135,10 +138,22 @@ export async function fetchLiveUniversities(): Promise<University[]> {
   // Server-side: Direct Supabase query using supabaseAdmin
   try {
     const client = typeof window === "undefined" ? supabaseAdmin : supabase;
-    const response = await queryWithTimeout(
-      () => client.from("universities").select("*"),
+    let response = await queryWithTimeout(
+      () =>
+        client
+          .from("universities")
+          .select(
+            "*, university_programs(program_id, yearly_tuition_inr, duration, is_active)",
+          ),
       2500,
     );
+    // Before the university_programs migration is applied the embed fails
+    if (response && (response as any).error) {
+      response = await queryWithTimeout(
+        () => client.from("universities").select("*"),
+        2500,
+      );
+    }
     if (
       response &&
       !(response as any).error &&
@@ -166,6 +181,12 @@ export async function fetchLiveUniversities(): Promise<University[]> {
       sanityUnis.forEach((su: any) => {
         const mapped = mapSanityUniversity(su);
         if (mapped) {
+          // Program assignments live in Supabase; keep them over Sanity's defaults
+          const existing = uniMap.get(mapped.slug);
+          if (existing?.programs?.length) {
+            mapped.programs = existing.programs;
+            mapped.programsOffered = existing.programsOffered;
+          }
           uniMap.set(mapped.slug, mapped);
         }
       });
@@ -222,6 +243,7 @@ export async function fetchLivePrograms(): Promise<Program[]> {
           : [],
         summary: p.summary || "",
         roiScore: Number(p.roi_score) || 90,
+        yearlyEducationalCost: toNumberOrNull(p.yearly_educational_cost),
       }));
     }
   } catch (err) {
@@ -559,7 +581,10 @@ export async function fetchLiveSpecialisations(): Promise<Specialisation[]> {
       return [];
     }
     if ((response as any).error) {
-      console.warn("Supabase specialisations fetch error:", (response as any).error);
+      console.warn(
+        "Supabase specialisations fetch error:",
+        (response as any).error,
+      );
       return [];
     }
 
@@ -567,7 +592,8 @@ export async function fetchLiveSpecialisations(): Promise<Specialisation[]> {
       .slice()
       .sort(
         (a: any, b: any) =>
-          (a.display_order ?? Number.MAX_SAFE_INTEGER) - (b.display_order ?? Number.MAX_SAFE_INTEGER) ||
+          (a.display_order ?? Number.MAX_SAFE_INTEGER) -
+            (b.display_order ?? Number.MAX_SAFE_INTEGER) ||
           String(a.program_slug).localeCompare(String(b.program_slug)),
       )
       .map((s: any) => ({
@@ -609,9 +635,9 @@ export async function getSpecialisationsByProgramSlug(
   );
 }
 
-
 const byDisplayOrder = (a: any, b: any) =>
-  (a.display_order ?? Number.MAX_SAFE_INTEGER) - (b.display_order ?? Number.MAX_SAFE_INTEGER);
+  (a.display_order ?? Number.MAX_SAFE_INTEGER) -
+  (b.display_order ?? Number.MAX_SAFE_INTEGER);
 
 function mapTestPrepExam(e: any): TestPrepExam {
   return {
@@ -623,7 +649,9 @@ function mapTestPrepExam(e: any): TestPrepExam {
     category: e.category,
     heroTagline: e.hero_tagline || "",
     targetPrograms: Array.isArray(e.target_programs) ? e.target_programs : [],
-    targetCountries: Array.isArray(e.target_countries) ? e.target_countries : [],
+    targetCountries: Array.isArray(e.target_countries)
+      ? e.target_countries
+      : [],
     overview: e.overview || "",
     feeINR: e.fee_inr || "",
     feeOriginal: e.fee_original || "",
@@ -645,7 +673,9 @@ function mapTestPrepExam(e: any): TestPrepExam {
         skillsTested: s.skills_tested || "",
         tips: s.tips || "",
       })),
-    scoreRequirementsByCountry: Array.isArray(e.score_requirements) ? e.score_requirements : [],
+    scoreRequirementsByCountry: Array.isArray(e.score_requirements)
+      ? e.score_requirements
+      : [],
     prepRoadmap: Array.isArray(e.prep_roadmap) ? e.prep_roadmap : [],
     faqs: Array.isArray(e.faqs) ? e.faqs : [],
   };
@@ -671,18 +701,66 @@ export async function fetchTestPrepExams(): Promise<TestPrepExam[]> {
       return [];
     }
     if ((response as any).error) {
-      console.warn("Supabase test_prep_exams fetch error:", (response as any).error);
+      console.warn(
+        "Supabase test_prep_exams fetch error:",
+        (response as any).error,
+      );
       return [];
     }
-    return ((response as any).data ?? []).slice().sort(byDisplayOrder).map(mapTestPrepExam);
+    return ((response as any).data ?? [])
+      .slice()
+      .sort(byDisplayOrder)
+      .map(mapTestPrepExam);
   } catch (err) {
     console.warn("Supabase test_prep_exams fetch error:", err);
     return [];
   }
 }
 
-export async function getTestPrepExamBySlug(slug: string): Promise<TestPrepExam | null> {
+export async function getTestPrepExamBySlug(
+  slug: string,
+): Promise<TestPrepExam | null> {
   const normalized = slug.toLowerCase().trim();
   const exams = await fetchTestPrepExams();
   return exams.find((e) => e.slug.toLowerCase() === normalized) ?? null;
+}
+
+function toNumberOrNull(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Active cities from the Supabase `cities` table, sorted by name.
+ * Returns [] if the database is unavailable.
+ */
+export async function fetchLiveCities(): Promise<City[]> {
+  try {
+    const client = typeof window === "undefined" ? supabaseAdmin : supabase;
+    const response = await queryWithTimeout(
+      () => client.from("cities").select("*").eq("is_active", true),
+      5000,
+    );
+    if (!response || (response as any).error) {
+      console.warn("Supabase cities fetch error:", (response as any)?.error);
+      return [];
+    }
+    return ((response as any).data ?? [])
+      .map((c: any): City => ({
+        id: c.id,
+        countryId: c.country_id,
+        name: c.name,
+        stateRegion: c.state_region ?? null,
+        accommodationMonthly: toNumberOrNull(c.monthly_accommodation_cost),
+        foodMonthly: toNumberOrNull(c.monthly_food_groceries_cost),
+        transportMonthly: toNumberOrNull(c.monthly_public_transport_cost),
+        miscMonthly: toNumberOrNull(c.miscellaneous),
+        costBufferPercentage: toNumberOrNull(c.cost_buffer_percentage),
+      }))
+      .sort((a: City, b: City) => a.name.localeCompare(b.name));
+  } catch (err) {
+    console.warn("Supabase cities fetch error:", err);
+    return [];
+  }
 }

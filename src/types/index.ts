@@ -32,6 +32,8 @@ export interface Country {
   heroTagline: string;
   overview: string;
   safetyRating: number; // out of 5
+  // Set when exchangeRateToINR is a live rate (ISO time); absent = stored rate
+  exchangeRateUpdatedAt?: string;
 }
 
 export interface Program {
@@ -45,6 +47,7 @@ export interface Program {
   topDestinations: string[];
   summary: string;
   roiScore: number; // out of 100
+  yearlyEducationalCost?: number | null; // INR per year; null when not set
 }
 
 export interface Specialisation {
@@ -60,6 +63,20 @@ export interface Specialisation {
   licensingPathways: string[];
   contentInvestmentShare: string;
   isYearOneAnchor: boolean;
+}
+
+export interface City {
+  id: string; // slug-style id, e.g. "melbourne"
+  countryId: string;
+  name: string;
+  stateRegion: string | null;
+  // Typical monthly student costs in INR; null when not set for this city.
+  accommodationMonthly: number | null;
+  foodMonthly: number | null;
+  transportMonthly: number | null;
+  miscMonthly: number | null;
+  // Extra % on top of living costs for emergencies; null when not set.
+  costBufferPercentage: number | null;
 }
 
 export interface University {
@@ -88,6 +105,15 @@ export interface University {
   official_email_domain?: string;
   official_email_address?: string;
   tierBadge?: "Platinum Partner" | "Gold Partner" | "Silver Partner";
+  // Programs assigned in `university_programs`; empty when none assigned yet
+  programs?: UniversityProgram[];
+}
+
+/** A program offered by a university (row of `university_programs`). */
+export interface UniversityProgram {
+  programId: string; // programs.id, same as the program slug
+  yearlyTuitionINR: number | null; // null = use the program's default
+  duration: string | null; // null = use the program's default
 }
 
 export interface LeadSubmission {

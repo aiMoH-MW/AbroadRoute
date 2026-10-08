@@ -1,4 +1,9 @@
-import { Country, University, ProgramCategory } from "@/types";
+import {
+  Country,
+  University,
+  ProgramCategory,
+  UniversityProgram,
+} from "@/types";
 
 // ============================================================
 // Row mappers — shared by the fallback-tolerant fetchers in
@@ -75,8 +80,24 @@ export function mapSanityCountry(sc: any): Country | null {
   };
 }
 
+// Active `university_programs` rows embedded in a universities query.
+function mapUniversityPrograms(rows: any): UniversityProgram[] {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .filter((r) => r && r.program_id && r.is_active !== false)
+    .map((r) => ({
+      programId: String(r.program_id),
+      yearlyTuitionINR:
+        r.yearly_tuition_inr === null || r.yearly_tuition_inr === undefined
+          ? null
+          : Number(r.yearly_tuition_inr),
+      duration: r.duration || null,
+    }));
+}
+
 export function mapSupabaseUniversity(u: any): University | null {
   if (!u.slug) return null;
+  const programs = mapUniversityPrograms(u.university_programs);
 
   return {
     id: u.id || u.slug,
@@ -87,10 +108,12 @@ export function mapSupabaseUniversity(u: any): University | null {
     city: u.city,
     rankingGlobal: u.ranking_global || 100,
     rankingNational: u.ranking_national || 10,
-    programsOffered: safeArray<ProgramCategory>(u.programs_offered, [
-      "ms",
-      "mba",
-    ]),
+    // Assigned programs win; the legacy array covers universities not yet assigned
+    programsOffered:
+      programs.length > 0
+        ? (programs.map((p) => p.programId) as ProgramCategory[])
+        : safeArray<ProgramCategory>(u.programs_offered, ["ms", "mba"]),
+    programs,
     tuitionFeeRangeINR: u.tuition_fee_range_inr || "₹15 - 30 Lakhs / yr",
     ieltsMinScore: Number(u.ielts_min_score) || 6.5,
     greGmatRequired: u.gre_gmat_required || false,

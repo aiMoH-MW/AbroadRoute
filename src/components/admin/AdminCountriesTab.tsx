@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { formatINRRate } from "@/lib/exchangeRates";
 import Link from "next/link";
 import {
   Globe2,
@@ -174,7 +175,8 @@ export function AdminCountriesTab({
                       Currency Base
                     </span>
                     <span className="font-black text-[#102C57]">
-                      1 {c.currency} ≈ ₹{c.exchangeRateToINR}
+                      1 {c.currency} ≈ ₹{formatINRRate(c.exchangeRateToINR)}
+                      {c.exchangeRateUpdatedAt ? " (live)" : " (stored)"}
                     </span>
                   </div>
 

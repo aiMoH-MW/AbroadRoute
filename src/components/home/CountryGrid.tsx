@@ -8,6 +8,8 @@ import { CountryCardsSkeleton } from "./HomeSkeletons";
 import { SectionError } from "@/components/ui/SectionError";
 import { SectionEmpty } from "@/components/ui/SectionEmpty";
 import { fetchCountriesFromBackend } from "@/lib/data/liveContent";
+import { formatINRRate } from "@/lib/exchangeRates";
+import { ExchangeRateCredit } from "@/components/ui/ExchangeRateCredit";
 
 const ANCHOR_SIX_SLUGS = [
   "usa",
@@ -49,106 +51,116 @@ async function CountryCards() {
     );
   }
 
+  const ratesUpdatedAt = countries.find(
+    (c) => c.exchangeRateUpdatedAt,
+  )?.exchangeRateUpdatedAt;
+
   return (
-    <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {countries.map((country) => {
-        const isAnchor = ANCHOR_SIX_SLUGS.includes(country.slug);
-        return (
-          <div
-            key={country.id}
-            id={`country-${country.slug}`}
-            data-country-tier={country.tier}
-            data-is-anchor={isAnchor ? "true" : "false"}
-            style={isAnchor ? undefined : { display: "none" }}
-            className="group relative flex flex-col justify-between rounded-2xl border border-[#D9CFB8]/60 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-[#1D5A6C]/40 hover:shadow-xl"
-          >
-            <div>
-              {/* Header with Flag and Tier - Clickable to /study-in-[country] */}
-              <div className="flex items-center justify-between">
-                <Link
-                  href={`/study-in-${country.slug}`}
-                  className="flex items-center gap-3 group/link cursor-pointer"
-                  title={`Explore study opportunities in ${country.name}`}
-                >
-                  <div className="transition transform group-hover/link:scale-105">
-                    <CountryFlag
-                      countryCode={country.code}
-                      countryName={country.name}
-                      size="lg"
-                    />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-[#1D5A6C] font-display transition group-hover/link:text-[#D89A3E] group-hover/link:underline">
-                      {country.name}
-                    </h3>
-                    <span className="text-[11px] font-semibold text-slate-500">
-                      {country.code} • {country.tier}
+    <>
+      <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {countries.map((country) => {
+          const isAnchor = ANCHOR_SIX_SLUGS.includes(country.slug);
+          return (
+            <div
+              key={country.id}
+              id={`country-${country.slug}`}
+              data-country-tier={country.tier}
+              data-is-anchor={isAnchor ? "true" : "false"}
+              style={isAnchor ? undefined : { display: "none" }}
+              className="group relative flex flex-col justify-between rounded-2xl border border-[#D9CFB8]/60 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-[#1D5A6C]/40 hover:shadow-xl"
+            >
+              <div>
+                {/* Header with Flag and Tier - Clickable to /study-in-[country] */}
+                <div className="flex items-center justify-between">
+                  <Link
+                    href={`/study-in-${country.slug}`}
+                    className="flex items-center gap-3 group/link cursor-pointer"
+                    title={`Explore study opportunities in ${country.name}`}
+                  >
+                    <div className="transition transform group-hover/link:scale-105">
+                      <CountryFlag
+                        countryCode={country.code}
+                        countryName={country.name}
+                        size="lg"
+                      />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-[#1D5A6C] font-display transition group-hover/link:text-[#D89A3E] group-hover/link:underline">
+                        {country.name}
+                      </h3>
+                      <span className="text-[11px] font-semibold text-slate-500">
+                        {country.code} • {country.tier}
+                      </span>
+                    </div>
+                  </Link>
+                  <span className="rounded-full bg-[#1D5A6C]/10 px-2.5 py-1 text-[10px] font-bold text-[#1D5A6C]">
+                    {country.safetyRating} ★ Safety
+                  </span>
+                </div>
+
+                <Link href={`/study-in-${country.slug}`} className="block">
+                  <p className="mt-3.5 text-xs leading-relaxed text-slate-600 hover:text-[#1D5A6C] transition">
+                    {country.heroTagline}
+                  </p>
+                </Link>
+
+                {/* Key Metrics */}
+                <div className="mt-5 space-y-2 border-t border-[#D9CFB8]/40 pt-4 text-xs">
+                  <div className="flex items-center justify-between text-slate-700">
+                    <span className="flex items-center gap-1.5 text-slate-500">
+                      <Banknote className="h-3.5 w-3.5 text-[#D89A3E]" />
+                      Avg. Tuition:
+                    </span>
+                    <span className="font-mono font-bold text-[#1D5A6C]">
+                      {country.avgTuitionINR}
                     </span>
                   </div>
-                </Link>
-                <span className="rounded-full bg-[#1D5A6C]/10 px-2.5 py-1 text-[10px] font-bold text-[#1D5A6C]">
-                  {country.safetyRating} ★ Safety
+
+                  <div className="flex items-center justify-between text-slate-700">
+                    <span className="flex items-center gap-1.5 text-slate-500">
+                      <Clock className="h-3.5 w-3.5 text-[#D89A3E]" />
+                      Work Visa (PSW):
+                    </span>
+                    <span className="font-semibold text-emerald-700">
+                      {country.postStudyWorkVisa}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-slate-700">
+                    <span className="flex items-center gap-1.5 text-slate-500">
+                      <ShieldCheck className="h-3.5 w-3.5 text-[#D89A3E]" />
+                      Top Intakes:
+                    </span>
+                    <span className="text-slate-700">
+                      {country.topIntakes.join(", ")}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <div className="mt-6 flex items-center justify-between border-t border-[#D9CFB8]/40 pt-4">
+                <span className="text-[11px] font-mono text-slate-500">
+                  {country.currency} ({country.currencySymbol}) ≈ ₹
+                  {formatINRRate(country.exchangeRateToINR)}
                 </span>
-              </div>
-
-              <Link href={`/study-in-${country.slug}`} className="block">
-                <p className="mt-3.5 text-xs leading-relaxed text-slate-600 hover:text-[#1D5A6C] transition">
-                  {country.heroTagline}
-                </p>
-              </Link>
-
-              {/* Key Metrics */}
-              <div className="mt-5 space-y-2 border-t border-[#D9CFB8]/40 pt-4 text-xs">
-                <div className="flex items-center justify-between text-slate-700">
-                  <span className="flex items-center gap-1.5 text-slate-500">
-                    <Banknote className="h-3.5 w-3.5 text-[#D89A3E]" />
-                    Avg. Tuition:
-                  </span>
-                  <span className="font-mono font-bold text-[#1D5A6C]">
-                    {country.avgTuitionINR}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between text-slate-700">
-                  <span className="flex items-center gap-1.5 text-slate-500">
-                    <Clock className="h-3.5 w-3.5 text-[#D89A3E]" />
-                    Work Visa (PSW):
-                  </span>
-                  <span className="font-semibold text-emerald-700">
-                    {country.postStudyWorkVisa}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between text-slate-700">
-                  <span className="flex items-center gap-1.5 text-slate-500">
-                    <ShieldCheck className="h-3.5 w-3.5 text-[#D89A3E]" />
-                    Top Intakes:
-                  </span>
-                  <span className="text-slate-700">
-                    {country.topIntakes.join(", ")}
-                  </span>
-                </div>
+                <LeadTriggerButton
+                  country={country.name}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#1D5A6C] transition hover:text-[#D89A3E]"
+                >
+                  Apply / Inquire
+                  <ArrowRight className="h-3.5 w-3.5 text-[#D89A3E]" />
+                </LeadTriggerButton>
               </div>
             </div>
-
-            {/* Action Button */}
-            <div className="mt-6 flex items-center justify-between border-t border-[#D9CFB8]/40 pt-4">
-              <span className="text-[11px] font-mono text-slate-500">
-                {country.currency} ({country.currencySymbol}) ≈ ₹
-                {country.exchangeRateToINR}
-              </span>
-              <LeadTriggerButton
-                country={country.name}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#1D5A6C] transition hover:text-[#D89A3E]"
-              >
-                Apply / Inquire
-                <ArrowRight className="h-3.5 w-3.5 text-[#D89A3E]" />
-              </LeadTriggerButton>
-            </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+      <ExchangeRateCredit
+        updatedAt={ratesUpdatedAt}
+        className="mt-4 block text-right text-[11px] font-mono text-slate-500"
+      />
+    </>
   );
 }
 

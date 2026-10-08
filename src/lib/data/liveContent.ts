@@ -11,6 +11,7 @@ import {
   mapSupabaseUniversity,
   mapSanityUniversity,
 } from "./mappers";
+import { withLiveExchangeRates } from "@/lib/exchangeRates";
 
 // ============================================================
 // Strict backend fetchers.
@@ -55,7 +56,8 @@ export async function fetchCountriesFromBackend(): Promise<Country[]> {
     console.warn("Sanity countries unavailable, using Supabase only:", err);
   }
 
-  return Array.from(bySlug.values());
+  // Live exchange rates; the stored rate stays as the fallback
+  return withLiveExchangeRates(Array.from(bySlug.values()));
 }
 
 export async function fetchUniversitiesFromBackend(): Promise<University[]> {

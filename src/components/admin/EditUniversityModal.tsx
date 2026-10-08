@@ -1,9 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, Save, Building2, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
-import { University } from "@/types";
-import { supabase } from "@/lib/supabase/client";
+import { Program, ProgramCategory, University, UniversityProgram } from "@/types";
+import { supabase, getAuthHeaders } from "@/lib/supabase/client";
+import { fetchLivePrograms } from "@/lib/supabase/dataFetchers";
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Form state for one offered program; fee kept as text while editing
+interface ProgramRow {
+  programId: string;
+  yearlyTuitionINR: string;
+  duration: string;
+}
+
+function initialProgramRows(university: University): ProgramRow[] {
+  if (university.programs && university.programs.length > 0) {
+    return university.programs.map((p) => ({
+      programId: p.programId,
+      yearlyTuitionINR: p.yearlyTuitionINR === null ? "" : String(p.yearlyTuitionINR),
+      duration: p.duration || "",
+    }));
+  }
+  return (university.programsOffered || []).map((programId) => ({
+    programId,
+    yearlyTuitionINR: "",
+    duration: "",
+  }));
+}
 
 interface Props {
   university: University | null;
@@ -14,11 +40,85 @@ interface Props {
 
 export function EditUniversityModal({ university, isOpen, onClose, onSave }: Props) {
   if (!isOpen || !university) return null;
+  // Keyed so the form resets for each university
+  return (
+    <EditUniversityForm
+      key={university.slug}
+      university={university}
+      onClose={onClose}
+      onSave={onSave}
+    />
+  );
+}
 
+function EditUniversityForm({
+  university,
+  onClose,
+  onSave,
+}: Omit<Props, "isOpen" | "university"> & { university: University }) {
   const [formData, setFormData] = useState<University>({ ...university });
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [allPrograms, setAllPrograms] = useState<Program[]>([]);
+  const [programRows, setProgramRows] = useState<ProgramRow[]>(() =>
+    initialProgramRows(university),
+  );
+  // Program assignments are stored against the Supabase row id
+  const canAssignPrograms = UUID_PATTERN.test(university.id);
+
+  useEffect(() => {
+    fetchLivePrograms().then(setAllPrograms);
+  }, []);
+
+  const toggleProgram = (programId: string, checked: boolean) => {
+    setProgramRows((rows) =>
+      checked
+        ? [...rows, { programId, yearlyTuitionINR: "", duration: "" }]
+        : rows.filter((r) => r.programId !== programId),
+    );
+  };
+
+  const updateProgramRow = (
+    programId: string,
+    field: "yearlyTuitionINR" | "duration",
+    value: string,
+  ) => {
+    setProgramRows((rows) =>
+      rows.map((r) => (r.programId === programId ? { ...r, [field]: value } : r)),
+    );
+  };
+
+  // Saves program assignments; returns them, or throws with a readable message
+  const saveProgramAssignments = async (): Promise<UniversityProgram[]> => {
+    const programs: UniversityProgram[] = programRows.map((r) => ({
+      programId: r.programId,
+      yearlyTuitionINR:
+        r.yearlyTuitionINR.trim() === "" ? null : Math.round(Number(r.yearlyTuitionINR)),
+      duration: r.duration.trim() || null,
+    }));
+    const invalid = programs.find(
+      (p) =>
+        p.yearlyTuitionINR !== null &&
+        (Number.isNaN(p.yearlyTuitionINR) || p.yearlyTuitionINR < 0),
+    );
+    if (invalid) {
+      throw new Error(
+        `Yearly fee for ${invalid.programId.toUpperCase()} must be a positive number`,
+      );
+    }
+
+    const res = await fetch("/api/admin/university-programs", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...(await getAuthHeaders()) },
+      body: JSON.stringify({ universityId: university.id, programs }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json.success) {
+      throw new Error(json.error || "Failed to save programs");
+    }
+    return programs;
+  };
 
   const handleChange = (field: keyof University, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -55,8 +155,24 @@ export function EditUniversityModal({ university, isOpen, onClose, onSave }: Pro
         console.warn("Supabase update error fallback:", error.message);
       }
 
-      // 2. Local State Update (Instant reactivity)
-      onSave(formData);
+      // 2. Program assignments (surface errors and keep the modal open)
+      let updated = formData;
+      if (canAssignPrograms) {
+        try {
+          const programs = await saveProgramAssignments();
+          updated = {
+            ...formData,
+            programs,
+            programsOffered: programs.map((p) => p.programId as ProgramCategory),
+          };
+        } catch (err: any) {
+          setErrorMessage(err.message || "Failed to save programs");
+          return;
+        }
+      }
+
+      // 3. Local State Update (Instant reactivity)
+      onSave(updated);
       setSuccessMessage("University updated live successfully!");
 
       setTimeout(() => {
@@ -78,7 +194,7 @@ export function EditUniversityModal({ university, isOpen, onClose, onSave }: Pro
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-xs">
-      <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-4">
           <div className="flex items-center gap-2.5">
@@ -208,6 +324,74 @@ export function EditUniversityModal({ university, isOpen, onClose, onSave }: Pro
                 className="w-full rounded-xl border border-slate-200 py-2 px-3 text-slate-900 font-medium focus:border-[#102C57] focus:outline-none"
               />
             </div>
+          </div>
+
+          {/* Programs Offered */}
+          <div className="border-t border-slate-100 pt-4">
+            <label className="block font-bold text-slate-700">Programs Offered</label>
+            <p className="mt-0.5 mb-2 text-[11px] text-slate-500">
+              Leave fee or duration empty to use the program&apos;s default.
+            </p>
+            {!canAssignPrograms ? (
+              <p className="rounded-xl bg-amber-50 border border-amber-200 p-2.5 text-[11px] font-semibold text-amber-800">
+                This university is not in the database yet, so programs cannot be assigned.
+              </p>
+            ) : allPrograms.length === 0 ? (
+              <p className="text-[11px] text-slate-500">Loading programs…</p>
+            ) : (
+              <div className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
+                {allPrograms.map((program) => {
+                  const row = programRows.find((r) => r.programId === program.slug);
+                  return (
+                    <div
+                      key={program.id}
+                      className={`rounded-xl border p-2.5 ${
+                        row ? "border-[#102C57]/30 bg-indigo-50/40" : "border-slate-200"
+                      }`}
+                    >
+                      <label className="flex cursor-pointer items-center gap-2 font-semibold text-slate-800">
+                        <input
+                          type="checkbox"
+                          checked={!!row}
+                          onChange={(e) => toggleProgram(program.slug, e.target.checked)}
+                          className="h-3.5 w-3.5 accent-[#102C57]"
+                        />
+                        <span>{program.name}</span>
+                      </label>
+                      {row && (
+                        <div className="mt-2 grid grid-cols-2 gap-2 pl-5">
+                          <input
+                            type="number"
+                            min={0}
+                            value={row.yearlyTuitionINR}
+                            onChange={(e) =>
+                              updateProgramRow(program.slug, "yearlyTuitionINR", e.target.value)
+                            }
+                            placeholder={
+                              program.yearlyEducationalCost
+                                ? `Yearly fee ₹ (default ${program.yearlyEducationalCost})`
+                                : "Yearly fee ₹ (e.g. 1500000)"
+                            }
+                            aria-label={`${program.name} yearly fee in INR`}
+                            className="w-full rounded-lg border border-slate-200 py-1.5 px-2.5 text-slate-900 focus:border-[#102C57] focus:outline-none"
+                          />
+                          <input
+                            type="text"
+                            value={row.duration}
+                            onChange={(e) =>
+                              updateProgramRow(program.slug, "duration", e.target.value)
+                            }
+                            placeholder={`Duration (default ${program.duration})`}
+                            aria-label={`${program.name} duration`}
+                            className="w-full rounded-lg border border-slate-200 py-1.5 px-2.5 text-slate-900 focus:border-[#102C57] focus:outline-none"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="mt-6 flex items-center justify-end gap-3 pt-3 border-t border-slate-100">

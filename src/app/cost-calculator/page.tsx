@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title:
     "Study Abroad Cost of Living & Tuition Calculator (INR) | Abroadroute",
   description:
-    "Calculate total study abroad expenses in INR across 19 countries. Compare tuition, living costs, blocked accounts, and health insurance for Indian students.",
+    "Calculate total study abroad expenses in INR. Compare tuition, accommodation, food, transport and other living costs by university, program and city for Indian students.",
 };
 
 export default function CostCalculatorPage() {
@@ -20,9 +20,8 @@ export default function CostCalculatorPage() {
             Study Abroad Cost of Living & Tuition Calculator
           </h1>
           <p className="mt-3 text-sm text-[#6B6B6B] max-w-2xl mx-auto">
-            Calculate comprehensive financial requirements across 19
-            destinations converted directly into INR Lakhs, including blocked
-            accounts, university fees, and part-time earnings.
+            Calculate tuition and living costs for your chosen university,
+            program and city, converted directly into INR Lakhs.
           </p>
         </div>
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-16">

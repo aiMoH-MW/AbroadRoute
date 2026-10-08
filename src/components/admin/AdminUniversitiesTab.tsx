@@ -197,6 +197,18 @@ export function AdminUniversitiesTab({
                           <p className="text-[11px] text-slate-500">
                             {uni.city}, {uni.country}
                           </p>
+                          {uni.programsOffered?.length > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {uni.programsOffered.map((slug) => (
+                                <span
+                                  key={slug}
+                                  className="rounded bg-indigo-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-[#102C57]"
+                                >
+                                  {slug}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>

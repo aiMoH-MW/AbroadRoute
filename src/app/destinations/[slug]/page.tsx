@@ -19,6 +19,8 @@ import {
   COUNTRY_ALIASES,
 } from "@/lib/supabase/dataFetchers";
 import { fitMetaDescription } from "@/lib/seo/metaUtils";
+import { formatINRRate } from "@/lib/exchangeRates";
+import { ExchangeRateCredit } from "@/components/ui/ExchangeRateCredit";
 import { getCountryEditorial } from "@/lib/data/contentData";
 import { getPillarGuideByCountry } from "@/lib/sanity/fetchers";
 import { Header } from "@/components/layout/Header";
@@ -196,7 +198,7 @@ export default async function CountryHubPage({ params }: Props) {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-10">
           <div className="grid grid-cols-1 gap-10 lg:grid-cols-12">
             {/* Left Content Area (8 Cols) */}
-            <div className="lg:col-span-8 space-y-12">
+            <div className="lg:col-span-8 min-w-0 space-y-12">
               {/* 2. Overview & Why Choose */}
               <section className="rounded-2xl border border-[#D9CFB8]/70 bg-white p-6 sm:p-8 shadow-xs">
                 <h2 className="text-xl sm:text-2xl font-display font-bold tracking-tight text-[#103B47]">
@@ -305,7 +307,8 @@ export default async function CountryHubPage({ params }: Props) {
                 </div>
                 <p className="text-xs text-slate-500 mb-6">
                   Based on current currency exchange rates ({country.currency} 1
-                  ≈ ₹{country.exchangeRateToINR})
+                  ≈ ₹{formatINRRate(country.exchangeRateToINR)}).{" "}
+                  <ExchangeRateCredit updatedAt={country.exchangeRateUpdatedAt} />
                 </p>
 
                 <div className="overflow-x-auto">

@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS programs (
     summary TEXT,
     roi_score INT DEFAULT 90,
     top_destinations TEXT[],
+    yearly_educational_cost INT, -- INR / year
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -74,12 +75,34 @@ CREATE TABLE IF NOT EXISTS specialisations (
 CREATE INDEX IF NOT EXISTS idx_specialisations_program_slug ON specialisations(program_slug);
 CREATE INDEX IF NOT EXISTS idx_specialisations_slug ON specialisations(slug);
 
+-- Cities Table (city a university is located in + typical monthly living costs in INR)
+CREATE TABLE IF NOT EXISTS cities (
+    id VARCHAR(128) PRIMARY KEY, -- slug-style, e.g. 'melbourne'
+    country_id VARCHAR(32) NOT NULL REFERENCES countries(id),
+    name VARCHAR(128) NOT NULL,
+    state_region VARCHAR(128),
+    overview TEXT,
+    avg_living_cost_inr VARCHAR(64),
+    image_url TEXT,
+    monthly_accommodation_cost INT,
+    monthly_food_groceries_cost INT,
+    monthly_public_transport_cost INT,
+    miscellaneous INT,
+    cost_buffer_percentage INT, -- % on top of living costs for emergencies
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cities_country_id ON cities(country_id);
+
 -- Universities Table
 CREATE TABLE IF NOT EXISTS universities (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     slug VARCHAR(255) UNIQUE NOT NULL,
     country_id VARCHAR(32) REFERENCES countries(id) ON DELETE CASCADE,
+    city_id UUID, -- not linked yet: cities.id is VARCHAR
     city VARCHAR(128) NOT NULL,
     ranking_global INT,
     ranking_national INT,
@@ -107,6 +130,22 @@ CREATE TABLE IF NOT EXISTS universities (
 );
 
 -- University Profile Claims Table
+-- Programs offered by each university (fee/duration NULL = program default)
+CREATE TABLE IF NOT EXISTS university_programs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    university_id UUID NOT NULL REFERENCES universities(id) ON DELETE CASCADE,
+    program_id VARCHAR(32) NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+    yearly_tuition_inr INT, -- INR / year at this university
+    duration VARCHAR(32),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (university_id, program_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_university_programs_university_id ON university_programs(university_id);
+CREATE INDEX IF NOT EXISTS idx_university_programs_program_id ON university_programs(program_id);
+
 CREATE TABLE IF NOT EXISTS university_claims (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     university_id TEXT NOT NULL,
