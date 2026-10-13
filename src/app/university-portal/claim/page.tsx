@@ -30,13 +30,17 @@ import {
 } from "@/lib/supabase/dataFetchers";
 import { University, Country } from "@/types";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { getAuthHeaders } from "@/lib/supabase/client";
 import { CountryFlag } from "@/components/ui/CountryFlag";
 import { BrandLogo } from "@/components/ui/BrandSignatures";
+import { useSiteStats } from "@/lib/useSiteStats";
+import { withCount } from "@/lib/siteStatsFormat";
 
 type ClaimStep =
   "select_university" | "representative_info" | "verify_otp" | "confirmed";
 
 export default function UniversityClaimPage() {
+  const siteStats = useSiteStats();
   const router = useRouter();
   const { user } = useAuth();
 
@@ -105,7 +109,7 @@ export default function UniversityClaimPage() {
     const q = searchQuery.toLowerCase();
     return (
       u.name.toLowerCase().includes(q) ||
-      u.country.toLowerCase().includes(q) ||
+      u.country?.toLowerCase().includes(q) ||
       u.city?.toLowerCase().includes(q)
     );
   });
@@ -197,15 +201,18 @@ export default function UniversityClaimPage() {
 
     setSubmittingClaim(true);
     try {
+      // The claim belongs to the signed-in account (login token)
       const res = await fetch("/api/claims/submit", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(await getAuthHeaders()),
+        },
         body: JSON.stringify({
           universityId: activeUniSlug,
           universityName: activeUniName,
           countryName: activeUniCountry,
           countrySlug: selectedUni?.countrySlug || customCountry.toLowerCase(),
-          userId: user?.id,
           applicantName: applicantName.trim(),
           officialEmail: officialEmail.trim(),
           designation: designation.trim(),
@@ -353,8 +360,10 @@ export default function UniversityClaimPage() {
                 Step 1: Select Your Listed University
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Search from our directory of accredited global universities
-                across 19 destinations.
+                Search from our directory of global universities
+                {siteStats.countries > 0 &&
+                  ` across ${withCount(siteStats.countries, "destinations")}`}
+                .
               </p>
             </div>
 
@@ -397,7 +406,7 @@ export default function UniversityClaimPage() {
                       <div>
                         <div className="flex items-center justify-between">
                           <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
-                            QS Rank #{u.rankingGlobal || "Global"}
+                            QS Rank {u.rankingGlobal !== null ? `#${u.rankingGlobal}` : "not provided"}
                           </span>
                           {isSelected && (
                             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#102C57] text-white">

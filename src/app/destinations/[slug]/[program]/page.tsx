@@ -21,31 +21,14 @@ import { fitMetaDescription } from "@/lib/seo/metaUtils";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { CountryInquiryForm } from "@/components/country/CountryInquiryForm";
+import { fetchCountryProgramPages } from "@/lib/siteContent";
+import { fetchProgramsByCountry } from "@/lib/siteStats";
 import { CountryFlag } from "@/components/ui/CountryFlag";
+import { NotProvided, show } from "@/components/tools/NotProvided";
 
 interface Props {
   params: Promise<{ slug: string; program: string }>;
 }
-
-const PHASE_1_L3_COMBINATIONS = [
-  { slug: "uk", program: "masters", alias: "ms", seoPriority: 0.9 },
-  { slug: "uk", program: "mba", alias: "mba", seoPriority: 0.85 },
-  { slug: "uk", program: "executive-mba", alias: "emba", seoPriority: 0.8 },
-  { slug: "uk", program: "nursing", alias: "nursing", seoPriority: 0.85 },
-  { slug: "usa", program: "masters", alias: "ms", seoPriority: 0.9 },
-  { slug: "usa", program: "mba", alias: "mba", seoPriority: 0.85 },
-  { slug: "usa", program: "executive-mba", alias: "emba", seoPriority: 0.8 },
-  { slug: "germany", program: "masters", alias: "ms", seoPriority: 0.9 },
-  {
-    slug: "germany",
-    program: "ausbildung",
-    alias: "ausbildung",
-    seoPriority: 0.85,
-  },
-  { slug: "canada", program: "masters", alias: "ms", seoPriority: 0.85 },
-  { slug: "russia", program: "mbbs", alias: "mbbs", seoPriority: 0.9 },
-  { slug: "georgia", program: "mbbs", alias: "mbbs", seoPriority: 0.9 },
-];
 
 export async function generateStaticParams() {
   const [countries, programs] = await Promise.all([
@@ -64,17 +47,19 @@ export async function generateStaticParams() {
     }
   };
 
-  // 1. Explicit Phase 1 Launch Combinations (Canonical & Aliases)
-  for (const item of PHASE_1_L3_COMBINATIONS) {
-    addParam(item.slug, item.program);
-    if (item.alias) {
-      addParam(item.slug, item.alias);
-    }
+  // 1. Country x program pages set up in admin (country_programs)
+  const countrySlugById = new Map(countries.map((c) => [c.id, c.slug]));
+  for (const page of await fetchCountryProgramPages()) {
+    const slug = countrySlugById.get(page.countryId);
+    if (!slug) continue;
+    addParam(slug, page.programId);
+    if (page.urlAlias) addParam(slug, page.urlAlias);
   }
 
-  // 2. All 19 Destinations Popular Programs Matrix
+  // 2. Programs offered by universities in each destination
+  const programsByCountry = await fetchProgramsByCountry();
   for (const c of countries) {
-    for (const p of c.popularPrograms || []) {
+    for (const p of programsByCountry.get(c.id) ?? []) {
       addParam(c.slug, p);
       if (p === "ms") addParam(c.slug, "masters");
       if (p === "emba") addParam(c.slug, "executive-mba");
@@ -82,6 +67,28 @@ export async function generateStaticParams() {
   }
 
   return params;
+}
+
+// "Minimum 6.5 – 7.5" from the values the universities state; others ignored
+function rangeLabel(
+  values: (number | null | undefined)[],
+  format: (v: number) => string,
+  prefix: string,
+): string {
+  const nums = values.filter((v): v is number => typeof v === "number");
+  if (nums.length === 0) return "Not provided";
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  return `${prefix} ${min === max ? format(min) : `${format(min)} – ${format(max)}`}`;
+}
+
+function greSummary(values: (boolean | null)[]): string {
+  const known = values.filter((v): v is boolean => v !== null);
+  if (known.length === 0) return "Not provided";
+  const required = known.filter(Boolean).length;
+  if (required === 0) return "Not required by the listed universities";
+  if (required === known.length) return "Required by the listed universities";
+  return `Required by ${required} of ${known.length} listed universities`;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -216,7 +223,9 @@ export default async function CountryProgramPage({ params }: Props) {
           <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-1 text-xs font-semibold backdrop-blur-md shadow-inner">
               <CountryFlag code={country.code} name={country.name} size="sm" />
-              <span className="text-[#FDFCF7]">{prog.level} Track</span>
+              <span className="text-[#FDFCF7]">
+                {show(prog.level, (v) => `${v} Track`)}
+              </span>
             </div>
 
             <h1 className="mt-4 font-display text-3xl sm:text-4xl lg:text-5xl font-semibold text-[#FDFCF7] leading-tight">
@@ -239,7 +248,7 @@ export default async function CountryProgramPage({ params }: Props) {
                   Typical Duration
                 </span>
                 <span className="mt-1 block text-sm font-bold text-white font-mono">
-                  {prog.duration}
+                  {show(prog.duration)}
                 </span>
               </div>
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-md">
@@ -247,7 +256,7 @@ export default async function CountryProgramPage({ params }: Props) {
                   Est. Tuition
                 </span>
                 <span className="mt-1 block text-sm font-bold text-white font-mono">
-                  {country.avgTuitionINR}
+                  {show(country.avgTuitionINR)}
                 </span>
               </div>
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-md">
@@ -255,7 +264,7 @@ export default async function CountryProgramPage({ params }: Props) {
                   Post-Study Visa
                 </span>
                 <span className="mt-1 block text-sm font-bold text-[#D89A3E] font-mono">
-                  {country.postStudyWorkVisa}
+                  {show(country.postStudyWorkVisa)}
                 </span>
               </div>
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-md">
@@ -263,7 +272,7 @@ export default async function CountryProgramPage({ params }: Props) {
                   ROI Score
                 </span>
                 <span className="mt-1 block text-sm font-bold text-emerald-400 font-mono">
-                  {prog.roiScore}/100
+                  {show(prog.roiScore, (v) => `${v}/100`)}
                 </span>
               </div>
             </div>
@@ -312,17 +321,20 @@ export default async function CountryProgramPage({ params }: Props) {
                               {uni.name}
                             </span>
                             <span className="rounded bg-[#F5EFE0] px-1.5 py-0.5 text-[10px] font-mono font-bold text-[#103B47] border border-[#D9CFB8]">
-                              QS #{uni.rankingGlobal}
+                              {show(uni.rankingGlobal, (v) => `QS #${v}`)}
                             </span>
                           </div>
                           <p className="text-[11px] text-slate-500 mt-1 font-sans">
-                            {uni.city}, {country.name} • Intakes:{" "}
-                            {uni.intakes.join(", ")}
+                            {[uni.city, country.name]
+                              .filter(Boolean)
+                              .join(", ")}{" "}
+                            • Intakes:{" "}
+                            {uni.intakes.join(", ") || "Not provided"}
                           </p>
                         </div>
                         <div className="mt-3 sm:mt-0 flex items-center gap-3">
                           <span className="text-xs font-mono font-semibold text-[#103B47]">
-                            {uni.tuitionFeeRangeINR}
+                            {show(uni.tuitionFeeRangeINR)}
                           </span>
                           <Link
                             href={`/universities/${uni.slug}`}
@@ -335,9 +347,8 @@ export default async function CountryProgramPage({ params }: Props) {
                     ))
                   ) : (
                     <div className="rounded-xl bg-[#FDFCF7] border border-dashed border-[#D9CFB8] p-6 text-center text-xs text-slate-500">
-                      All state and accredited universities in {country.name}{" "}
-                      offer recognized {prog.name} curricula for international
-                      applicants.
+                      No universities in {country.name} are listed for{" "}
+                      {prog.name} yet.
                     </div>
                   )}
                 </div>
@@ -346,32 +357,51 @@ export default async function CountryProgramPage({ params }: Props) {
               {/* Admission Requirements */}
               <section className="rounded-2xl border border-[#D9CFB8]/70 bg-white p-6 sm:p-8 shadow-xs">
                 <h2 className="text-xl font-display font-bold text-[#103B47]">
-                  General Entry Requirements for Indian Students
+                  Entry Requirements for Indian Students
                 </h2>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Range across the universities listed above.
+                </p>
                 <div className="mt-4 space-y-2.5 text-xs text-slate-600 font-sans">
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <span>
-                      <strong>Academic Background:</strong> Minimum 60%–70% in
-                      previous qualification (Bachelor&apos;s for MS/MBA, 12th
-                      for UG/MBBS).
-                    </span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <span>
-                      <strong>Language Proficiency:</strong> IELTS 6.5+ or TOEFL
-                      85+ (Waivers available for select universities with 70%+
-                      in 12th English).
-                    </span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <span>
-                      <strong>Standardized Tests:</strong> GRE/GMAT optional for
-                      many programs, recommended for scholarship consideration.
-                    </span>
-                  </div>
+                  {[
+                    {
+                      label: "Academic Background",
+                      value: rangeLabel(
+                        relevantUniversities.map((u) => u.minPercentage),
+                        (v) => `${v}%`,
+                        "Minimum",
+                      ),
+                    },
+                    {
+                      label: "IELTS",
+                      value: rangeLabel(
+                        relevantUniversities.map((u) => u.ieltsMinScore),
+                        (v) => `${v}`,
+                        "Overall band",
+                      ),
+                    },
+                    {
+                      label: "TOEFL iBT",
+                      value: rangeLabel(
+                        relevantUniversities.map((u) => u.toeflMinScore),
+                        (v) => `${v}`,
+                        "Minimum",
+                      ),
+                    },
+                    {
+                      label: "GRE / GMAT",
+                      value: greSummary(
+                        relevantUniversities.map((u) => u.greGmatRequired),
+                      ),
+                    },
+                  ].map((row) => (
+                    <div key={row.label} className="flex items-start gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <span>
+                        <strong>{row.label}:</strong> {row.value}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </section>
             </div>

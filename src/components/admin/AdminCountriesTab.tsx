@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { formatINRRate } from "@/lib/exchangeRates";
 import Link from "next/link";
 import {
@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Country, University } from "@/types";
 import { CountryFlag } from "@/components/ui/CountryFlag";
+import { EditCountryModal } from "@/components/admin/EditCountryModal";
 
 interface AdminCountriesTabProps {
   countriesList: Country[];
@@ -25,6 +26,10 @@ export function AdminCountriesTab({
   universitiesList,
 }: AdminCountriesTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  // Local copy so edits show without reloading the admin page
+  const [countries, setCountries] = useState<Country[]>(countriesList);
+  const [editing, setEditing] = useState<Country | null>(null);
+  useEffect(() => setCountries(countriesList), [countriesList]);
   const [tierFilter, setTierFilter] = useState<string>("all");
 
   const countryUniCounts = useMemo(() => {
@@ -37,7 +42,7 @@ export function AdminCountriesTab({
   }, [universitiesList]);
 
   const filteredCountries = useMemo(() => {
-    return countriesList.filter((c) => {
+    return countries.filter((c) => {
       const matchesTier =
         tierFilter === "all" ||
         (c.tier && c.tier.toLowerCase().includes(tierFilter.toLowerCase()));
@@ -52,7 +57,7 @@ export function AdminCountriesTab({
 
       return matchesTier && matchesSearch;
     });
-  }, [countriesList, tierFilter, searchQuery]);
+  }, [countries, tierFilter, searchQuery]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -161,7 +166,7 @@ export function AdminCountriesTab({
                     </div>
                   </div>
                   <Link
-                    href={`/countries/${c.slug}`}
+                    href={`/study-in-${c.slug}`}
                     target="_blank"
                     className="rounded-lg border border-slate-100 p-1.5 text-slate-400 hover:bg-slate-50 hover:text-[#102C57] transition"
                     title="View Destination Hub"
@@ -176,8 +181,11 @@ export function AdminCountriesTab({
                       Currency Base
                     </span>
                     <span className="font-black text-[#102C57]">
-                      1 {c.currency} ≈ ₹{formatINRRate(c.exchangeRateToINR)}
-                      {c.exchangeRateUpdatedAt ? " (live)" : " (stored)"}
+                      {c.exchangeRateToINR !== null
+                        ? `1 ${c.currency} ≈ ₹${formatINRRate(c.exchangeRateToINR)}${
+                            c.exchangeRateUpdatedAt ? " (live)" : " (stored)"
+                          }`
+                        : "Not provided"}
                     </span>
                   </div>
 
@@ -197,18 +205,36 @@ export function AdminCountriesTab({
                 </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-end text-[11px]">
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                <button
+                  onClick={() => setEditing(c)}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 font-bold text-[#102C57] hover:bg-slate-50 cursor-pointer"
+                >
+                  Edit Guide & Visa
+                </button>
                 <Link
-                  href={`/countries/${c.slug}`}
+                  href={`/study-in-${c.slug}`}
                   className="font-bold text-[#EA5C2B] hover:underline"
                 >
-                  Explore Catalog →
+                  View Page →
                 </Link>
               </div>
             </div>
           );
         })}
       </div>
+      {editing && (
+        <EditCountryModal
+          country={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(updated) => {
+            setCountries((list) =>
+              list.map((c) => (c.id === updated.id ? { ...c, ...updated } : c)),
+            );
+            setEditing(null);
+          }}
+        />
+      )}
     </div>
   );
 }

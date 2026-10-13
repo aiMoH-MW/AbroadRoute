@@ -12,6 +12,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { getAuthHeaders } from "@/lib/supabase/client";
 
 interface Props {
   universityId: string;
@@ -83,7 +84,6 @@ export function ClaimProfileModal({
     countryId: countryId || countrySlug,
     countrySlug: countrySlug || countryId,
     countryName,
-    userId: user?.id,
     applicantName: applicantName.trim(),
     officialEmail: officialEmail.trim(),
     designation: designation.trim(),
@@ -139,9 +139,13 @@ export function ClaimProfileModal({
 
     setLoading(true);
     try {
+      // The claim belongs to the signed-in account (login token)
       const res = await fetch("/api/claims/submit", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(await getAuthHeaders()),
+        },
         body: JSON.stringify({ ...claimPayload, otp: otp.trim() }),
       });
       const data = await res.json();

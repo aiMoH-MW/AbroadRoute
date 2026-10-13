@@ -3,6 +3,7 @@ import { fetchLivePrograms } from "@/lib/supabase/dataFetchers";
 import { Program } from "@/types";
 import { GraduationCap, Award, Compass, ArrowRight } from "lucide-react";
 import { LeadTriggerButton } from "@/components/home/HomeClientContext";
+import { NotProvided, show } from "@/components/tools/NotProvided";
 
 interface ProgramStreamGridProps {
   onOpenLeadModal?: (programSlug: string) => void;
@@ -25,7 +26,8 @@ export async function ProgramStreamGrid({
             ✦ Academic Streams
           </div>
           <h2 className="mt-2.5 font-display text-3xl font-bold tracking-tight text-[#103B47] sm:text-4xl">
-            8 Core Programs Tailored for Global Career Growth
+            {livePrograms.length > 0 ? `${livePrograms.length} ` : ""}Core
+            Programs Tailored for Global Career Growth
           </h2>
           <p className="mt-2 text-sm text-slate-600">
             From STEM master&apos;s and Executive MBA to NMC-compliant medical
@@ -51,7 +53,7 @@ export async function ProgramStreamGrid({
                   </Link>
                   <div className="flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
                     <Award className="h-3 w-3" />
-                    ROI: {program.roiScore}/100
+                    ROI: {show(program.roiScore, (v) => `${v}/100`)}
                   </div>
                 </div>
 
@@ -63,13 +65,13 @@ export async function ProgramStreamGrid({
                     {program.name}
                   </h3>
                   <span className="text-[11px] font-semibold text-slate-500">
-                    {program.level} • {program.duration}
+                    {[program.level, program.duration].filter(Boolean).join(" • ") || <NotProvided />}
                   </span>
                 </Link>
 
                 <Link href={`/programs/${program.slug}`} className="block mt-3">
                   <p className="text-xs leading-relaxed text-slate-600 hover:text-[#1D5A6C] transition line-clamp-3">
-                    {program.summary}
+                    {show(program.summary)}
                   </p>
                 </Link>
 

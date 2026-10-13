@@ -3,6 +3,9 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { getAllArticles } from "@/lib/sanity/fetchers";
 import { Clock, Calendar, ArrowRight, BookOpen, Compass, ShieldCheck, Search } from "lucide-react";
+import { show } from "@/components/tools/NotProvided";
+import { fetchSiteStats, withCount } from "@/lib/siteStats";
+
 
 export const metadata = {
   title: "Study Abroad Guides & Visa Updates (2026-2027) | Abroadroute",
@@ -11,7 +14,10 @@ export const metadata = {
 };
 
 export default async function ArticlesDirectoryPage() {
-  const articles = await getAllArticles();
+  const [articles, stats] = await Promise.all([
+    getAllArticles(),
+    fetchSiteStats(),
+  ]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-between">
@@ -70,7 +76,7 @@ export default async function ArticlesDirectoryPage() {
                     </span>
                     <span className="flex items-center gap-1 text-[11px]">
                       <Clock className="h-3 w-3 text-slate-400" />
-                      {article.readTime}
+                      {show(article.readTime)}
                     </span>
                   </div>
 
@@ -88,7 +94,7 @@ export default async function ArticlesDirectoryPage() {
                 <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4 text-xs text-slate-500">
                   <span className="text-[11px] flex items-center gap-1">
                     <Calendar className="h-3 w-3 text-slate-400" />
-                    {article.date}
+                    {show(article.date)}
                   </span>
 
                   <Link
@@ -119,7 +125,7 @@ export default async function ArticlesDirectoryPage() {
               href="/#destinations-grid"
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#EA5C2B] px-6 py-3.5 text-xs font-bold text-white shadow-md hover:bg-[#ff7240] transition shrink-0"
             >
-              Explore 19 Destinations <ArrowRight className="h-4 w-4" />
+              Explore {withCount(stats.countries, "Destinations")} <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         </div>

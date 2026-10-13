@@ -16,10 +16,12 @@ import {
   getSpecialisationsByProgramSlug,
   PROGRAM_ALIASES,
 } from "@/lib/supabase/dataFetchers";
+import { fetchProgramsByCountry } from "@/lib/siteStats";
 import { fitMetaDescription } from "@/lib/seo/metaUtils";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { CountryFlag } from "@/components/ui/CountryFlag";
+import { NotProvided, show } from "@/components/tools/NotProvided";
 
 interface Props {
   params: Promise<{ program: string }>;
@@ -64,12 +66,14 @@ export default async function ProgramHubPage({ params }: Props) {
     notFound();
   }
 
+  // Destinations named for the program, or where universities offer it
+  const programsByCountry = await fetchProgramsByCountry();
   const topCountries = liveCountries.filter(
     (c) =>
       prog.topDestinations
         .map((d) => d.toLowerCase())
         .includes(c.name.toLowerCase()) ||
-      (c.popularPrograms || []).includes(prog.slug as any),
+      programsByCountry.get(c.id)?.has(prog.id),
   );
 
   return (
@@ -99,7 +103,7 @@ export default async function ProgramHubPage({ params }: Props) {
             <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-semibold backdrop-blur-md shadow-inner">
               <Award className="h-3.5 w-3.5 text-[#D89A3E]" />
               <span className="text-[#FDFCF7]">
-                {prog.level} Academic Track
+                {show(prog.level, (v) => `${v} Academic Track`)}
               </span>
             </div>
 
@@ -111,7 +115,7 @@ export default async function ProgramHubPage({ params }: Props) {
             </h1>
 
             <p className="mt-4 text-sm sm:text-base text-[#FDFCF7]/85 max-w-3xl leading-relaxed font-sans">
-              {prog.summary}
+              {show(prog.summary)}
             </p>
 
             {/* Quick Specs Grid */}
@@ -121,7 +125,7 @@ export default async function ProgramHubPage({ params }: Props) {
                   Typical Duration
                 </span>
                 <span className="mt-1 block text-sm sm:text-base font-bold text-white">
-                  {prog.duration}
+                  {show(prog.duration)}
                 </span>
               </div>
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-md">
@@ -129,7 +133,7 @@ export default async function ProgramHubPage({ params }: Props) {
                   Career ROI Score
                 </span>
                 <span className="mt-1 block text-sm sm:text-base font-mono font-bold text-[#D89A3E]">
-                  {prog.roiScore} / 100
+                  {show(prog.roiScore, (v) => `${v}/100`)}
                 </span>
               </div>
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-md">
@@ -137,7 +141,7 @@ export default async function ProgramHubPage({ params }: Props) {
                   Degree Level
                 </span>
                 <span className="mt-1 block text-sm sm:text-base font-bold text-white">
-                  {prog.level}
+                  {show(prog.level)}
                 </span>
               </div>
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-md">
@@ -347,7 +351,7 @@ export default async function ProgramHubPage({ params }: Props) {
                   </h3>
 
                   <p className="mt-1 text-xs text-slate-500 line-clamp-2 font-sans">
-                    {country.heroTagline}
+                    {show(country.heroTagline)}
                   </p>
 
                   <div className="mt-5 space-y-2 border-t border-[#D9CFB8]/40 pt-4 text-xs font-mono">
@@ -356,7 +360,7 @@ export default async function ProgramHubPage({ params }: Props) {
                         Avg Tuition:
                       </span>
                       <span className="font-bold text-[#103B47]">
-                        {country.avgTuitionINR}
+                        {show(country.avgTuitionINR)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-slate-700">
@@ -364,7 +368,7 @@ export default async function ProgramHubPage({ params }: Props) {
                         Post-Study Visa:
                       </span>
                       <span className="font-bold text-[#D89A3E]">
-                        {country.postStudyWorkVisa}
+                        {show(country.postStudyWorkVisa)}
                       </span>
                     </div>
                   </div>

@@ -21,6 +21,7 @@ import { Program, Specialisation, TestPrepExam } from "@/types";
 import { supabase } from "@/lib/supabase/client";
 import { fetchLiveSpecialisations, fetchTestPrepExams } from "@/lib/supabase/dataFetchers";
 import type { Material, MaterialPage, ProcessProgress } from "@/lib/studyMaterials/types";
+import { adminFetch } from "@/lib/adminFetch";
 
 interface Props {
   programsList: Program[];
@@ -119,7 +120,7 @@ export function AdminStudyDataTab({ programsList }: Props) {
       if (filterExam) params.set("exam", filterExam);
       if (filterProgram) params.set("program", filterProgram);
       if (debouncedQuery) params.set("q", debouncedQuery);
-      const res = await fetch(`/api/admin/study-materials?${params}`);
+      const res = await adminFetch(`/api/admin/study-materials?${params}`);
       const data = await res.json();
       if (data.success) {
         setMaterials(data.items);
@@ -161,14 +162,14 @@ export function AdminStudyDataTab({ programsList }: Props) {
 
     try {
       if (!material.page_count) {
-        const res = await fetch(`/api/admin/study-materials/${material.id}/prepare`, { method: "POST" });
+        const res = await adminFetch(`/api/admin/study-materials/${material.id}/prepare`, { method: "POST" });
         const data = await res.json();
         if (!data.success) throw new Error(data.error || "Failed to prepare file");
         updateMaterial(material.id, { page_count: data.pageCount, pages_processed: 0 });
       }
 
       while (activeJobsRef.current.has(material.id)) {
-        const res = await fetch(`/api/admin/study-materials/${material.id}/process`, { method: "POST" });
+        const res = await adminFetch(`/api/admin/study-materials/${material.id}/process`, { method: "POST" });
         const data: ProcessProgress & { success: boolean; error?: string } = await res.json();
         if (!data.success) throw new Error(data.error || "OCR failed");
         updateMaterial(material.id, {
@@ -217,7 +218,7 @@ export function AdminStudyDataTab({ programsList }: Props) {
     setIsUploading(true);
     setStatusMessage(null);
     try {
-      const res = await fetch("/api/admin/study-materials", {
+      const res = await adminFetch("/api/admin/study-materials", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -237,7 +238,7 @@ export function AdminStudyDataTab({ programsList }: Props) {
         });
       if (uploadError) {
         // Remove the orphaned record so it doesn't sit in the list without a file.
-        await fetch(`/api/admin/study-materials/${data.material.id}`, { method: "DELETE" });
+        await adminFetch(`/api/admin/study-materials/${data.material.id}`, { method: "DELETE" });
         throw new Error(`Upload failed: ${uploadError.message}`);
       }
 
@@ -265,7 +266,7 @@ export function AdminStudyDataTab({ programsList }: Props) {
       return;
     }
     setJobActive(material.id, false);
-    const res = await fetch(`/api/admin/study-materials/${material.id}`, { method: "DELETE" });
+    const res = await adminFetch(`/api/admin/study-materials/${material.id}`, { method: "DELETE" });
     const data = await res.json();
     if (data.success) {
       setMaterials((prev) => prev.filter((b) => b.id !== material.id));
@@ -284,7 +285,7 @@ export function AdminStudyDataTab({ programsList }: Props) {
       loading: true,
     }));
     try {
-      const res = await fetch(`/api/admin/study-materials/${material.id}?from=${from}`);
+      const res = await adminFetch(`/api/admin/study-materials/${material.id}?from=${from}`);
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       setViewer({ material: data.material, pages: data.pages, from, pdfUrl: data.pdfUrl, loading: false });

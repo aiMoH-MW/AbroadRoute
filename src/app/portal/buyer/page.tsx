@@ -1,87 +1,63 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Compass,
-  Briefcase,
   Wallet,
-  Download,
   CheckCircle2,
   Clock,
   ShieldCheck,
-  ArrowRight,
   LogOut,
-  User,
   Users,
   Loader2,
   Search,
-  Filter,
   Phone,
   Mail,
   MessageSquare,
   AlertCircle,
-  HelpCircle,
-  BarChart3,
   Target,
   Sparkles,
   TrendingUp,
-  FileText,
-  DollarSign,
   Check,
   X,
   ChevronRight,
   RotateCcw,
-  Calendar,
   Building2,
-  Layers,
   Send,
   Plus,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { formatCurrency } from "@/lib/utils";
+import { getAuthHeaders } from "@/lib/supabase/client";
+import {
+  fetchLiveCountries,
+  fetchLivePrograms,
+} from "@/lib/supabase/dataFetchers";
 import { CountryFlag } from "@/components/ui/CountryFlag";
 import { BrandLogo } from "@/components/ui/BrandSignatures";
+import { NotProvided, show } from "@/components/tools/NotProvided";
+import type { Country, Program } from "@/types";
+import type {
+  BuyerPortalData,
+  DeliveryStatus,
+  PurchasedLead,
+  WalletTransactionItem,
+} from "@/lib/buyerPortalTypes";
 
-interface LeadItem {
-  id: string;
-  name: string;
-  phone: string;
-  email: string;
-  targetCountry: string;
-  targetCountrySlug: string;
-  program: string;
-  programSlug: string;
-  budget: string;
-  intake: string;
-  leadScore: number;
-  tier: "Exclusive" | "Semi-Exclusive" | "Shared";
-  sourcePage: string;
-  sourceJourney: string[];
-  createdAt: string;
-  cpl: number;
-  status: "unread" | "contacted" | "converted" | "disputed";
-  notes?: { text: string; author: string; timestamp: string }[];
-  disputeReason?: string;
-  disputeStatus?: "under_review" | "approved" | "rejected";
-}
+type LoadState = "loading" | "ready" | "unauth" | "noprofile" | "error";
+type Timeframe = "7d" | "30d" | "quarter" | "all";
 
-interface WalletTransaction {
-  id: string;
-  type: "credit" | "debit" | "refund";
-  description: string;
-  amount: number;
-  date: string;
-  status: "Completed" | "Pending";
-  invoiceNumber?: string;
-}
+const inr = (amount: number) => `₹${amount.toLocaleString("en-IN")}`;
 
-function formatTimeAgo(dateStr?: string): string {
-  if (!dateStr) return "Recently";
+// Relative time for a database timestamp; "Not provided" when missing
+function formatTimeAgo(dateStr?: string | null): ReactNode {
+  if (!dateStr) return <NotProvided />;
   const d = new Date(dateStr);
-  const now = new Date();
-  const diffSec = Math.floor((now.getTime() - d.getTime()) / 1000);
+  if (Number.isNaN(d.getTime())) return <NotProvided />;
+  const diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
   if (diffSec < 60) return "Just now";
   if (diffSec < 3600) return `${Math.floor(diffSec / 60)} mins ago`;
   if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} hours ago`;
@@ -89,568 +65,501 @@ function formatTimeAgo(dateStr?: string): string {
   return `${Math.floor(diffSec / 86400)} days ago`;
 }
 
+function formatDateTime(dateStr?: string | null): ReactNode {
+  if (!dateStr) return <NotProvided />;
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return <NotProvided />;
+  return d.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+const isCredit = (type: WalletTransactionItem["type"]) =>
+  type === "wallet_topup" ||
+  type === "platform_credit" ||
+  type === "lead_refund";
+
+const TX_LABELS: Record<WalletTransactionItem["type"], string> = {
+  wallet_topup: "Wallet top-up",
+  platform_credit: "Platform credit",
+  lead_refund: "Dispute refund",
+  lead_purchase: "Lead purchase",
+};
+
+const DISPUTE_CATEGORIES = [
+  { id: "fake_number", label: "Fake Number / Unreachable" },
+  { id: "wrong_profile", label: "Inaccurate Degree Stream / Budget Mismatch" },
+  { id: "competitor_applied", label: "Student Already Enrolled Elsewhere" },
+  { id: "uninterested", label: "Student Not Interested" },
+] as const;
+
+const TIMEFRAME_DAYS: Record<Timeframe, number | null> = {
+  "7d": 7,
+  "30d": 30,
+  quarter: 90,
+  all: null,
+};
+
+function withinTimeframe(dateStr: string, tf: Timeframe): boolean {
+  const days = TIMEFRAME_DAYS[tf];
+  if (days === null) return true;
+  const t = new Date(dateStr).getTime();
+  if (Number.isNaN(t)) return false;
+  return Date.now() - t <= days * 86400 * 1000;
+}
+
+function disputeStatusLabel(s: PurchasedLead["disputeStatus"]): string {
+  if (s === "approved") return "Approved – refunded";
+  if (s === "rejected") return "Rejected";
+  return "Under review";
+}
+
+// Group purchased leads by a label for the analytics breakdown bars
+function groupCounts(
+  leads: PurchasedLead[],
+  pick: (l: PurchasedLead) => string | null,
+): { label: string | null; count: number }[] {
+  const map = new Map<string | null, number>();
+  leads.forEach((l) => {
+    const key = pick(l);
+    map.set(key, (map.get(key) ?? 0) + 1);
+  });
+  return Array.from(map.entries())
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
 export default function BuyerPortalPage() {
   const router = useRouter();
-  const { user, isLoggedIn, isLoading, logout } = useAuth();
+  const { logout } = useAuth();
 
   // Active Tab: leads | wallet | analytics | disputes | targeting
   const [activeTab, setActiveTab] = useState<
     "leads" | "wallet" | "analytics" | "disputes" | "targeting"
   >("leads");
 
+  // Portal data from /api/buyer/portal
+  const [data, setData] = useState<BuyerPortalData | null>(null);
+  const [loadState, setLoadState] = useState<LoadState>("loading");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
   // Leads State
-  const [leadsList, setLeadsList] = useState<LeadItem[]>([]);
-  const [isFetchingLeads, setIsFetchingLeads] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<
-    "all" | "unread" | "contacted" | "converted" | "disputed"
-  >("all");
-  const [selectedLead, setSelectedLead] = useState<LeadItem | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"all" | DeliveryStatus>(
+    "all",
+  );
+  const [selectedDeliveryId, setSelectedDeliveryId] = useState<string | null>(
+    null,
+  );
+  const [unlockingLeadId, setUnlockingLeadId] = useState<string | null>(null);
+  const [isUpdatingLead, setIsUpdatingLead] = useState(false);
 
   // Notes state inside detail drawer
   const [newNoteText, setNewNoteText] = useState("");
 
   // Dispute Modal State
   const [disputeModalOpen, setDisputeModalOpen] = useState(false);
-  const [disputeLeadId, setDisputeLeadId] = useState<string | null>(null);
-  const [disputeCategory, setDisputeCategory] = useState<
-    "fake_number" | "wrong_profile" | "competitor_applied" | "uninterested"
-  >("fake_number");
+  const [disputeDeliveryId, setDisputeDeliveryId] = useState<string | null>(
+    null,
+  );
+  const [disputeCategory, setDisputeCategory] =
+    useState<(typeof DISPUTE_CATEGORIES)[number]["id"]>("fake_number");
   const [disputeNotes, setDisputeNotes] = useState("");
+  const [isSubmittingDispute, setIsSubmittingDispute] = useState(false);
+  const [disputeError, setDisputeError] = useState<string | null>(null);
 
-  // Wallet State
-  const [walletBalance, setWalletBalance] = useState(28500);
-  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
-  const [rechargeModalOpen, setRechargeModalOpen] = useState(false);
-  const [rechargeAmount, setRechargeAmount] = useState<number>(25000);
-  const [selectedInvoice, setSelectedInvoice] =
-    useState<WalletTransaction | null>(null);
+  // Top-up request State
+  const [topupModalOpen, setTopupModalOpen] = useState(false);
+  const [topupAmount, setTopupAmount] = useState("");
+  const [topupReference, setTopupReference] = useState("");
+  const [isSubmittingTopup, setIsSubmittingTopup] = useState(false);
+  const [topupError, setTopupError] = useState<string | null>(null);
 
   // Analytics timeframe
-  const [analyticsTimeframe, setAnalyticsTimeframe] = useState<
-    "7d" | "30d" | "quarter" | "all"
-  >("30d");
+  const [analyticsTimeframe, setAnalyticsTimeframe] =
+    useState<Timeframe>("all");
 
-  // Targeting Rules State
-  const [targetCountries, setTargetCountries] = useState<string[]>([
-    "germany",
-    "usa",
-    "uk",
-    "canada",
-    "australia",
-  ]);
-  const [targetPrograms, setTargetPrograms] = useState<string[]>([
-    "ms",
-    "mba",
-    "bachelors",
-  ]);
-  const [minLeadScoreThreshold, setMinLeadScoreThreshold] = useState(75);
-  const [dailyBudgetCap, setDailyBudgetCap] = useState(15000);
-  const [businessHours, setBusinessHours] = useState("09:00 - 19:00 IST");
-  const [autoUnlockEnabled, setAutoUnlockEnabled] = useState(true);
+  // Targeting Rules State (pre-filled from data.buyer)
+  const [countryOptions, setCountryOptions] = useState<Country[]>([]);
+  const [programOptions, setProgramOptions] = useState<Program[]>([]);
+  const [optionsLoaded, setOptionsLoaded] = useState(false);
+  const [targetCountries, setTargetCountries] = useState<string[]>([]);
+  const [targetPrograms, setTargetPrograms] = useState<string[]>([]);
+  const [minLeadScore, setMinLeadScore] = useState<number | null>(null);
+  const [dailyLeadCap, setDailyLeadCap] = useState("");
+  const [operatingHours, setOperatingHours] = useState("");
+  const [isSavingTargeting, setIsSavingTargeting] = useState(false);
   const [targetingSavedNotice, setTargetingSavedNotice] = useState(false);
+  const [targetingError, setTargetingError] = useState<string | null>(null);
 
-  const orgName =
-    user?.organization || user?.name || "Apex Overseas Consultants";
-  const userGstin = (user as any)?.metadata?.gstin || "27AABCU9603R1ZM";
-
-  // Initial Data Load
-  useEffect(() => {
-    const defaultLeads: LeadItem[] = [
-      {
-        id: "lead-101",
-        name: "Rahul Sharma",
-        phone: "+91 98765 43210",
-        email: "rahul.sharma@gmail.com",
-        targetCountry: "Germany",
-        targetCountrySlug: "germany",
-        program: "MS in Computer Science & AI",
-        programSlug: "ms",
-        budget: "₹15 - 25 Lakhs",
-        intake: "Winter 2026",
-        leadScore: 94,
-        tier: "Exclusive",
-        sourcePage: "/study-in-germany/ms",
-        sourceJourney: [
-          "Homepage",
-          "Cost Calculator",
-          "Germany MS Hub",
-          "Lead Form",
-        ],
-        createdAt: "10 mins ago",
-        cpl: 1500,
-        status: "unread",
-        notes: [
-          {
-            text: "Student has 8.4 CGPA in B.Tech CSE, IELTS 7.5. Wants TU Munich or RWTH Aachen.",
-            author: "Automated Qualifier",
-            timestamp: "10 mins ago",
-          },
-        ],
-      },
-      {
-        id: "lead-102",
-        name: "Priya Patel",
-        phone: "+91 98234 56789",
-        email: "priya.patel@yahoo.com",
-        targetCountry: "United States",
-        targetCountrySlug: "usa",
-        program: "Full-Time STEM MBA",
-        programSlug: "mba",
-        budget: "₹35 - 50 Lakhs",
-        intake: "Fall 2027",
-        leadScore: 88,
-        tier: "Semi-Exclusive",
-        sourcePage: "/destinations/usa/mba",
-        sourceJourney: [
-          "Google Ads",
-          "USA MBA Guide",
-          "Loan Calculator",
-          "Lead Form",
-        ],
-        createdAt: "2 hours ago",
-        cpl: 1500,
-        status: "contacted",
-        notes: [
-          {
-            text: "Spoke with candidate. 4 years software development experience at Infosys. Interested in Boston University and Georgia Tech.",
-            author: "Rajesh (Consultant)",
-            timestamp: "1 hour ago",
-          },
-        ],
-      },
-      {
-        id: "lead-103",
-        name: "Ananya Deshmukh",
-        phone: "+91 99123 45678",
-        email: "ananya.d@gmail.com",
-        targetCountry: "United Kingdom",
-        targetCountrySlug: "uk",
-        program: "MSc International Management",
-        programSlug: "ms",
-        budget: "₹20 - 30 Lakhs",
-        intake: "September 2026",
-        leadScore: 91,
-        tier: "Exclusive",
-        sourcePage: "/compare/universities",
-        sourceJourney: ["Compare Tool", "UK Country Hub", "Lead Form"],
-        createdAt: "5 hours ago",
-        cpl: 1500,
-        status: "converted",
-        notes: [
-          {
-            text: "Enrolled in premium counselling pack. Applications sent to Manchester and Warwick.",
-            author: "Rajesh (Consultant)",
-            timestamp: "3 hours ago",
-          },
-        ],
-      },
-      {
-        id: "lead-104",
-        name: "Vikram Malhotra",
-        phone: "+91 97654 32109",
-        email: "vikram.m@outlook.com",
-        targetCountry: "Canada",
-        targetCountrySlug: "canada",
-        program: "Post-Graduate Diploma in Data",
-        programSlug: "ms",
-        budget: "₹18 - 25 Lakhs",
-        intake: "Jan 2027",
-        leadScore: 82,
-        tier: "Shared",
-        sourcePage: "/destinations/canada",
-        sourceJourney: ["Direct Search", "Canada Hub", "Lead Form"],
-        createdAt: "Yesterday",
-        cpl: 1200,
-        status: "contacted",
-      },
-      {
-        id: "lead-105",
-        name: "Arjun Verma",
-        phone: "+91 98111 22233",
-        email: "arjun.v@gmail.com",
-        targetCountry: "Australia",
-        targetCountrySlug: "australia",
-        program: "Bachelor of Business Analytics",
-        programSlug: "bachelors",
-        budget: "₹25 - 35 Lakhs",
-        intake: "February 2027",
-        leadScore: 68,
-        tier: "Shared",
-        sourcePage: "/programs/bachelors",
-        sourceJourney: ["Bachelors Page", "Lead Form"],
-        createdAt: "2 days ago",
-        cpl: 1200,
-        status: "disputed",
-        disputeReason: "Phone switched off consistently across 3 days.",
-        disputeStatus: "approved",
-      },
-    ];
-
-    // Read stored wallet
-    const storedWallet = localStorage.getItem("vista_buyer_wallet");
-    if (storedWallet) {
-      try {
-        const parsed = JSON.parse(storedWallet);
-        if (parsed.balance) setWalletBalance(parsed.balance);
-        if (parsed.transactions) setTransactions(parsed.transactions);
-      } catch (e) {
-        console.warn("Wallet read error:", e);
-      }
-    } else {
-      const defaultTx: WalletTransaction[] = [
-        {
-          id: "tx-1001",
-          type: "credit",
-          description: "Online Wallet Recharge (Razorpay Transfer)",
-          amount: 25000,
-          date: "2026-09-20T10:30:00Z",
-          status: "Completed",
-          invoiceNumber: "INV-2026-8812",
-        },
-        {
-          id: "tx-1002",
-          type: "debit",
-          description:
-            "Exclusive Lead Purchase #lead-101 (Rahul Sharma - Germany MS)",
-          amount: 1500,
-          date: "2026-09-22T08:15:00Z",
-          status: "Completed",
-        },
-        {
-          id: "tx-1003",
-          type: "debit",
-          description:
-            "Semi-Exclusive Lead Purchase #lead-102 (Priya Patel - USA MBA)",
-          amount: 1500,
-          date: "2026-09-22T06:45:00Z",
-          status: "Completed",
-        },
-        {
-          id: "tx-1004",
-          type: "refund",
-          description:
-            "Dispute Auto-Refund #lead-105 (Arjun Verma - Unreachable Number)",
-          amount: 1200,
-          date: "2026-09-21T14:20:00Z",
-          status: "Completed",
-        },
-      ];
-      setTransactions(defaultTx);
-    }
-
-    // Read stored targeting
-    const storedTargeting = localStorage.getItem("vista_buyer_targeting");
-    if (storedTargeting) {
-      try {
-        const parsed = JSON.parse(storedTargeting);
-        if (parsed.countries) setTargetCountries(parsed.countries);
-        if (parsed.programs) setTargetPrograms(parsed.programs);
-        if (parsed.minLeadScore) setMinLeadScoreThreshold(parsed.minLeadScore);
-        if (parsed.dailyLeadCap) setDailyBudgetCap(parsed.dailyLeadCap * 1500);
-      } catch (e) {
-        console.warn("Targeting read error:", e);
-      }
-    }
-
-    // 1. Initial load of default and locally cached leads
+  // Load portal data (on mount and after every mutation)
+  const loadPortal = useCallback(async () => {
+    setIsRefreshing(true);
     try {
-      const liveStored = JSON.parse(
-        localStorage.getItem("vista_submitted_leads") || "[]",
-      );
-      if (Array.isArray(liveStored) && liveStored.length > 0) {
-        const mappedLive: LeadItem[] = liveStored.map(
-          (l: any, idx: number) => ({
-            id: `live-lead-${idx + 100}`,
-            name: l.fullName || l.full_name || "Applicant",
-            phone: l.phone || "+91 98765 43210",
-            email: l.email || "student@example.com",
-            targetCountry: l.countryTarget || l.country_target || "Germany",
-            targetCountrySlug: (
-              l.countryTarget ||
-              l.country_target ||
-              "germany"
-            ).toLowerCase(),
-            program: `${String(l.programTarget || l.program_target || "ms").toUpperCase()} Degree Track`,
-            programSlug: String(
-              l.programTarget || l.program_target || "ms",
-            ).toLowerCase(),
-            budget: l.budgetRangeINR || l.budget_range_inr || "₹15 - 25 Lakhs",
-            intake: l.intakeYear || l.intake_year || "Fall 2026",
-            leadScore: 92,
-            tier: "Exclusive",
-            sourcePage: "/cost-calculator",
-            sourceJourney: [
-              "Organic Search",
-              "Cost Calculator",
-              "Direct Inquiry",
-            ],
-            createdAt: "Just now",
-            cpl: 1500,
-            status: "unread",
-          }),
-        );
-        setLeadsList([...mappedLive, ...defaultLeads]);
-      } else {
-        setLeadsList(defaultLeads);
+      const res = await fetch("/api/buyer/portal", {
+        cache: "no-store",
+        headers: { ...(await getAuthHeaders()) },
+      });
+      const json = await res.json().catch(() => null);
+      if (res.status === 401) {
+        setLoadState("unauth");
+        return;
       }
-    } catch {
-      setLeadsList(defaultLeads);
+      if (res.status === 404) {
+        setLoadError(json?.error ?? null);
+        setLoadState("noprofile");
+        return;
+      }
+      if (!res.ok || !json?.success) {
+        setLoadError(json?.error ?? "Failed to load portal");
+        setLoadState("error");
+        return;
+      }
+      setData(json.data as BuyerPortalData);
+      setLoadState("ready");
+    } catch (err) {
+      console.warn("Failed to load buyer portal:", err);
+      setLoadError("Failed to load portal");
+      setLoadState("error");
+    } finally {
+      setIsRefreshing(false);
     }
-
-    // 2. Fetch live leads directly from Supabase via /api/leads
-    const loadBackendLeads = async () => {
-      setIsFetchingLeads(true);
-      try {
-        const res = await fetch("/api/leads", { cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.leads) && data.leads.length > 0) {
-            const mappedDb: LeadItem[] = data.leads.map((l: any, idx: number) => {
-              const countrySlug = (l.country_target || "germany").toLowerCase();
-              const countryName =
-                countrySlug.charAt(0).toUpperCase() +
-                countrySlug.slice(1).replace(/-/g, " ");
-              const rawProg = String(l.program_target || "ms");
-              const progName = rawProg.toUpperCase().includes("DEGREE")
-                ? rawProg
-                : `${rawProg.toUpperCase()} Degree Track`;
-
-              let status: LeadItem["status"] = "unread";
-              if (
-                l.status === "contacted" ||
-                l.status === "converted" ||
-                l.status === "disputed"
-              ) {
-                status = l.status;
-              }
-
-              let formattedPhone = l.phone || "+91 98765 43210";
-              if (formattedPhone && !formattedPhone.startsWith("+")) {
-                formattedPhone = `+91 ${formattedPhone}`;
-              }
-
-              return {
-                id: l.id || `db-lead-${idx}`,
-                name: l.full_name || l.fullName || "Applicant",
-                phone: formattedPhone,
-                email: l.email || "student@example.com",
-                targetCountry: countryName,
-                targetCountrySlug: countrySlug,
-                program: progName,
-                programSlug: rawProg.toLowerCase(),
-                budget: l.budget_range_inr || "₹15 - 25 Lakhs",
-                intake: l.intake_year || "Fall 2026",
-                leadScore: 94,
-                tier: "Exclusive",
-                sourcePage: `/${countrySlug}`,
-                sourceJourney: [
-                  "Direct Inquiry",
-                  "Student Portal",
-                  "Lead Capture Form",
-                ],
-                createdAt: formatTimeAgo(l.created_at),
-                cpl: 1500,
-                status: status,
-              };
-            });
-
-            // Merge live database leads with demo leads
-            const seen = new Set<string>();
-            const combined: LeadItem[] = [];
-
-            [...mappedDb, ...defaultLeads].forEach((item) => {
-              const key = (item.id || item.email).toLowerCase();
-              if (!seen.has(key)) {
-                seen.add(key);
-                combined.push(item);
-              }
-            });
-
-            setLeadsList(combined);
-          }
-        }
-      } catch (err) {
-        console.warn("Failed to fetch backend leads:", err);
-      } finally {
-        setIsFetchingLeads(false);
-      }
-    };
-
-    loadBackendLeads();
   }, []);
 
+  useEffect(() => {
+    loadPortal();
+  }, [loadPortal]);
+
+  // Country and program lists for the targeting form come from the database
+  useEffect(() => {
+    Promise.all([fetchLiveCountries(), fetchLivePrograms()])
+      .then(([countries, programs]) => {
+        setCountryOptions(countries);
+        setProgramOptions(programs);
+      })
+      .catch((err) => console.warn("Failed to load targeting options:", err))
+      .finally(() => setOptionsLoaded(true));
+  }, []);
+
+  // Pre-fill the targeting form whenever the buyer profile loads
+  const buyer = data?.buyer ?? null;
+  useEffect(() => {
+    if (!buyer) return;
+    setTargetCountries(buyer.targetCountries);
+    setTargetPrograms(buyer.targetPrograms);
+    setMinLeadScore(buyer.minLeadScore);
+    setDailyLeadCap(
+      buyer.dailyLeadCap !== null ? String(buyer.dailyLeadCap) : "",
+    );
+    setOperatingHours(buyer.operatingHours ?? "");
+  }, [buyer]);
+
+  const purchasedLeads = data?.purchasedLeads ?? [];
+  const availableLeads = data?.availableLeads ?? [];
+  const transactions = data?.transactions ?? [];
+  const topupRequests = data?.topupRequests ?? [];
+  const walletBalance = data?.walletBalanceINR ?? 0;
+  const costPerLead = data?.costPerLeadINR ?? null;
+  const orgName = buyer?.companyName ?? "";
+
+  const selectedLead =
+    purchasedLeads.find((l) => l.deliveryId === selectedDeliveryId) ?? null;
+
   // Filtered Leads
-  const filteredLeads = leadsList.filter((l) => {
+  const filteredLeads = purchasedLeads.filter((l) => {
     const matchesStatus = statusFilter === "all" || l.status === statusFilter;
     const query = searchQuery.toLowerCase().trim();
     const matchesSearch =
       !query ||
-      l.name.toLowerCase().includes(query) ||
+      l.fullName.toLowerCase().includes(query) ||
       l.email.toLowerCase().includes(query) ||
       l.phone.toLowerCase().includes(query) ||
-      l.targetCountry.toLowerCase().includes(query) ||
-      l.program.toLowerCase().includes(query);
+      (l.countryName ?? "").toLowerCase().includes(query) ||
+      (l.programName ?? "").toLowerCase().includes(query);
     return matchesStatus && matchesSearch;
   });
 
+  const disputedLeads = purchasedLeads.filter((l) => l.disputeStatus !== null);
+
+  // Shared JSON request helper: returns an error message, or null on success
+  const sendJson = async (
+    url: string,
+    method: "POST" | "PATCH",
+    body?: unknown,
+  ): Promise<string | null> => {
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          ...(await getAuthHeaders()),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || json?.success === false) {
+        return json?.error ?? "Request failed";
+      }
+      return null;
+    } catch {
+      return "Request failed";
+    }
+  };
+
+  // Action: Unlock (purchase) an available lead
+  const handleUnlockLead = async (leadId: string) => {
+    setActionError(null);
+    setUnlockingLeadId(leadId);
+    const err = await sendJson(`/api/buyer/leads/${leadId}/purchase`, "POST");
+    if (err) setActionError(err);
+    await loadPortal();
+    setUnlockingLeadId(null);
+  };
+
   // Action: Add Note to Selected Lead
-  const handleAddNote = () => {
+  const handleAddNote = async () => {
     if (!newNoteText.trim() || !selectedLead) return;
-    const updatedNotes = [
-      ...(selectedLead.notes || []),
-      {
-        text: newNoteText.trim(),
-        author: user?.name || "Consultant Officer",
-        timestamp: "Just now",
-      },
-    ];
-    const updatedLead = { ...selectedLead, notes: updatedNotes };
-    setSelectedLead(updatedLead);
-    setLeadsList((prev) =>
-      prev.map((l) => (l.id === selectedLead.id ? updatedLead : l)),
+    setActionError(null);
+    setIsUpdatingLead(true);
+    const err = await sendJson(
+      `/api/buyer/deliveries/${selectedLead.deliveryId}`,
+      "PATCH",
+      { note: newNoteText.trim() },
     );
-    setNewNoteText("");
+    if (err) setActionError(err);
+    else setNewNoteText("");
+    await loadPortal();
+    setIsUpdatingLead(false);
   };
 
   // Action: Update Lead Status
-  const handleUpdateStatus = (newStatus: LeadItem["status"]) => {
-    if (!selectedLead) return;
-    const updatedLead = { ...selectedLead, status: newStatus };
-    setSelectedLead(updatedLead);
-    setLeadsList((prev) =>
-      prev.map((l) => (l.id === selectedLead.id ? updatedLead : l)),
+  const handleUpdateStatus = async (
+    newStatus: "unread" | "contacted" | "converted",
+  ) => {
+    if (!selectedLead || selectedLead.status === newStatus) return;
+    setActionError(null);
+    setIsUpdatingLead(true);
+    const err = await sendJson(
+      `/api/buyer/deliveries/${selectedLead.deliveryId}`,
+      "PATCH",
+      { status: newStatus },
     );
+    if (err) setActionError(err);
+    await loadPortal();
+    setIsUpdatingLead(false);
   };
 
   // Action: Open Dispute Modal
-  const openDisputeModal = (leadId: string) => {
-    setDisputeLeadId(leadId);
+  const openDisputeModal = (deliveryId: string) => {
+    setDisputeDeliveryId(deliveryId);
     setDisputeNotes("");
+    setDisputeError(null);
     setDisputeModalOpen(true);
   };
 
-  // Action: Submit Dispute [FR-BUY-007]
-  const handleDisputeSubmit = (e: React.FormEvent) => {
+  // Action: Submit Dispute (reviewed by an admin; no automatic refund)
+  const handleDisputeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!disputeLeadId) return;
-
-    const leadToDispute = leadsList.find((l) => l.id === disputeLeadId);
-    const refundAmount = leadToDispute?.cpl || 1500;
-
-    // 1. Update lead status
-    setLeadsList((prev) =>
-      prev.map((l) =>
-        l.id === disputeLeadId
-          ? {
-              ...l,
-              status: "disputed",
-              disputeReason: disputeNotes || "Candidate unreachable",
-              disputeStatus: "approved",
-            }
-          : l,
-      ),
+    if (!disputeDeliveryId) return;
+    const category =
+      DISPUTE_CATEGORIES.find((c) => c.id === disputeCategory)?.label ?? "";
+    setIsSubmittingDispute(true);
+    setDisputeError(null);
+    const err = await sendJson(
+      `/api/buyer/deliveries/${disputeDeliveryId}/dispute`,
+      "POST",
+      { reason: `${category}: ${disputeNotes.trim()}` },
     );
-
-    // 2. Auto-refund back to wallet
-    const newBalance = walletBalance + refundAmount;
-    setWalletBalance(newBalance);
-
-    const refundTx: WalletTransaction = {
-      id: `tx-ref-${Date.now()}`,
-      type: "refund",
-      description: `Dispute Auto-Refund #${disputeLeadId} (${leadToDispute?.name || "Lead"})`,
-      amount: refundAmount,
-      date: new Date().toISOString(),
-      status: "Completed",
-    };
-    const updatedTx = [refundTx, ...transactions];
-    setTransactions(updatedTx);
-
-    // Persist wallet
-    localStorage.setItem(
-      "vista_buyer_wallet",
-      JSON.stringify({ balance: newBalance, transactions: updatedTx }),
-    );
-
-    if (selectedLead?.id === disputeLeadId) {
-      setSelectedLead({
-        ...selectedLead,
-        status: "disputed",
-        disputeReason: disputeNotes,
-        disputeStatus: "approved",
-      });
+    setIsSubmittingDispute(false);
+    if (err) {
+      setDisputeError(err);
+      return;
     }
-
     setDisputeModalOpen(false);
+    await loadPortal();
   };
 
-  // Action: Wallet Recharge [FR-BUY-005]
-  const handleRechargeSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (rechargeAmount <= 0) return;
-
-    const newBalance = walletBalance + rechargeAmount;
-    setWalletBalance(newBalance);
-
-    const newTx: WalletTransaction = {
-      id: `tx-rec-${Date.now()}`,
-      type: "credit",
-      description: `Online Wallet Recharge (Razorpay Instant Credit)`,
-      amount: rechargeAmount,
-      date: new Date().toISOString(),
-      status: "Completed",
-      invoiceNumber: `INV-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-    };
-    const updatedTx = [newTx, ...transactions];
-    setTransactions(updatedTx);
-
-    localStorage.setItem(
-      "vista_buyer_wallet",
-      JSON.stringify({ balance: newBalance, transactions: updatedTx }),
-    );
-
-    setRechargeModalOpen(false);
+  // Action: Request a wallet top-up (credited by an admin after payment)
+  const openTopupModal = () => {
+    setTopupAmount("");
+    setTopupReference("");
+    setTopupError(null);
+    setTopupModalOpen(true);
   };
 
-  // Action: Save Targeting Rules [FR-BUY-008]
-  const handleSaveTargeting = (e: React.FormEvent) => {
+  const handleTopupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const rules = {
-      countries: targetCountries,
-      programs: targetPrograms,
-      minLeadScore: minLeadScoreThreshold,
-      dailyBudgetCap,
-      operatingHours: businessHours,
-      autoUnlock: autoUnlockEnabled,
-    };
-    localStorage.setItem("vista_buyer_targeting", JSON.stringify(rules));
+    const amount = Number(topupAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setTopupError("Enter an amount");
+      return;
+    }
+    setIsSubmittingTopup(true);
+    setTopupError(null);
+    const err = await sendJson("/api/buyer/topups", "POST", {
+      amountINR: amount,
+      paymentReference: topupReference.trim() || undefined,
+    });
+    setIsSubmittingTopup(false);
+    if (err) {
+      setTopupError(err);
+      return;
+    }
+    setTopupModalOpen(false);
+    await loadPortal();
+  };
+
+  // Action: Save Targeting Rules
+  const handleSaveTargeting = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!buyer) return;
+    const cap = dailyLeadCap.trim() === "" ? null : Number(dailyLeadCap);
+    if (cap !== null && (!Number.isInteger(cap) || cap < 1)) {
+      setTargetingError("Daily lead cap must be a whole number of 1 or more");
+      return;
+    }
+    setIsSavingTargeting(true);
+    setTargetingError(null);
+    const err = await sendJson("/api/buyer/profile", "PATCH", {
+      targetCountries,
+      targetPrograms,
+      minLeadScore,
+      dailyLeadCap: cap,
+      autoUnlock: buyer.autoUnlock,
+      operatingHours: operatingHours.trim() || null,
+    });
+    setIsSavingTargeting(false);
+    if (err) {
+      setTargetingError(err);
+      return;
+    }
     setTargetingSavedNotice(true);
     setTimeout(() => setTargetingSavedNotice(false), 3500);
+    await loadPortal();
   };
 
-  const toggleTargetCountry = (slug: string) => {
+  const toggleTargetCountry = (id: string) => {
     setTargetCountries((prev) =>
-      prev.includes(slug) ? prev.filter((c) => c !== slug) : [...prev, slug],
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
     );
   };
 
-  const toggleTargetProgram = (key: string) => {
+  const toggleTargetProgram = (id: string) => {
     setTargetPrograms((prev) =>
-      prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key],
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
     );
   };
 
-  // WoW Metrics calculations [FR-BUY-002]
-  const totalReceived = leadsList.length;
-  const totalConverted = leadsList.filter(
+  // KPI calculations (all from purchased leads)
+  const totalPurchased = purchasedLeads.length;
+  const totalConverted = purchasedLeads.filter(
     (l) => l.status === "converted",
   ).length;
-  const totalDisputed = leadsList.filter((l) => l.status === "disputed").length;
+  const totalUnderReview = purchasedLeads.filter(
+    (l) => l.disputeStatus === "under_review",
+  ).length;
+  const totalVerifiedPhones = purchasedLeads.filter(
+    (l) => l.isPhoneVerified,
+  ).length;
   const conversionRate =
-    totalReceived > 0
-      ? ((totalConverted / totalReceived) * 100).toFixed(1)
-      : "24.2";
+    totalPurchased > 0
+      ? `${((totalConverted / totalPurchased) * 100).toFixed(1)}%`
+      : null;
+
+  // Analytics (filtered by timeframe)
+  const aLeads = purchasedLeads.filter((l) =>
+    withinTimeframe(l.deliveredAt, analyticsTimeframe),
+  );
+  const aTx = transactions.filter((t) =>
+    withinTimeframe(t.createdAt, analyticsTimeframe),
+  );
+  const aCount = (s: DeliveryStatus) =>
+    aLeads.filter((l) => l.status === s).length;
+  const aConverted = aCount("converted");
+  const aSpend = aTx
+    .filter((t) => t.type === "lead_purchase")
+    .reduce((sum, t) => sum + Math.abs(t.amountINR), 0);
+  const aRefunds = aTx
+    .filter((t) => t.type === "lead_refund")
+    .reduce((sum, t) => sum + Math.abs(t.amountINR), 0);
+  const aDisputed = aLeads.filter((l) => l.disputeStatus !== null).length;
+  const byCountry = groupCounts(aLeads, (l) => l.countryName);
+  const byProgram = groupCounts(aLeads, (l) => l.programName);
+
+  // Not signed in / no buyer profile / failed load states
+  if (loadState !== "ready" || !data || !buyer) {
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-900 flex items-center justify-center p-4">
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-xs text-center space-y-4">
+          <BrandLogo variant="wordmark" theme="light" size="md" />
+          {loadState === "loading" && (
+            <div className="flex items-center justify-center gap-2 text-sm font-semibold text-slate-600">
+              <Loader2 className="h-4 w-4 animate-spin text-[#102C57]" />
+              <span>Loading partner portal...</span>
+            </div>
+          )}
+          {loadState === "unauth" && (
+            <>
+              <h2 className="text-lg font-bold text-[#102C57]">
+                Sign in to the B2B Partner Portal
+              </h2>
+              <p className="text-xs text-slate-500">
+                Please sign in with your partner account to view your leads and
+                wallet.
+              </p>
+              <Link
+                href="/login"
+                className="inline-flex items-center justify-center rounded-xl bg-[#102C57] py-2.5 px-6 text-xs font-bold text-white hover:bg-[#0c2242] transition"
+              >
+                Sign in
+              </Link>
+            </>
+          )}
+          {loadState === "noprofile" && (
+            <>
+              <h2 className="text-lg font-bold text-[#102C57]">
+                Complete partner onboarding
+              </h2>
+              <p className="text-xs text-slate-500">
+                {loadError ??
+                  "Your account does not have a partner profile yet."}
+              </p>
+              <Link
+                href="/partner-with-us"
+                className="inline-flex items-center justify-center rounded-xl bg-[#EA5C2B] py-2.5 px-6 text-xs font-bold text-white hover:bg-[#d94f20] transition"
+              >
+                Complete partner onboarding
+              </Link>
+            </>
+          )}
+          {loadState === "error" && (
+            <>
+              <h2 className="text-lg font-bold text-rose-700">
+                Could not load the portal
+              </h2>
+              <p className="text-xs text-slate-500">{loadError}</p>
+              <button
+                onClick={() => {
+                  setLoadState("loading");
+                  loadPortal();
+                }}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-6 text-xs font-bold text-slate-700 hover:bg-slate-100 transition"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                <span>Try again</span>
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-between selection:bg-[#EA5C2B]/15">
@@ -666,16 +575,16 @@ export default function BuyerPortalPage() {
 
           {/* User Profile & Wallet Quick Badge */}
           <div className="flex items-center gap-3">
-            {/* Quick Wallet Recharge Badge */}
+            {/* Quick Wallet Top-up Badge */}
             <button
               onClick={() => {
                 setActiveTab("wallet");
-                setRechargeModalOpen(true);
+                openTopupModal();
               }}
               className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition cursor-pointer"
             >
               <Wallet className="h-3.5 w-3.5 text-emerald-600" />
-              <span>Wallet: ₹{walletBalance.toLocaleString("en-IN")}</span>
+              <span>Wallet: {inr(walletBalance)}</span>
               <span className="rounded bg-emerald-600 px-1.5 py-0.2 text-[10px] text-white">
                 + Add
               </span>
@@ -687,7 +596,7 @@ export default function BuyerPortalPage() {
                 {orgName.charAt(0)}
               </div>
               <span className="font-bold text-slate-800 hidden sm:inline max-w-xs truncate">
-                {orgName}
+                {show(orgName)}
               </span>
               <button
                 onClick={() => {
@@ -707,22 +616,22 @@ export default function BuyerPortalPage() {
       {/* Main Workspace Body */}
       <main className="flex-1 py-8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
-          {/* 1. Week-over-Week KPI Cards [FR-BUY-002] */}
+          {/* 1. KPI Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {/* Card 1: Total Leads */}
+            {/* Card 1: Purchased Leads */}
             <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs">
               <div className="flex items-center justify-between text-slate-500 mb-1">
                 <span className="text-xs font-bold uppercase tracking-wider">
-                  Delivered Leads
+                  Purchased Leads
                 </span>
                 <Users className="h-4 w-4 text-blue-600" />
               </div>
               <div className="text-2xl sm:text-3xl font-black text-slate-900">
-                {totalReceived}
+                {totalPurchased}
               </div>
               <div className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
                 <TrendingUp className="h-3 w-3" />
-                <span>100% OTP Verified</span>
+                <span>{totalVerifiedPhones} with verified phone</span>
               </div>
             </div>
 
@@ -735,12 +644,16 @@ export default function BuyerPortalPage() {
                 <Wallet className="h-4 w-4 text-emerald-600" />
               </div>
               <div className="text-2xl sm:text-3xl font-black text-emerald-700">
-                ₹{walletBalance.toLocaleString("en-IN")}
+                {inr(walletBalance)}
               </div>
               <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
-                <span>Auto-debit active</span>
+                <span>
+                  {costPerLead !== null
+                    ? `${inr(costPerLead)} per lead`
+                    : "Lead price not set"}
+                </span>
                 <button
-                  onClick={() => setRechargeModalOpen(true)}
+                  onClick={openTopupModal}
                   className="font-bold text-[#EA5C2B] hover:underline"
                 >
                   Top Up →
@@ -757,50 +670,68 @@ export default function BuyerPortalPage() {
                 <Target className="h-4 w-4 text-[#EA5C2B]" />
               </div>
               <div className="text-2xl sm:text-3xl font-black text-slate-900">
-                {conversionRate}%
+                {show(conversionRate)}
               </div>
               <div className="mt-1 text-[11px] text-slate-500">
-                <span>{totalConverted} Enrolled Candidates</span>
+                <span>{totalConverted} Converted Students</span>
               </div>
             </div>
 
-            {/* Card 4: Dispute SLA */}
+            {/* Card 4: Disputes */}
             <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs">
               <div className="flex items-center justify-between text-slate-500 mb-1">
                 <span className="text-xs font-bold uppercase tracking-wider">
-                  Dispute Guarantee
+                  Disputes
                 </span>
                 <ShieldCheck className="h-4 w-4 text-indigo-600" />
               </div>
               <div className="text-2xl sm:text-3xl font-black text-slate-900">
-                24h SLA
+                {disputedLeads.length}
               </div>
               <div className="mt-1 text-[11px] text-slate-500">
-                <span>{totalDisputed} auto-refunds processed</span>
+                <span>{totalUnderReview} under review</span>
               </div>
             </div>
           </div>
 
+          {/* Action error banner */}
+          {actionError && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-800 flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-rose-600" />
+                {actionError}
+              </span>
+              <button
+                onClick={() => setActionError(null)}
+                className="text-rose-500 hover:text-rose-800"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
           {/* 2. Operational Navigation Tabs */}
           <div className="flex items-center gap-2 border-b border-slate-200 overflow-x-auto pb-1 text-xs font-bold">
-            {[
-              {
-                id: "leads",
-                label: "📥 Leads Inbox & CRM",
-                count: leadsList.length,
-              },
-              { id: "wallet", label: "💳 Wallet & GST Billing" },
-              { id: "analytics", label: "📊 Performance Analytics" },
-              {
-                id: "disputes",
-                label: "⚖️ Disputes & Refunds",
-                count: totalDisputed,
-              },
-              { id: "targeting", label: "🎯 Targeting & Delivery Rules" },
-            ].map((tab) => (
+            {(
+              [
+                {
+                  id: "leads",
+                  label: "📥 Leads Inbox & CRM",
+                  count: purchasedLeads.length,
+                },
+                { id: "wallet", label: "💳 Wallet & Billing" },
+                { id: "analytics", label: "📊 Performance Analytics" },
+                {
+                  id: "disputes",
+                  label: "⚖️ Disputes & Refunds",
+                  count: disputedLeads.length,
+                },
+                { id: "targeting", label: "🎯 Targeting & Delivery Rules" },
+              ] as const
+            ).map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 rounded-t-xl py-2.5 px-4 transition whitespace-nowrap cursor-pointer ${
                   activeTab === tab.id
                     ? "border-b-2 border-[#EA5C2B] text-[#102C57] bg-white shadow-2xs font-extrabold"
@@ -808,7 +739,7 @@ export default function BuyerPortalPage() {
                 }`}
               >
                 <span>{tab.label}</span>
-                {tab.count !== undefined && (
+                {"count" in tab && (
                   <span
                     className={`rounded-full px-1.5 py-0.2 text-[10px] ${
                       activeTab === tab.id
@@ -823,23 +754,25 @@ export default function BuyerPortalPage() {
             ))}
           </div>
 
-          {/* TAB 1: LEADS INBOX & CRM [FR-BUY-003, FR-BUY-004] */}
+          {/* TAB 1: LEADS INBOX & CRM */}
           {activeTab === "leads" && (
             <div className="space-y-4">
               {/* Search & Status Filters */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200">
                 {/* Status Filter Tabs */}
                 <div className="flex flex-wrap items-center gap-1 text-xs font-bold">
-                  {[
-                    { id: "all", label: "All Leads" },
-                    { id: "unread", label: "Unread / New" },
-                    { id: "contacted", label: "Contacted" },
-                    { id: "converted", label: "Converted / Enrolled" },
-                    { id: "disputed", label: "Disputed" },
-                  ].map((s) => (
+                  {(
+                    [
+                      { id: "all", label: "All Leads" },
+                      { id: "unread", label: "Unread / New" },
+                      { id: "contacted", label: "Contacted" },
+                      { id: "converted", label: "Converted / Enrolled" },
+                      { id: "disputed", label: "Disputed" },
+                    ] as const
+                  ).map((s) => (
                     <button
                       key={s.id}
-                      onClick={() => setStatusFilter(s.id as any)}
+                      onClick={() => setStatusFilter(s.id)}
                       className={`rounded-xl px-3 py-1.5 transition cursor-pointer ${
                         statusFilter === s.id
                           ? "bg-[#102C57] text-white"
@@ -851,7 +784,7 @@ export default function BuyerPortalPage() {
                   ))}
                 </div>
 
-                {/* Real-time Search & Refresh Button */}
+                {/* Search & Refresh Button */}
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                   <div className="relative flex-1 sm:w-72">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -865,93 +798,28 @@ export default function BuyerPortalPage() {
                   </div>
 
                   <button
-                    onClick={() => {
-                      setIsFetchingLeads(true);
-                      fetch("/api/leads", { cache: "no-store" })
-                        .then((res) => res.json())
-                        .then((data) => {
-                          if (Array.isArray(data.leads)) {
-                            const mapped = data.leads.map((l: any, idx: number) => {
-                              const countrySlug = (l.country_target || "germany").toLowerCase();
-                              const countryName =
-                                countrySlug.charAt(0).toUpperCase() +
-                                countrySlug.slice(1).replace(/-/g, " ");
-                              const rawProg = String(l.program_target || "ms");
-                              const progName = rawProg.toUpperCase().includes("DEGREE")
-                                ? rawProg
-                                : `${rawProg.toUpperCase()} Degree Track`;
-
-                              let status: LeadItem["status"] = "unread";
-                              if (
-                                l.status === "contacted" ||
-                                l.status === "converted" ||
-                                l.status === "disputed"
-                              ) {
-                                status = l.status;
-                              }
-
-                              let formattedPhone = l.phone || "+91 98765 43210";
-                              if (formattedPhone && !formattedPhone.startsWith("+")) {
-                                formattedPhone = `+91 ${formattedPhone}`;
-                              }
-
-                              return {
-                                id: l.id || `db-lead-${idx}`,
-                                name: l.full_name || l.fullName || "Applicant",
-                                phone: formattedPhone,
-                                email: l.email || "student@example.com",
-                                targetCountry: countryName,
-                                targetCountrySlug: countrySlug,
-                                program: progName,
-                                programSlug: rawProg.toLowerCase(),
-                                budget: l.budget_range_inr || "₹15 - 25 Lakhs",
-                                intake: l.intake_year || "Fall 2026",
-                                leadScore: 94,
-                                tier: "Exclusive" as const,
-                                sourcePage: `/${countrySlug}`,
-                                sourceJourney: [
-                                  "Direct Inquiry",
-                                  "Student Portal",
-                                  "Lead Capture Form",
-                                ],
-                                createdAt: formatTimeAgo(l.created_at),
-                                cpl: 1500,
-                                status: status,
-                              };
-                            });
-
-                            const seen = new Set<string>();
-                            const combined: LeadItem[] = [];
-                            mapped.forEach((item: LeadItem) => {
-                              const key = (item.id || item.email).toLowerCase();
-                              if (!seen.has(key)) {
-                                seen.add(key);
-                                combined.push(item);
-                              }
-                            });
-                            setLeadsList(combined);
-                          }
-                        })
-                        .finally(() => setIsFetchingLeads(false));
-                    }}
-                    disabled={isFetchingLeads}
+                    onClick={() => loadPortal()}
+                    disabled={isRefreshing}
                     className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer shadow-2xs disabled:opacity-60 shrink-0"
-                    title="Refresh live leads from database"
+                    title="Refresh leads from database"
                   >
                     <RotateCcw
                       className={`h-3.5 w-3.5 text-[#102C57] ${
-                        isFetchingLeads ? "animate-spin" : ""
+                        isRefreshing ? "animate-spin" : ""
                       }`}
                     />
                     <span className="hidden sm:inline">
-                      {isFetchingLeads ? "Syncing..." : "Refresh"}
+                      {isRefreshing ? "Syncing..." : "Refresh"}
                     </span>
                   </button>
                 </div>
               </div>
 
-              {/* Leads Table / Cards List */}
+              {/* My Leads Table */}
               <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xs">
+                <div className="px-4 pt-4">
+                  <h3 className="text-sm font-bold text-[#102C57]">My leads</h3>
+                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead className="border-b border-slate-100 bg-slate-50/75 text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
@@ -959,28 +827,27 @@ export default function BuyerPortalPage() {
                         <th className="py-3.5 px-4">Student & Contact</th>
                         <th className="py-3.5 px-4">Target Track</th>
                         <th className="py-3.5 px-4">Quality Score</th>
-                        <th className="py-3.5 px-4">Tier & Source</th>
-                        <th className="py-3.5 px-4">CPL & Status</th>
+                        <th className="py-3.5 px-4">Price & Status</th>
                         <th className="py-3.5 px-4 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                       {filteredLeads.map((lead) => (
                         <tr
-                          key={lead.id}
-                          onClick={() => setSelectedLead(lead)}
+                          key={lead.deliveryId}
+                          onClick={() => setSelectedDeliveryId(lead.deliveryId)}
                           className="hover:bg-slate-50/80 transition cursor-pointer group"
                         >
                           {/* Student */}
                           <td className="py-3.5 px-4">
                             <div className="font-bold text-slate-900 group-hover:text-[#EA5C2B] transition">
-                              {lead.name}
+                              {show(lead.fullName)}
                             </div>
                             <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
-                              <span>{lead.phone}</span>
+                              <span>{show(lead.phone)}</span>
                               <span>•</span>
                               <span className="truncate max-w-[140px]">
-                                {lead.email}
+                                {show(lead.email)}
                               </span>
                             </div>
                           </td>
@@ -988,43 +855,39 @@ export default function BuyerPortalPage() {
                           {/* Track */}
                           <td className="py-3.5 px-4">
                             <div className="flex items-center gap-1.5 font-bold text-slate-900">
-                              <CountryFlag
-                                code={lead.targetCountrySlug}
-                                size="sm"
-                              />
-                              <span>{lead.targetCountry}</span>
+                              {lead.countryName && (
+                                <CountryFlag
+                                  name={lead.countryName}
+                                  size="sm"
+                                />
+                              )}
+                              <span>{show(lead.countryName)}</span>
                             </div>
                             <div className="text-[11px] text-slate-500 mt-0.5">
-                              {lead.program} ({lead.intake})
+                              {show(lead.programName)} • {show(lead.intakeYear)}
                             </div>
                           </td>
 
                           {/* Quality Score */}
                           <td className="py-3.5 px-4">
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold ${
-                                lead.leadScore >= 90
-                                  ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                                  : lead.leadScore >= 75
-                                    ? "bg-blue-50 text-blue-800 border border-blue-200"
-                                    : "bg-amber-50 text-amber-800 border border-amber-200"
-                              }`}
-                            >
-                              <Sparkles className="h-3 w-3" />
-                              Score {lead.leadScore}/100
-                            </span>
+                            {lead.leadScore !== null ? (
+                              <span
+                                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold ${
+                                  lead.leadScore >= 90
+                                    ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                    : lead.leadScore >= 75
+                                      ? "bg-blue-50 text-blue-800 border border-blue-200"
+                                      : "bg-amber-50 text-amber-800 border border-amber-200"
+                                }`}
+                              >
+                                <Sparkles className="h-3 w-3" />
+                                Score {lead.leadScore}/100
+                              </span>
+                            ) : (
+                              <NotProvided />
+                            )}
                             <span className="block text-[10px] text-slate-400 mt-1">
-                              Budget: {lead.budget}
-                            </span>
-                          </td>
-
-                          {/* Tier & Source */}
-                          <td className="py-3.5 px-4">
-                            <span className="rounded-md bg-purple-50 text-purple-800 border border-purple-200 px-2 py-0.5 text-[10px] font-bold">
-                              {lead.tier}
-                            </span>
-                            <span className="block text-[10px] text-slate-400 mt-1 font-mono truncate max-w-[120px]">
-                              {lead.sourcePage}
+                              Budget: {show(lead.budgetRange)}
                             </span>
                           </td>
 
@@ -1044,7 +907,8 @@ export default function BuyerPortalPage() {
                               {lead.status}
                             </span>
                             <span className="block text-[10px] text-slate-400 mt-1">
-                              ₹{lead.cpl} CPL • {lead.createdAt}
+                              {inr(lead.pricePaidINR)} paid •{" "}
+                              {formatTimeAgo(lead.deliveredAt)}
                             </span>
                           </td>
 
@@ -1054,29 +918,35 @@ export default function BuyerPortalPage() {
                               className="flex items-center justify-end gap-1.5"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              {/* 1-Click WhatsApp */}
-                              <a
-                                href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(`Hi ${lead.name}, I am reaching out from ${orgName} regarding your study abroad plans for ${lead.targetCountry}.`)}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white p-2 transition"
-                                title="WhatsApp Direct"
-                              >
-                                <MessageSquare className="h-3.5 w-3.5" />
-                              </a>
+                              {lead.phone && (
+                                <>
+                                  {/* 1-Click WhatsApp */}
+                                  <a
+                                    href={`https://wa.me/${lead.phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(`Hi ${lead.fullName}, I am reaching out from ${orgName} regarding your study abroad plans.`)}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white p-2 transition"
+                                    title="WhatsApp Direct"
+                                  >
+                                    <MessageSquare className="h-3.5 w-3.5" />
+                                  </a>
 
-                              {/* 1-Click Call */}
-                              <a
-                                href={`tel:${lead.phone}`}
-                                className="rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white p-2 transition"
-                                title="Call Student"
-                              >
-                                <Phone className="h-3.5 w-3.5" />
-                              </a>
+                                  {/* 1-Click Call */}
+                                  <a
+                                    href={`tel:${lead.phone}`}
+                                    className="rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white p-2 transition"
+                                    title="Call Student"
+                                  >
+                                    <Phone className="h-3.5 w-3.5" />
+                                  </a>
+                                </>
+                              )}
 
                               {/* View Details */}
                               <button
-                                onClick={() => setSelectedLead(lead)}
+                                onClick={() =>
+                                  setSelectedDeliveryId(lead.deliveryId)
+                                }
                                 className="rounded-lg bg-slate-100 text-slate-700 hover:bg-[#102C57] hover:text-white p-2 transition"
                                 title="Open Full Profile"
                               >
@@ -1094,10 +964,124 @@ export default function BuyerPortalPage() {
                   <div className="text-center py-12 px-4">
                     <Users className="mx-auto h-8 w-8 text-slate-400" />
                     <h4 className="mt-2 text-sm font-bold text-slate-800">
-                      No matching leads found
+                      {purchasedLeads.length === 0
+                        ? "You have not unlocked any leads yet"
+                        : "No matching leads found"}
                     </h4>
                     <p className="text-xs text-slate-500 mt-1">
-                      Try adjusting your search criteria or filter status.
+                      {purchasedLeads.length === 0
+                        ? "Unlock a lead from the available leads below to see its contact details."
+                        : "Try adjusting your search criteria or filter status."}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Available Leads (contact details hidden until unlocked) */}
+              <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xs">
+                <div className="px-4 pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <h3 className="text-sm font-bold text-[#102C57]">
+                    Available leads
+                  </h3>
+                  <span className="text-[11px] text-slate-500">
+                    Matching your targeting rules. Contact details are shown
+                    after unlocking.
+                  </span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="border-b border-slate-100 bg-slate-50/75 text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+                      <tr>
+                        <th className="py-3.5 px-4">Target Track</th>
+                        <th className="py-3.5 px-4">Budget & Intake</th>
+                        <th className="py-3.5 px-4">Quality Score</th>
+                        <th className="py-3.5 px-4">Created</th>
+                        <th className="py-3.5 px-4 text-right">Unlock</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                      {availableLeads.map((lead) => (
+                        <tr key={lead.id} className="hover:bg-slate-50/80">
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                              {lead.countryName && (
+                                <CountryFlag
+                                  name={lead.countryName}
+                                  size="sm"
+                                />
+                              )}
+                              <span>{show(lead.countryName)}</span>
+                            </div>
+                            <div className="text-[11px] text-slate-500 mt-0.5">
+                              {show(lead.programName)}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div>{show(lead.budgetRange)}</div>
+                            <div className="text-[11px] text-slate-500 mt-0.5">
+                              Intake: {show(lead.intakeYear)}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            {lead.leadScore !== null ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-800 border border-blue-200 px-2.5 py-0.5 text-[10px] font-extrabold">
+                                <Sparkles className="h-3 w-3" />
+                                Score {lead.leadScore}/100
+                              </span>
+                            ) : (
+                              <NotProvided />
+                            )}
+                            <span
+                              className={`block text-[10px] mt-1 font-semibold ${
+                                lead.isPhoneVerified
+                                  ? "text-emerald-600"
+                                  : "text-slate-400"
+                              }`}
+                            >
+                              {lead.isPhoneVerified
+                                ? "Phone verified"
+                                : "Phone not verified"}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-500">
+                            {formatTimeAgo(lead.createdAt)}
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <button
+                              onClick={() => handleUnlockLead(lead.id)}
+                              disabled={
+                                costPerLead === null || unlockingLeadId !== null
+                              }
+                              className="inline-flex items-center gap-1.5 rounded-xl bg-[#EA5C2B] px-3 py-2 text-[11px] font-bold text-white hover:bg-[#d94f20] transition shadow-xs cursor-pointer disabled:cursor-not-allowed disabled:bg-slate-300"
+                            >
+                              {unlockingLeadId === lead.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : costPerLead === null ? (
+                                <Lock className="h-3.5 w-3.5" />
+                              ) : (
+                                <Unlock className="h-3.5 w-3.5" />
+                              )}
+                              <span>
+                                {costPerLead === null
+                                  ? "Price not set"
+                                  : `Unlock for ${inr(costPerLead)}`}
+                              </span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {availableLeads.length === 0 && (
+                  <div className="text-center py-10 px-4">
+                    <Target className="mx-auto h-8 w-8 text-slate-400" />
+                    <h4 className="mt-2 text-sm font-bold text-slate-800">
+                      No available leads right now
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-1">
+                      New leads matching your targeting rules will appear here.
                     </p>
                   </div>
                 )}
@@ -1105,7 +1089,7 @@ export default function BuyerPortalPage() {
             </div>
           )}
 
-          {/* TAB 2: WALLET & GST BILLING [FR-BUY-005] */}
+          {/* TAB 2: WALLET & BILLING */}
           {activeTab === "wallet" && (
             <div className="space-y-6">
               {/* Wallet Summary Card */}
@@ -1117,21 +1101,20 @@ export default function BuyerPortalPage() {
                       <span>Prepaid Wallet Balance</span>
                     </div>
                     <div className="mt-3 text-3xl sm:text-5xl font-black text-slate-900 tracking-tight">
-                      ₹{walletBalance.toLocaleString("en-IN")}
+                      {inr(walletBalance)}
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
-                      Auto-debit active for leads matching your targeting rules.
-                      GST 18% applied on invoice generation.
+                      Unlocking a lead debits its price from this balance.
                     </p>
                   </div>
 
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
                     <button
-                      onClick={() => setRechargeModalOpen(true)}
+                      onClick={openTopupModal}
                       className="flex items-center justify-center gap-2 rounded-xl bg-[#EA5C2B] py-3 px-6 text-xs font-bold text-white hover:bg-[#d94f20] transition shadow-md cursor-pointer"
                     >
                       <Plus className="h-4 w-4" />
-                      <span>Instant Wallet Recharge</span>
+                      <span>Request Top-up</span>
                     </button>
                   </div>
                 </div>
@@ -1140,14 +1123,61 @@ export default function BuyerPortalPage() {
                 <div className="mt-6 flex items-start gap-2.5 rounded-2xl bg-indigo-50/60 p-4 border border-indigo-100 text-xs text-slate-700">
                   <Building2 className="h-4 w-4 text-[#102C57] shrink-0 mt-0.5" />
                   <div>
-                    <strong>Registered Billing GSTIN:</strong> {userGstin} (
-                    {orgName})
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      All monthly lead purchases generate compliant B2B tax
-                      invoices with full GST input tax credit (ITC)
-                      pass-through.
-                    </p>
+                    <strong>Registered Billing GSTIN:</strong>{" "}
+                    {show(buyer.gstin)} ({show(buyer.companyName)})
                   </div>
+                </div>
+              </div>
+
+              {/* Top-up Requests */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold text-[#102C57]">
+                    Top-up Requests
+                  </h3>
+                  <span className="text-xs text-slate-500">
+                    {topupRequests.length} requests
+                  </span>
+                </div>
+
+                <div className="divide-y divide-slate-100 text-xs">
+                  {topupRequests.map((r) => (
+                    <div
+                      key={r.id}
+                      className="py-3.5 flex items-center justify-between gap-4"
+                    >
+                      <div>
+                        <p className="font-bold text-slate-900">
+                          {inr(r.amountINR)}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          Requested {formatDateTime(r.createdAt)} • Reference:{" "}
+                          {show(r.paymentReference)}
+                        </p>
+                        {r.adminNote && (
+                          <p className="text-[11px] text-slate-600 mt-0.5">
+                            <strong>Admin note:</strong> {r.adminNote}
+                          </p>
+                        )}
+                      </div>
+                      <span
+                        className={`rounded-md px-2 py-0.5 text-[10px] font-bold capitalize border shrink-0 ${
+                          r.status === "approved"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : r.status === "rejected"
+                              ? "bg-rose-50 text-rose-700 border-rose-200"
+                              : "bg-amber-50 text-amber-800 border-amber-200"
+                        }`}
+                      >
+                        {r.status}
+                      </span>
+                    </div>
+                  ))}
+                  {topupRequests.length === 0 && (
+                    <div className="text-center py-6 text-slate-500">
+                      No top-up requests yet.
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1158,106 +1188,99 @@ export default function BuyerPortalPage() {
                     Itemized Transaction Ledger
                   </h3>
                   <span className="text-xs text-slate-500">
-                    Showing latest {transactions.length} activities
+                    {transactions.length} transactions
                   </span>
                 </div>
 
                 <div className="divide-y divide-slate-100 text-xs">
-                  {transactions.map((tx) => (
-                    <div
-                      key={tx.id}
-                      className="py-3.5 flex items-center justify-between gap-4"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div
-                          className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${
-                            tx.type === "credit"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : tx.type === "refund"
+                  {transactions.map((tx) => {
+                    const credit = isCredit(tx.type);
+                    return (
+                      <div
+                        key={tx.id}
+                        className="py-3.5 flex items-center justify-between gap-4"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${
+                              tx.type === "lead_refund"
                                 ? "bg-indigo-50 text-indigo-700"
-                                : "bg-slate-100 text-slate-700"
-                          }`}
-                        >
-                          {tx.type === "credit" ? (
-                            <Plus className="h-4 w-4" />
-                          ) : tx.type === "refund" ? (
-                            <RotateCcw className="h-4 w-4" />
-                          ) : (
-                            <Users className="h-4 w-4" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-bold text-slate-900">
-                            {tx.description}
-                          </p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">
-                            {new Date(tx.date).toLocaleDateString("en-IN", {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}{" "}
-                            • ID: {tx.id}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <div
-                          className={`font-black text-sm ${
-                            tx.type === "credit" || tx.type === "refund"
-                              ? "text-emerald-700"
-                              : "text-slate-900"
-                          }`}
-                        >
-                          {tx.type === "credit" || tx.type === "refund"
-                            ? `+ ₹${tx.amount.toLocaleString("en-IN")}`
-                            : `- ₹${tx.amount.toLocaleString("en-IN")}`}
-                        </div>
-                        {tx.invoiceNumber && (
-                          <button
-                            onClick={() => setSelectedInvoice(tx)}
-                            className="inline-flex items-center gap-1 text-[10px] font-bold text-[#EA5C2B] hover:underline mt-0.5"
+                                : credit
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : "bg-slate-100 text-slate-700"
+                            }`}
                           >
-                            <Download className="h-3 w-3" />
-                            <span>GST Invoice</span>
-                          </button>
-                        )}
+                            {tx.type === "lead_refund" ? (
+                              <RotateCcw className="h-4 w-4" />
+                            ) : credit ? (
+                              <Plus className="h-4 w-4" />
+                            ) : (
+                              <Users className="h-4 w-4" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900">
+                              {TX_LABELS[tx.type]}
+                            </p>
+                            <p className="text-[11px] text-slate-600">
+                              {show(tx.description)}
+                            </p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">
+                              {formatDateTime(tx.createdAt)} • Ref:{" "}
+                              {show(tx.reference)}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div
+                          className={`font-black text-sm text-right shrink-0 ${
+                            credit ? "text-emerald-700" : "text-slate-900"
+                          }`}
+                        >
+                          {credit ? "+ " : "- "}
+                          {inr(Math.abs(tx.amountINR))}
+                        </div>
                       </div>
+                    );
+                  })}
+                  {transactions.length === 0 && (
+                    <div className="text-center py-6 text-slate-500">
+                      No wallet transactions yet.
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             </div>
           )}
 
-          {/* TAB 3: ANALYTICS DASHBOARD [FR-BUY-006] */}
+          {/* TAB 3: ANALYTICS DASHBOARD */}
           {activeTab === "analytics" && (
             <div className="space-y-6">
               {/* Analytics Header Bar */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200">
                 <div>
                   <h3 className="text-base font-bold text-[#102C57]">
-                    Consultancy Conversion & Acquisition Analytics
+                    Lead Purchase & Conversion Analytics
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Track lead delivery velocity, cost per admit, and top
-                    performing channels.
+                    Calculated from the leads you have unlocked and your wallet
+                    ledger.
                   </p>
                 </div>
 
                 {/* Timeframe selector */}
                 <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 text-xs font-bold">
-                  {[
-                    { id: "7d", label: "7 Days" },
-                    { id: "30d", label: "30 Days" },
-                    { id: "quarter", label: "Quarter" },
-                    { id: "all", label: "All Time" },
-                  ].map((t) => (
+                  {(
+                    [
+                      { id: "7d", label: "7 Days" },
+                      { id: "30d", label: "30 Days" },
+                      { id: "quarter", label: "Quarter" },
+                      { id: "all", label: "All Time" },
+                    ] as const
+                  ).map((t) => (
                     <button
                       key={t.id}
-                      onClick={() => setAnalyticsTimeframe(t.id as any)}
+                      onClick={() => setAnalyticsTimeframe(t.id)}
                       className={`rounded-lg px-3 py-1.5 transition ${
                         analyticsTimeframe === t.id
                           ? "bg-[#102C57] text-white shadow-xs"
@@ -1270,127 +1293,137 @@ export default function BuyerPortalPage() {
                 </div>
               </div>
 
-              {/* Conversion Funnel Breakdown */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Headline metrics */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="rounded-2xl border border-slate-200 bg-white p-5">
                   <span className="text-xs font-bold text-slate-500 uppercase">
-                    Average Cost Per Admit (CPA)
+                    Leads Purchased
                   </span>
                   <div className="text-3xl font-black text-slate-900 mt-2">
-                    ₹6,198
-                  </div>
-                  <p className="text-[11px] text-emerald-600 font-semibold mt-1">
-                    Industry benchmark: ₹18,000+
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                  <span className="text-xs font-bold text-slate-500 uppercase">
-                    First-Contact Response SLA
-                  </span>
-                  <div className="text-3xl font-black text-slate-900 mt-2">
-                    18 Mins
+                    {aLeads.length}
                   </div>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    84% contacted within 1 hour of OTP
+                    {aCount("unread")} unread • {aCount("contacted")} contacted
+                    • {aConverted} converted • {aCount("disputed")} disputed
                   </p>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-5">
                   <span className="text-xs font-bold text-slate-500 uppercase">
-                    Lead Dispute Rate
+                    Conversion Rate
+                  </span>
+                  <div className="text-3xl font-black text-slate-900 mt-2">
+                    {aLeads.length > 0 ? (
+                      `${((aConverted / aLeads.length) * 100).toFixed(1)}%`
+                    ) : (
+                      <NotProvided />
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Converted ÷ purchased
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                  <span className="text-xs font-bold text-slate-500 uppercase">
+                    Total Spend
+                  </span>
+                  <div className="text-3xl font-black text-slate-900 mt-2">
+                    {inr(aSpend)}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Cost per conversion:{" "}
+                    {aConverted > 0 ? (
+                      inr(Math.round(aSpend / aConverted))
+                    ) : (
+                      <NotProvided />
+                    )}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                  <span className="text-xs font-bold text-slate-500 uppercase">
+                    Refunds
                   </span>
                   <div className="text-3xl font-black text-emerald-700 mt-2">
-                    1.4%
+                    {inr(aRefunds)}
                   </div>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    Platform average: 3.2%
+                    Dispute rate:{" "}
+                    {aLeads.length > 0 ? (
+                      `${((aDisputed / aLeads.length) * 100).toFixed(1)}%`
+                    ) : (
+                      <NotProvided />
+                    )}
                   </p>
                 </div>
               </div>
 
               {/* Breakdown by Country & Program */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Top Source Pages */}
-                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">
-                    Top Converting Source Pages
-                  </h4>
-                  <div className="space-y-3 text-xs">
-                    {[
-                      { page: "/cost-calculator", leads: 48, share: 38 },
-                      { page: "/study-in-germany/ms", leads: 34, share: 27 },
-                      { page: "/compare/universities", leads: 26, share: 20 },
-                      { page: "/study-in-usa", leads: 20, share: 15 },
-                    ].map((item, idx) => (
-                      <div key={idx} className="space-y-1">
-                        <div className="flex justify-between font-semibold">
-                          <span className="text-slate-800 font-mono">
-                            {item.page}
-                          </span>
-                          <span className="text-slate-600">
-                            {item.leads} Leads ({item.share}%)
-                          </span>
+                {(
+                  [
+                    {
+                      title: "Purchased Leads by Country",
+                      rows: byCountry,
+                      color: "bg-[#102C57]",
+                    },
+                    {
+                      title: "Purchased Leads by Program",
+                      rows: byProgram,
+                      color: "bg-[#EA5C2B]",
+                    },
+                  ] as const
+                ).map((block) => (
+                  <div
+                    key={block.title}
+                    className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs"
+                  >
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">
+                      {block.title}
+                    </h4>
+                    <div className="space-y-3 text-xs">
+                      {block.rows.map((item) => {
+                        const pct = Math.round(
+                          (item.count / aLeads.length) * 100,
+                        );
+                        return (
+                          <div key={item.label ?? "none"} className="space-y-1">
+                            <div className="flex justify-between font-semibold">
+                              <span className="text-slate-800">
+                                {show(item.label)}
+                              </span>
+                              <span className="text-slate-600">
+                                {item.count} Leads ({pct}%)
+                              </span>
+                            </div>
+                            <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                              <div
+                                style={{ width: `${pct}%` }}
+                                className={`h-full ${block.color} rounded-full`}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {block.rows.length === 0 && (
+                        <div className="text-center py-6 text-slate-500">
+                          No purchased leads in this period.
                         </div>
-                        <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
-                          <div
-                            style={{ width: `${item.share}%` }}
-                            className="h-full bg-[#102C57] rounded-full"
-                          />
-                        </div>
-                      </div>
-                    ))}
+                      )}
+                    </div>
                   </div>
-                </div>
-
-                {/* Program Breakdown */}
-                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">
-                    Student Leads by Program Track
-                  </h4>
-                  <div className="space-y-3 text-xs">
-                    {[
-                      {
-                        prog: "Master's (STEM MS / MSc)",
-                        pct: 45,
-                        color: "bg-[#EA5C2B]",
-                      },
-                      {
-                        prog: "MBA & Executive MBA",
-                        pct: 28,
-                        color: "bg-blue-600",
-                      },
-                      {
-                        prog: "Bachelor's Degrees",
-                        pct: 15,
-                        color: "bg-purple-600",
-                      },
-                      {
-                        prog: "Ausbildung & Nursing",
-                        pct: 12,
-                        color: "bg-emerald-600",
-                      },
-                    ].map((item, idx) => (
-                      <div key={idx} className="space-y-1">
-                        <div className="flex justify-between font-semibold">
-                          <span className="text-slate-800">{item.prog}</span>
-                          <span className="text-slate-600">{item.pct}%</span>
-                        </div>
-                        <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
-                          <div
-                            style={{ width: `${item.pct}%` }}
-                            className={`h-full ${item.color} rounded-full`}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                ))}
               </div>
+
+              <p className="text-[11px] text-slate-400">
+                Page traffic and source analytics: <NotProvided /> — no traffic
+                analytics source connected.
+              </p>
             </div>
           )}
 
-          {/* TAB 4: DISPUTES & REFUNDS [FR-BUY-007] */}
+          {/* TAB 4: DISPUTES & REFUNDS */}
           {activeTab === "disputes" && (
             <div className="space-y-6">
               {/* Disputes Info Banner */}
@@ -1399,69 +1432,79 @@ export default function BuyerPortalPage() {
                   <ShieldCheck className="h-5 w-5 text-[#102C57] shrink-0 mt-0.5" />
                   <div>
                     <strong className="text-sm text-[#102C57]">
-                      Abroadroute 100% Quality & Dispute SLA
+                      Lead Quality Disputes
                     </strong>
                     <p className="mt-1 text-slate-600">
-                      File a dispute within 72 hours of lead receipt if a phone
-                      number is fake, the student is already enrolled with a
-                      competitor, or the profile is invalid. All verified
-                      disputes are refunded to your wallet within 24 hours.
+                      Raise a dispute from a lead&apos;s detail view if the
+                      phone number is fake, the profile is invalid, or the
+                      student is already enrolled elsewhere. Our team reviews
+                      each dispute and refunds approved disputes to your wallet.
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Active & Resolved Disputes Table */}
+              {/* Disputes List */}
               <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
                 <h3 className="text-sm font-bold text-[#102C57] mb-4">
-                  Dispute History & Auto-Refund Ledger
+                  Dispute History
                 </h3>
 
                 <div className="space-y-3 text-xs">
-                  {leadsList
-                    .filter((l) => l.status === "disputed" || l.disputeReason)
-                    .map((d) => (
-                      <div
-                        key={d.id}
-                        className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                      >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-900">
-                              {d.name} ({d.phone})
-                            </span>
-                            <span className="rounded-md bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 text-[10px] font-bold">
-                              {d.disputeStatus === "approved"
-                                ? "✅ Approved & Refunded"
-                                : "⏳ Under Review (24h SLA)"}
-                            </span>
-                          </div>
-                          <p className="text-slate-600 mt-1">
-                            <strong>Reason:</strong>{" "}
-                            {d.disputeReason || "Fake / Unreachable number"}
-                          </p>
-                          <span className="text-[10px] text-slate-400 mt-0.5 block">
-                            Lead ID: {d.id} • Target: {d.targetCountry} (
-                            {d.program})
+                  {disputedLeads.map((d) => (
+                    <div
+                      key={d.deliveryId}
+                      className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold text-slate-900">
+                            {show(d.fullName)} ({show(d.phone)})
+                          </span>
+                          <span
+                            className={`rounded-md px-2 py-0.5 text-[10px] font-bold border ${
+                              d.disputeStatus === "approved"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : d.disputeStatus === "rejected"
+                                  ? "bg-rose-50 text-rose-700 border-rose-200"
+                                  : "bg-amber-50 text-amber-800 border-amber-200"
+                            }`}
+                          >
+                            {disputeStatusLabel(d.disputeStatus)}
                           </span>
                         </div>
-
-                        <div className="text-right shrink-0">
-                          <span className="font-bold text-emerald-700 text-sm">
-                            + ₹{d.cpl} Refunded
-                          </span>
-                          <span className="block text-[10px] text-slate-400">
-                            Credited to Wallet
-                          </span>
-                        </div>
+                        <p className="text-slate-600 mt-1">
+                          <strong>Reason:</strong> {show(d.disputeReason)}
+                        </p>
+                        <span className="text-[10px] text-slate-400 mt-0.5 block">
+                          Target: {show(d.countryName)} • {show(d.programName)}
+                        </span>
                       </div>
-                    ))}
 
-                  {leadsList.filter((l) => l.status === "disputed").length ===
-                    0 && (
+                      <div className="text-right shrink-0">
+                        <span
+                          className={`font-bold text-sm ${
+                            d.disputeStatus === "approved"
+                              ? "text-emerald-700"
+                              : "text-slate-700"
+                          }`}
+                        >
+                          {inr(d.pricePaidINR)}
+                        </span>
+                        <span className="block text-[10px] text-slate-400">
+                          {d.disputeStatus === "approved"
+                            ? "Refunded to wallet"
+                            : d.disputeStatus === "rejected"
+                              ? "Not refunded"
+                              : "Refund pending review"}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+
+                  {disputedLeads.length === 0 && (
                     <div className="text-center py-8 text-slate-500">
-                      No active disputes. All delivered leads meet verification
-                      criteria.
+                      No disputes raised.
                     </div>
                   )}
                 </div>
@@ -1469,7 +1512,7 @@ export default function BuyerPortalPage() {
             </div>
           )}
 
-          {/* TAB 5: TARGETING RULES [FR-BUY-008] */}
+          {/* TAB 5: TARGETING RULES */}
           {activeTab === "targeting" && (
             <form
               onSubmit={handleSaveTargeting}
@@ -1478,19 +1521,24 @@ export default function BuyerPortalPage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
                 <div>
                   <h3 className="text-lg font-bold text-[#102C57]">
-                    Targeting Rules & Delivery Automation
+                    Targeting Rules & Delivery
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Configure which countries, programs, and lead score
-                    thresholds you accept for automatic wallet debit.
+                    Choose which countries, programs, and lead score thresholds
+                    appear in your available leads.
                   </p>
                 </div>
 
                 <button
                   type="submit"
-                  className="flex items-center gap-2 rounded-xl bg-[#102C57] py-2.5 px-6 text-xs font-bold text-white hover:bg-[#0c2242] transition shadow-xs cursor-pointer self-start sm:self-center"
+                  disabled={isSavingTargeting}
+                  className="flex items-center gap-2 rounded-xl bg-[#102C57] py-2.5 px-6 text-xs font-bold text-white hover:bg-[#0c2242] transition shadow-xs cursor-pointer self-start sm:self-center disabled:opacity-60"
                 >
-                  <Check className="h-4 w-4 text-[#EA5C2B]" />
+                  {isSavingTargeting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4 text-[#EA5C2B]" />
+                  )}
                   <span>Save Targeting Rules</span>
                 </button>
               </div>
@@ -1502,115 +1550,118 @@ export default function BuyerPortalPage() {
                 </div>
               )}
 
+              {targetingError && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-800 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-rose-600" />
+                  <span>{targetingError}</span>
+                </div>
+              )}
+
               {/* 1. Countries */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
                   1. Target Study Destinations
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                  {[
-                    { slug: "germany", name: "Germany" },
-                    { slug: "usa", name: "United States" },
-                    { slug: "uk", name: "United Kingdom" },
-                    { slug: "canada", name: "Canada" },
-                    { slug: "australia", name: "Australia" },
-                    { slug: "ireland", name: "Ireland" },
-                    { slug: "france", name: "France" },
-                    { slug: "italy", name: "Italy" },
-                    { slug: "netherlands", name: "Netherlands" },
-                    { slug: "new-zealand", name: "New Zealand" },
-                    { slug: "uzbekistan", name: "Uzbekistan" },
-                    { slug: "georgia", name: "Georgia" },
-                  ].map((c) => {
-                    const isSelected = targetCountries.includes(c.slug);
+                  {countryOptions.map((c) => {
+                    const isSelected = targetCountries.includes(c.id);
                     return (
                       <button
-                        key={c.slug}
+                        key={c.id}
                         type="button"
-                        onClick={() => toggleTargetCountry(c.slug)}
+                        onClick={() => toggleTargetCountry(c.id)}
                         className={`flex items-center gap-2 rounded-xl p-2.5 text-left font-bold transition border ${
                           isSelected
                             ? "border-[#102C57] bg-[#102C57] text-white shadow-xs"
                             : "border-slate-200 bg-slate-50/60 text-slate-700 hover:bg-slate-100"
                         }`}
                       >
-                        <CountryFlag code={c.slug} size="sm" />
+                        <CountryFlag code={c.code} name={c.name} size="sm" />
                         <span className="truncate">{c.name}</span>
                       </button>
                     );
                   })}
                 </div>
+                {optionsLoaded && countryOptions.length === 0 && (
+                  <p className="text-[11px] text-slate-400">
+                    No countries available in the database.
+                  </p>
+                )}
               </div>
 
               {/* 2. Program Streams */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
-                  2. Accepted Degree Disciplines
+                  2. Accepted Programs
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-                  {[
-                    { key: "ms", label: "Master's (MS/MSc)" },
-                    { key: "mba", label: "MBA & Executive MBA" },
-                    { key: "bachelors", label: "Bachelor's Degrees" },
-                    { key: "mbbs", label: "Medical (MBBS / MD)" },
-                    { key: "ausbildung", label: "Ausbildung (DE)" },
-                    { key: "nursing", label: "Nursing & Healthcare" },
-                  ].map((p) => {
-                    const isSelected = targetPrograms.includes(p.key);
+                  {programOptions.map((p) => {
+                    const isSelected = targetPrograms.includes(p.id);
                     return (
                       <button
-                        key={p.key}
+                        key={p.id}
                         type="button"
-                        onClick={() => toggleTargetProgram(p.key)}
+                        onClick={() => toggleTargetProgram(p.id)}
                         className={`flex items-center justify-between rounded-xl p-2.5 font-bold transition border ${
                           isSelected
                             ? "border-[#EA5C2B] bg-[#EA5C2B] text-white shadow-xs"
                             : "border-slate-200 bg-slate-50/60 text-slate-700 hover:bg-slate-100"
                         }`}
                       >
-                        <span>{p.label}</span>
+                        <span className="text-left">{p.name}</span>
                         {isSelected && <Check className="h-3.5 w-3.5" />}
                       </button>
                     );
                   })}
                 </div>
+                {optionsLoaded && programOptions.length === 0 && (
+                  <p className="text-[11px] text-slate-400">
+                    No programs available in the database.
+                  </p>
+                )}
               </div>
 
               {/* 3. Daily Cap & Score Threshold */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-xs">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
-                    Daily Lead Budget Cap (INR)
+                    Daily Lead Cap (leads per day)
                   </label>
-                  <select
-                    value={dailyBudgetCap}
-                    onChange={(e) => setDailyBudgetCap(Number(e.target.value))}
+                  <input
+                    type="number"
+                    min={1}
+                    max={1000}
+                    step={1}
+                    placeholder="No cap"
+                    value={dailyLeadCap}
+                    onChange={(e) => setDailyLeadCap(e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50/60 py-2.5 px-3.5 font-semibold text-slate-900 focus:border-[#102C57] focus:bg-white focus:outline-none"
-                  >
-                    <option value={7500}>₹7,500 / Day (~5 Leads)</option>
-                    <option value={15000}>₹15,000 / Day (~10 Leads)</option>
-                    <option value={30000}>₹30,000 / Day (~20 Leads)</option>
-                    <option value={75000}>₹75,000 / Day (~50 Leads)</option>
-                  </select>
+                  />
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
                     Minimum Lead Score Threshold
                   </label>
-                  <select
-                    value={minLeadScoreThreshold}
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    placeholder="No minimum"
+                    value={minLeadScore ?? ""}
                     onChange={(e) =>
-                      setMinLeadScoreThreshold(Number(e.target.value))
+                      setMinLeadScore(
+                        e.target.value === ""
+                          ? null
+                          : Math.max(
+                              0,
+                              Math.min(100, Math.round(Number(e.target.value))),
+                            ),
+                      )
                     }
                     className="w-full rounded-xl border border-slate-200 bg-slate-50/60 py-2.5 px-3.5 font-semibold text-slate-900 focus:border-[#102C57] focus:bg-white focus:outline-none"
-                  >
-                    <option value={60}>Score ≥ 60 (Broader Volume)</option>
-                    <option value={75}>
-                      Score ≥ 75 (High Intent - Default)
-                    </option>
-                    <option value={85}>Score ≥ 85 (Top Profiles Only)</option>
-                  </select>
+                  />
                 </div>
               </div>
 
@@ -1621,30 +1672,34 @@ export default function BuyerPortalPage() {
                     Operating Business Hours
                   </label>
                   <p className="text-[11px] text-slate-500 mb-2">
-                    Leads arriving outside operating hours are queued in buffer.
+                    Shared with our team so we know when you handle leads.
                   </p>
                   <input
                     type="text"
-                    value={businessHours}
-                    onChange={(e) => setBusinessHours(e.target.value)}
+                    maxLength={64}
+                    placeholder="e.g. 09:00 - 19:00 IST"
+                    value={operatingHours}
+                    onChange={(e) => setOperatingHours(e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-white py-2 px-3 text-xs font-semibold text-slate-900"
                   />
                 </div>
 
-                <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 flex items-center justify-between gap-3">
+                <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 flex items-center justify-between gap-3 opacity-70">
                   <div>
                     <label className="block text-xs font-bold text-[#102C57]">
-                      Instant Auto-Unlock
+                      Auto-Unlock (coming soon)
                     </label>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      Automatically debit wallet and push OTP verified leads.
+                      Automatic purchasing is not available yet. Unlock leads
+                      manually from the Leads tab.
                     </p>
                   </div>
                   <input
                     type="checkbox"
-                    checked={autoUnlockEnabled}
-                    onChange={(e) => setAutoUnlockEnabled(e.target.checked)}
-                    className="h-5 w-5 rounded accent-[#102C57] cursor-pointer shrink-0"
+                    checked={buyer.autoUnlock}
+                    disabled
+                    readOnly
+                    className="h-5 w-5 rounded accent-[#102C57] cursor-not-allowed shrink-0"
                   />
                 </div>
               </div>
@@ -1653,7 +1708,7 @@ export default function BuyerPortalPage() {
         </div>
       </main>
 
-      {/* Slide-over Individual Lead Detail Drawer [FR-BUY-004] */}
+      {/* Slide-over Individual Lead Detail Drawer */}
       {selectedLead && (
         <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/40 backdrop-blur-xs flex justify-end">
           <div className="w-full max-w-xl bg-white h-full shadow-2xl flex flex-col justify-between overflow-y-auto animate-in slide-in-from-right duration-200">
@@ -1661,22 +1716,28 @@ export default function BuyerPortalPage() {
             <div className="p-6 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#102C57] text-white font-bold text-sm">
-                  {selectedLead.name.charAt(0)}
+                  {selectedLead.fullName.charAt(0)}
                 </div>
                 <div>
                   <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
-                    <span>{selectedLead.name}</span>
-                    <span className="rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-extrabold">
-                      OTP Verified
-                    </span>
+                    <span>{show(selectedLead.fullName)}</span>
+                    {selectedLead.isPhoneVerified && (
+                      <span className="rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-extrabold">
+                        Phone Verified
+                      </span>
+                    )}
                   </h3>
                   <span className="text-xs text-slate-500">
-                    Lead ID: {selectedLead.id} • {selectedLead.createdAt}
+                    Unlocked {formatTimeAgo(selectedLead.deliveredAt)} •{" "}
+                    {inr(selectedLead.pricePaidINR)} paid
                   </span>
                 </div>
               </div>
               <button
-                onClick={() => setSelectedLead(null)}
+                onClick={() => {
+                  setSelectedDeliveryId(null);
+                  setNewNoteText("");
+                }}
                 className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
               >
                 <X className="h-5 w-5" />
@@ -1685,10 +1746,17 @@ export default function BuyerPortalPage() {
 
             {/* Drawer Body */}
             <div className="p-6 space-y-6 flex-1 text-xs">
+              {actionError && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 font-bold text-rose-800 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-rose-600" />
+                  <span>{actionError}</span>
+                </div>
+              )}
+
               {/* 1-Click Action Buttons */}
               <div className="grid grid-cols-3 gap-2">
                 <a
-                  href={`https://wa.me/${selectedLead.phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(`Hi ${selectedLead.name}, I am reaching out from ${orgName} regarding your study abroad plans for ${selectedLead.targetCountry}.`)}`}
+                  href={`https://wa.me/${selectedLead.phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(`Hi ${selectedLead.fullName}, I am reaching out from ${orgName} regarding your study abroad plans.`)}`}
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 text-white font-bold py-2.5 px-3 hover:bg-emerald-700 transition shadow-xs"
@@ -1714,6 +1782,31 @@ export default function BuyerPortalPage() {
                 </a>
               </div>
 
+              {/* Contact Details */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2">
+                <h4 className="font-extrabold uppercase tracking-wider text-[11px] text-[#102C57]">
+                  Contact Details
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">
+                      Phone:
+                    </span>
+                    <span className="font-bold text-slate-800 mt-0.5 block">
+                      {show(selectedLead.phone)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">
+                      Email:
+                    </span>
+                    <span className="font-bold text-slate-800 mt-0.5 block break-all">
+                      {show(selectedLead.email)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               {/* Profile Details Grid */}
               <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
                 <h4 className="font-extrabold uppercase tracking-wider text-[11px] text-[#102C57]">
@@ -1725,11 +1818,13 @@ export default function BuyerPortalPage() {
                       Target Country:
                     </span>
                     <span className="font-bold text-slate-800 flex items-center gap-1 mt-0.5">
-                      <CountryFlag
-                        code={selectedLead.targetCountrySlug}
-                        size="sm"
-                      />
-                      {selectedLead.targetCountry}
+                      {selectedLead.countryName && (
+                        <CountryFlag
+                          name={selectedLead.countryName}
+                          size="sm"
+                        />
+                      )}
+                      {show(selectedLead.countryName)}
                     </span>
                   </div>
 
@@ -1738,7 +1833,7 @@ export default function BuyerPortalPage() {
                       Program Stream:
                     </span>
                     <span className="font-bold text-slate-800 mt-0.5 block">
-                      {selectedLead.program}
+                      {show(selectedLead.programName)}
                     </span>
                   </div>
 
@@ -1747,7 +1842,7 @@ export default function BuyerPortalPage() {
                       Target Intake:
                     </span>
                     <span className="font-bold text-slate-800 mt-0.5 block">
-                      {selectedLead.intake}
+                      {show(selectedLead.intakeYear)}
                     </span>
                   </div>
 
@@ -1756,29 +1851,45 @@ export default function BuyerPortalPage() {
                       Budget Range (INR):
                     </span>
                     <span className="font-bold text-slate-800 mt-0.5 block">
-                      {selectedLead.budget}
+                      {show(selectedLead.budgetRange)}
                     </span>
                   </div>
-                </div>
-              </div>
 
-              {/* Attribution & Journey */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-2">
-                <h4 className="font-extrabold uppercase tracking-wider text-[11px] text-[#102C57]">
-                  Session Attribution Journey
-                </h4>
-                <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                  {selectedLead.sourceJourney.map((step, idx) => (
-                    <span
-                      key={idx}
-                      className="inline-flex items-center gap-1 text-[11px] bg-slate-100 text-slate-700 px-2 py-1 rounded-md font-medium"
-                    >
-                      {step}
-                      {idx < selectedLead.sourceJourney.length - 1 && (
-                        <ChevronRight className="h-3 w-3 text-slate-400 ml-1" />
-                      )}
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">
+                      Highest Education:
                     </span>
-                  ))}
+                    <span className="font-bold text-slate-800 mt-0.5 block">
+                      {show(selectedLead.highestEducation)}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">
+                      IELTS Score:
+                    </span>
+                    <span className="font-bold text-slate-800 mt-0.5 block">
+                      {show(selectedLead.ieltsScore)}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">
+                      Lead Score:
+                    </span>
+                    <span className="font-bold text-slate-800 mt-0.5 block">
+                      {show(selectedLead.leadScore, (s) => `${s}/100`)}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">
+                      Lead Created:
+                    </span>
+                    <span className="font-bold text-slate-800 mt-0.5 block">
+                      {formatDateTime(selectedLead.createdAt)}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -1787,23 +1898,31 @@ export default function BuyerPortalPage() {
                 <h4 className="font-extrabold uppercase tracking-wider text-[11px] text-slate-700">
                   Update Lead CRM Status
                 </h4>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {(
-                    ["unread", "contacted", "converted", "disputed"] as const
-                  ).map((st) => (
-                    <button
-                      key={st}
-                      onClick={() => handleUpdateStatus(st)}
-                      className={`rounded-xl py-2 text-center capitalize font-bold transition border ${
-                        selectedLead.status === st
-                          ? "bg-[#102C57] text-white border-[#102C57] shadow-xs"
-                          : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
-                      }`}
-                    >
-                      {st}
-                    </button>
-                  ))}
-                </div>
+                {selectedLead.status === "disputed" ? (
+                  <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-rose-800 font-semibold">
+                    This lead is disputed (
+                    {disputeStatusLabel(selectedLead.disputeStatus)}).
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {(["unread", "contacted", "converted"] as const).map(
+                      (st) => (
+                        <button
+                          key={st}
+                          onClick={() => handleUpdateStatus(st)}
+                          disabled={isUpdatingLead}
+                          className={`rounded-xl py-2 text-center capitalize font-bold transition border disabled:opacity-60 ${
+                            selectedLead.status === st
+                              ? "bg-[#102C57] text-white border-[#102C57] shadow-xs"
+                              : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                          }`}
+                        >
+                          {st}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Consultation Notes Ledger */}
@@ -1813,7 +1932,7 @@ export default function BuyerPortalPage() {
                 </h4>
 
                 <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {(selectedLead.notes || []).map((note, i) => (
+                  {selectedLead.notes.map((note, i) => (
                     <div
                       key={i}
                       className="rounded-xl border border-slate-100 bg-slate-50 p-3"
@@ -1822,57 +1941,76 @@ export default function BuyerPortalPage() {
                         {note.text}
                       </p>
                       <span className="block text-[10px] text-slate-400 mt-1">
-                        {note.author} • {note.timestamp}
+                        {show(note.author)} • {formatTimeAgo(note.at)}
                       </span>
                     </div>
                   ))}
+                  {selectedLead.notes.length === 0 && (
+                    <p className="text-slate-400">No notes yet.</p>
+                  )}
                 </div>
 
                 {/* Add Note Input */}
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Add a private note about this student..."
-                    value={newNoteText}
-                    onChange={(e) => setNewNoteText(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleAddNote()}
-                    className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 font-medium focus:border-[#102C57] focus:bg-white focus:outline-none"
-                  />
-                  <button
-                    onClick={handleAddNote}
-                    className="rounded-xl bg-[#102C57] text-white px-3 py-2 font-bold hover:bg-[#0c2242] transition"
-                  >
-                    <Send className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                {selectedLead.status !== "disputed" && (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Add a private note about this student..."
+                      value={newNoteText}
+                      onChange={(e) => setNewNoteText(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleAddNote()}
+                      className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 font-medium focus:border-[#102C57] focus:bg-white focus:outline-none"
+                    />
+                    <button
+                      onClick={handleAddNote}
+                      disabled={isUpdatingLead}
+                      className="rounded-xl bg-[#102C57] text-white px-3 py-2 font-bold hover:bg-[#0c2242] transition disabled:opacity-60"
+                    >
+                      {isUpdatingLead ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Send className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Drawer Footer: Dispute Trigger */}
             <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-              <button
-                onClick={() => openDisputeModal(selectedLead.id)}
-                className="flex items-center gap-1.5 text-xs font-bold text-rose-600 hover:text-rose-800 transition"
-              >
-                <AlertCircle className="h-4 w-4" />
-                <span>File 1-Click Lead Dispute (24h SLA)</span>
-              </button>
-              <span className="text-[11px] text-slate-400">
-                Auto-refund to wallet on approval
-              </span>
+              {selectedLead.disputeStatus === null ? (
+                <>
+                  <button
+                    onClick={() => openDisputeModal(selectedLead.deliveryId)}
+                    className="flex items-center gap-1.5 text-xs font-bold text-rose-600 hover:text-rose-800 transition"
+                  >
+                    <AlertCircle className="h-4 w-4" />
+                    <span>Raise dispute</span>
+                  </button>
+                  <span className="text-[11px] text-slate-400">
+                    Reviewed by our team; refunded to wallet if approved
+                  </span>
+                </>
+              ) : (
+                <span className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                  <Clock className="h-4 w-4" />
+                  Dispute: {disputeStatusLabel(selectedLead.disputeStatus)}
+                </span>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal: File Lead Dispute [FR-BUY-007] */}
+      {/* Modal: Raise Lead Dispute */}
       {disputeModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
           <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <AlertCircle className="h-5 w-5 text-rose-600" />
-                <span>File 1-Click Lead Dispute</span>
+                <span>Raise Lead Dispute</span>
               </h3>
               <button
                 onClick={() => setDisputeModalOpen(false)}
@@ -1889,32 +2027,32 @@ export default function BuyerPortalPage() {
                 </label>
                 <select
                   value={disputeCategory}
-                  onChange={(e) => setDisputeCategory(e.target.value as any)}
+                  onChange={(e) =>
+                    setDisputeCategory(
+                      e.target
+                        .value as (typeof DISPUTE_CATEGORIES)[number]["id"],
+                    )
+                  }
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-3 font-semibold text-slate-900 focus:border-[#102C57] focus:bg-white focus:outline-none"
                 >
-                  <option value="fake_number">
-                    Fake Number / Unreachable (3+ attempts)
-                  </option>
-                  <option value="wrong_profile">
-                    Inaccurate Degree Stream / Budget Mismatch
-                  </option>
-                  <option value="competitor_applied">
-                    Student Already Enrolled via Competitor
-                  </option>
-                  <option value="uninterested">
-                    Accidental Click / Uninterested
-                  </option>
+                  {DISPUTE_CATEGORIES.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
-                  Additional Notes for Operations Review
+                  Details for Review *
                 </label>
                 <textarea
                   rows={3}
                   required
-                  placeholder="Provide call timestamp or reason details..."
+                  minLength={3}
+                  maxLength={1900}
+                  placeholder="Provide call timestamps or details of the problem..."
                   value={disputeNotes}
                   onChange={(e) => setDisputeNotes(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 font-medium text-slate-900 focus:border-[#102C57] focus:bg-white focus:outline-none"
@@ -1922,10 +2060,15 @@ export default function BuyerPortalPage() {
               </div>
 
               <div className="rounded-xl bg-amber-50 p-3 text-[11px] text-amber-900 border border-amber-200">
-                <strong>24-Hour SLA Guarantee:</strong> Approved disputes credit
-                the ₹1,500 lead cost back to your active wallet balance
-                instantly.
+                Our team reviews every dispute. If it is approved, the price you
+                paid for this lead is refunded to your wallet.
               </div>
+
+              {disputeError && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 font-bold text-rose-800">
+                  {disputeError}
+                </div>
+              )}
 
               <div className="flex justify-end gap-2 pt-2">
                 <button
@@ -1937,9 +2080,13 @@ export default function BuyerPortalPage() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-rose-600 text-white py-2 px-5 font-bold hover:bg-rose-700 transition shadow-md cursor-pointer"
+                  disabled={isSubmittingDispute}
+                  className="flex items-center gap-1.5 rounded-xl bg-rose-600 text-white py-2 px-5 font-bold hover:bg-rose-700 transition shadow-md cursor-pointer disabled:opacity-60"
                 >
-                  Submit Dispute & Auto-Refund
+                  {isSubmittingDispute && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  )}
+                  <span>Submit Dispute</span>
                 </button>
               </div>
             </form>
@@ -1947,221 +2094,84 @@ export default function BuyerPortalPage() {
         </div>
       )}
 
-      {/* Modal: Wallet Recharge [FR-BUY-005] */}
-      {rechargeModalOpen && (
+      {/* Modal: Request Wallet Top-up */}
+      {topupModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
           <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <Wallet className="h-5 w-5 text-emerald-600" />
-                <span>Online Wallet Recharge</span>
+                <span>Request Wallet Top-up</span>
               </h3>
               <button
-                onClick={() => setRechargeModalOpen(false)}
+                onClick={() => setTopupModalOpen(false)}
                 className="rounded-full p-1 text-slate-400 hover:bg-slate-100"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <form onSubmit={handleRechargeSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-2">
-                  Select Recharge Amount
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[10000, 25000, 50000].map((amt) => (
-                    <button
-                      key={amt}
-                      type="button"
-                      onClick={() => setRechargeAmount(amt)}
-                      className={`rounded-xl py-2.5 px-2 text-center font-bold transition border ${
-                        rechargeAmount === amt
-                          ? "border-[#102C57] bg-[#102C57] text-white shadow-xs"
-                          : "border-slate-200 bg-slate-50 text-slate-800 hover:bg-slate-100"
-                      }`}
-                    >
-                      ₹{amt.toLocaleString("en-IN")}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            <form onSubmit={handleTopupSubmit} className="space-y-4 text-xs">
+              <p className="rounded-xl bg-slate-50 p-3 text-[11px] text-slate-600 border border-slate-100">
+                Pay by bank transfer or UPI, then submit the amount and payment
+                reference here. Your wallet is credited once our team confirms
+                the payment.
+              </p>
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
-                  Or Enter Custom Amount (INR)
+                  Amount Paid (INR) *
                 </label>
                 <input
                   type="number"
-                  min={5000}
-                  step={1000}
-                  value={rechargeAmount}
-                  onChange={(e) => setRechargeAmount(Number(e.target.value))}
+                  min={1}
+                  step={1}
+                  required
+                  value={topupAmount}
+                  onChange={(e) => setTopupAmount(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-3.5 font-bold text-slate-900 focus:border-[#102C57] focus:bg-white focus:outline-none text-base"
                 />
               </div>
 
-              <div className="rounded-xl bg-slate-50 p-3 text-[11px] text-slate-600 border border-slate-100 space-y-1">
-                <div className="flex justify-between">
-                  <span>Recharge Amount:</span>
-                  <span className="font-bold text-slate-900">
-                    ₹{rechargeAmount.toLocaleString("en-IN")}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>18% GST (Tax Invoice Included):</span>
-                  <span className="font-bold text-slate-900">
-                    ₹{Math.round(rechargeAmount * 0.18).toLocaleString("en-IN")}
-                  </span>
-                </div>
-                <div className="flex justify-between border-t border-slate-200 pt-1 font-extrabold text-[#102C57]">
-                  <span>Total Payable:</span>
-                  <span>
-                    ₹{Math.round(rechargeAmount * 1.18).toLocaleString("en-IN")}
-                  </span>
-                </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
+                  Payment Reference (UTR / UPI transaction ID)
+                </label>
+                <input
+                  type="text"
+                  maxLength={128}
+                  value={topupReference}
+                  onChange={(e) => setTopupReference(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 px-3.5 font-semibold text-slate-900 focus:border-[#102C57] focus:bg-white focus:outline-none"
+                />
               </div>
+
+              {topupError && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 font-bold text-rose-800">
+                  {topupError}
+                </div>
+              )}
 
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setRechargeModalOpen(false)}
+                  onClick={() => setTopupModalOpen(false)}
                   className="rounded-xl border border-slate-200 bg-white py-2 px-4 font-bold text-slate-700 hover:bg-slate-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-[#EA5C2B] text-white py-2.5 px-6 font-bold hover:bg-[#d94f20] transition shadow-md cursor-pointer"
+                  disabled={isSubmittingTopup}
+                  className="flex items-center gap-1.5 rounded-xl bg-[#EA5C2B] text-white py-2.5 px-6 font-bold hover:bg-[#d94f20] transition shadow-md cursor-pointer disabled:opacity-60"
                 >
-                  Pay & Credit Instantly →
+                  {isSubmittingTopup && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  )}
+                  <span>Submit Request</span>
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: GST Tax Invoice View [FR-BUY-005] */}
-      {selectedInvoice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-8 shadow-2xl space-y-6 text-xs text-slate-800">
-            {/* Invoice Header */}
-            <div className="flex items-start justify-between border-b border-slate-200 pb-4">
-              <div>
-                <span className="text-base font-black text-[#102C57]">
-                  Abroad<span className="text-[#D89A3E]">route</span>
-                </span>
-                <span className="block text-[10px] text-slate-500 mt-0.5">
-                  Dnyanal Educon Private Limited • GSTIN: 27AABCD1234F1Z5
-                </span>
-              </div>
-              <div className="text-right">
-                <span className="rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-extrabold">
-                  PAID TAX INVOICE
-                </span>
-                <p className="font-mono text-[11px] font-bold mt-1 text-slate-900">
-                  {selectedInvoice.invoiceNumber}
-                </p>
-              </div>
-            </div>
-
-            {/* Bill To */}
-            <div className="grid grid-cols-2 gap-4 text-[11px]">
-              <div>
-                <span className="text-slate-400 font-bold uppercase block text-[10px]">
-                  Billed To:
-                </span>
-                <strong className="text-slate-900 block mt-0.5">
-                  {orgName}
-                </strong>
-                <span className="text-slate-600 block">GSTIN: {userGstin}</span>
-                <span className="text-slate-600 block">Maharashtra, India</span>
-              </div>
-
-              <div>
-                <span className="text-slate-400 font-bold uppercase block text-[10px]">
-                  Invoice Details:
-                </span>
-                <span className="text-slate-600 block mt-0.5">
-                  Date:{" "}
-                  {new Date(selectedInvoice.date).toLocaleDateString("en-IN")}
-                </span>
-                <span className="text-slate-600 block">
-                  Payment Mode: Online NetBanking / Razorpay
-                </span>
-              </div>
-            </div>
-
-            {/* Line Items */}
-            <table className="w-full text-left text-xs border border-slate-200 rounded-xl overflow-hidden">
-              <thead className="bg-slate-50 text-slate-600 font-bold">
-                <tr>
-                  <th className="p-2.5">Description</th>
-                  <th className="p-2.5">HSN/SAC</th>
-                  <th className="p-2.5 text-right">Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                <tr>
-                  <td className="p-2.5 font-medium">
-                    {selectedInvoice.description}
-                  </td>
-                  <td className="p-2.5 text-slate-500">998311</td>
-                  <td className="p-2.5 text-right font-bold">
-                    ₹{selectedInvoice.amount.toLocaleString("en-IN")}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="p-2.5 text-slate-500">CGST (9%)</td>
-                  <td className="p-2.5 text-slate-500">-</td>
-                  <td className="p-2.5 text-right font-medium">
-                    ₹
-                    {Math.round(selectedInvoice.amount * 0.09).toLocaleString(
-                      "en-IN",
-                    )}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="p-2.5 text-slate-500">SGST (9%)</td>
-                  <td className="p-2.5 text-slate-500">-</td>
-                  <td className="p-2.5 text-right font-medium">
-                    ₹
-                    {Math.round(selectedInvoice.amount * 0.09).toLocaleString(
-                      "en-IN",
-                    )}
-                  </td>
-                </tr>
-                <tr className="bg-slate-50 font-extrabold text-[#102C57]">
-                  <td className="p-2.5" colSpan={2}>
-                    Total Invoice Value (INR)
-                  </td>
-                  <td className="p-2.5 text-right">
-                    ₹
-                    {Math.round(selectedInvoice.amount * 1.18).toLocaleString(
-                      "en-IN",
-                    )}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* Modal Actions */}
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-              <button
-                onClick={() => setSelectedInvoice(null)}
-                className="rounded-xl border border-slate-200 bg-white py-2 px-4 font-bold text-slate-700 hover:bg-slate-50"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => window.print()}
-                className="rounded-xl bg-[#102C57] text-white py-2 px-5 font-bold hover:bg-[#0c2242] transition flex items-center gap-1.5"
-              >
-                <Download className="h-3.5 w-3.5" />
-                <span>Download PDF Receipt</span>
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -2170,12 +2180,11 @@ export default function BuyerPortalPage() {
       <footer className="border-t border-slate-200/80 bg-white py-6 text-center text-xs text-slate-500">
         <div className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>
-            © {new Date().getFullYear()} Abroadroute B2B Ecosystem. DPDP Act &
-            GST Compliant.
+            © {new Date().getFullYear()} Abroadroute B2B Partner Portal
           </span>
           <div className="flex items-center gap-4">
             <Link href="/terms-of-service" className="hover:underline">
-              B2B SLA Terms
+              Terms
             </Link>
             <Link href="/privacy-policy" className="hover:underline">
               Data Protection

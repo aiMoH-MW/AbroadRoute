@@ -3,7 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
-import { getArticleBySlug, FALLBACK_ARTICLES } from "@/lib/sanity/fetchers";
+import { getArticleBySlug, getAllArticles } from "@/lib/sanity/fetchers";
+import { show } from "@/components/tools/NotProvided";
 import { fitMetaDescription } from "@/lib/seo/metaUtils";
 import {
   Clock,
@@ -17,7 +18,8 @@ import {
 import { PortableText } from "@portabletext/react";
 
 export async function generateStaticParams() {
-  return FALLBACK_ARTICLES.map((article) => ({
+  const articles = await getAllArticles();
+  return articles.map((article) => ({
     slug: article.slug,
   }));
 }
@@ -104,12 +106,12 @@ export default async function BlogPostPage({ params }: PageProps) {
           <div className="mt-6 flex flex-wrap items-center gap-4 text-xs font-mono text-[#6B6B6B]">
             <div className="flex items-center gap-1.5">
               <Calendar className="h-4 w-4 text-[#1D5A6C]" />
-              <span>{article.date}</span>
+              <span>{show(article.date)}</span>
             </div>
             <span>•</span>
             <div className="flex items-center gap-1.5">
               <Clock className="h-4 w-4 text-[#D89A3E]" />
-              <span>{article.readTime}</span>
+              <span>{show(article.readTime)}</span>
             </div>
             <span>•</span>
             <div className="flex items-center gap-1.5 text-[#1D5A6C] font-semibold font-sans">
@@ -144,20 +146,7 @@ export default async function BlogPostPage({ params }: PageProps) {
               <PortableText value={article.body as any} />
             </div>
           ) : (
-            <div className="space-y-6 text-base sm:text-lg leading-relaxed text-[#1A1A1A] font-sans">
-              <p>
-                When planning an international educational journey,
-                understanding the exact eligibility criteria, living expense
-                structures, and immigration regulations is paramount for Indian
-                students and families.
-              </p>
-              <p>
-                Tuition costs, currency fluctuations, and embassy processing
-                timelines require advance preparation. We advise students to
-                start the verification process at least 6 to 9 months prior to
-                university application deadlines.
-              </p>
-            </div>
+            <p className="text-sm text-slate-500">{show(null)}</p>
           )}
 
           {/* Section 17 · Horizon Mark Signature */}
@@ -181,7 +170,7 @@ export default async function BlogPostPage({ params }: PageProps) {
                   {article.author.name}
                 </h4>
                 <p className="text-xs text-[#6B6B6B] font-sans">
-                  {article.author.role || "Admissions Strategist"}
+                  {show(article.author.role)}
                 </p>
                 {article.author.bio && (
                   <p className="mt-1 text-xs text-[#6B6B6B] leading-relaxed font-sans">

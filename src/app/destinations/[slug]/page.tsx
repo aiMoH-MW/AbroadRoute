@@ -21,13 +21,14 @@ import {
 import { fitMetaDescription } from "@/lib/seo/metaUtils";
 import { formatINRRate } from "@/lib/exchangeRates";
 import { ExchangeRateCredit } from "@/components/ui/ExchangeRateCredit";
-import { getCountryEditorial } from "@/lib/data/contentData";
-import { getPillarGuideByCountry } from "@/lib/sanity/fetchers";
+import { fetchCountryGuide } from "@/lib/siteContent";
+import { fetchProgramsByCountry } from "@/lib/siteStats";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { CountryInquiryForm } from "@/components/country/CountryInquiryForm";
 import { CountryFlag } from "@/components/ui/CountryFlag";
 import { CostCalculatorWidget } from "@/components/home/CostCalculatorWidget";
+import { NotProvided, show } from "@/components/tools/NotProvided";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -49,7 +50,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const country = await getLiveCountryBySlug(slug || "");
   if (!country) return { title: "Country Not Found" };
 
-  const rawDescription = `Complete guide to studying in ${country.name} for Indian students. Compare tuition fees in INR (${country.avgTuitionINR}), post-study work visa (${country.postStudyWorkVisa}), top universities, and scholarships.`;
+  const facts = [
+    country.avgTuitionINR && `tuition fees in INR (${country.avgTuitionINR})`,
+    country.postStudyWorkVisa &&
+      `post-study work visa (${country.postStudyWorkVisa})`,
+  ].filter(Boolean);
+  const rawDescription = `Complete guide to studying in ${country.name} for Indian students. Compare ${
+    facts.length > 0 ? `${facts.join(", ")}, ` : ""
+  }top universities, and scholarships.`;
 
   return {
     title: `Study in ${country.name} for Indian Students (2026-2027) | Cost, Visas & Top Universities`,
@@ -76,35 +84,26 @@ export default async function CountryHubPage({ params }: Props) {
     notFound();
   }
 
-  const baseEditorial = getCountryEditorial(country.slug);
-  const sanityGuide = await getPillarGuideByCountry(country.slug);
-  const editorial = baseEditorial
-    ? {
-        ...baseEditorial,
-        heroSubtitle: sanityGuide?.heroSubtitle || baseEditorial.heroSubtitle,
-        overviewParagraphs: sanityGuide?.overview
-          ? [sanityGuide.overview]
-          : baseEditorial.overviewParagraphs,
-        faqs:
-          sanityGuide?.faqs && sanityGuide.faqs.length > 0
-            ? sanityGuide.faqs
-            : baseEditorial.faqs,
-      }
-    : null;
+  // Country guide content (admin: Site Content)
+  const [guide, programsByCountry] = await Promise.all([
+    fetchCountryGuide(country.id),
+    fetchProgramsByCountry(),
+  ]);
+  const reasons = guide.highlights.filter((h) => h.kind === "reason");
+  const tradeoffs = guide.highlights.filter((h) => h.kind === "tradeoff");
+  // Overview: the guide's paragraphs, else the country's short overview
+  const overviewParagraphs = (country.overviewBody ?? country.overview ?? "")
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
   const universitiesInCountry = allLiveUnis.filter(
-    (u) => u.countrySlug === country.slug,
+    (u) => u.countrySlug === country.slug || u.countrySlug === country.id,
   );
 
-  const popularProgs = Array.isArray(country.popularPrograms)
-    ? country.popularPrograms
-    : ["ms", "mba"];
   const availablePrograms = allPrograms.filter((p) =>
-    popularProgs.includes(p.slug as any),
+    programsByCountry.get(country.id)?.has(p.id),
   );
-
-  const topIntakesList = Array.isArray(country.topIntakes)
-    ? country.topIntakes
-    : ["Fall", "Spring"];
 
   return (
     <div className="min-h-screen bg-[#FDFCF7] flex flex-col justify-between">
@@ -153,7 +152,7 @@ export default async function CountryHubPage({ params }: Props) {
             </h1>
 
             <p className="mt-3 text-sm sm:text-base text-[#FDFCF7]/85 max-w-3xl leading-relaxed font-sans">
-              {editorial?.heroSubtitle || country.heroTagline}
+              {show(country.heroSubtitle ?? country.heroTagline)}
             </p>
 
             {/* Quick Stats Grid */}
@@ -163,7 +162,7 @@ export default async function CountryHubPage({ params }: Props) {
                   Avg Tuition
                 </span>
                 <span className="mt-1 block text-sm sm:text-base font-mono font-bold text-white">
-                  {country.avgTuitionINR}
+                  {show(country.avgTuitionINR)}
                 </span>
               </div>
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-md">
@@ -171,7 +170,7 @@ export default async function CountryHubPage({ params }: Props) {
                   Living Costs
                 </span>
                 <span className="mt-1 block text-sm sm:text-base font-mono font-bold text-white">
-                  {country.avgLivingCostINR}
+                  {show(country.avgLivingCostINR)}
                 </span>
               </div>
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-md">
@@ -179,7 +178,7 @@ export default async function CountryHubPage({ params }: Props) {
                   Post-Study Visa
                 </span>
                 <span className="mt-1 block text-sm sm:text-base font-mono font-bold text-[#D89A3E]">
-                  {country.postStudyWorkVisa}
+                  {show(country.postStudyWorkVisa)}
                 </span>
               </div>
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-md">
@@ -187,7 +186,7 @@ export default async function CountryHubPage({ params }: Props) {
                   Top Intakes
                 </span>
                 <span className="mt-1 block text-xs sm:text-sm font-bold text-white">
-                  {topIntakesList.join(", ")}
+                  {country.topIntakes.join(", ") || <NotProvided />}
                 </span>
               </div>
             </div>
@@ -202,38 +201,40 @@ export default async function CountryHubPage({ params }: Props) {
               {/* 2. Overview & Why Choose */}
               <section className="rounded-2xl border border-[#D9CFB8]/70 bg-white p-6 sm:p-8 shadow-xs">
                 <h2 className="text-xl sm:text-2xl font-display font-bold tracking-tight text-[#103B47]">
-                  {editorial?.overviewHeading || `Why Choose ${country.name}?`}
+                  {country.overviewHeading ?? `Why Choose ${country.name}?`}
                 </h2>
                 <div className="mt-4 space-y-3 text-sm text-slate-600 leading-relaxed font-sans">
-                  {editorial ? (
-                    editorial.overviewParagraphs.map((p, idx) => (
-                      <p key={idx}>{p}</p>
-                    ))
+                  {overviewParagraphs.length > 0 ? (
+                    overviewParagraphs.map((p, idx) => <p key={idx}>{p}</p>)
                   ) : (
-                    <p>{country.overview}</p>
+                    <p>
+                      <NotProvided />
+                    </p>
                   )}
                 </div>
 
-                {editorial && (
+                {reasons.length > 0 && (
                   <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {editorial.whyChooseReasons.map((r, i) => (
+                    {reasons.map((r) => (
                       <div
-                        key={i}
+                        key={r.id}
                         className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4"
                       >
                         <CheckCircle2 className="h-4 w-4 text-emerald-600 mb-2" />
                         <h4 className="text-xs font-bold text-emerald-900">
                           {r.title}
                         </h4>
-                        <p className="mt-1 text-[11px] text-slate-600 leading-snug">
-                          {r.desc}
-                        </p>
+                        {r.description && (
+                          <p className="mt-1 text-[11px] text-slate-600 leading-snug">
+                            {r.description}
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>
                 )}
 
-                {editorial && editorial.tradeoffsToKnow.length > 0 && (
+                {tradeoffs.length > 0 && (
                   <div className="mt-6 rounded-xl border border-[#D89A3E]/30 bg-[#F5EFE0]/50 p-4">
                     <div className="flex items-center gap-2 text-xs font-bold text-[#103B47] mb-2 font-mono">
                       <AlertCircle className="h-4 w-4 text-[#D89A3E]" />
@@ -242,9 +243,10 @@ export default async function CountryHubPage({ params }: Props) {
                       </span>
                     </div>
                     <div className="space-y-2 text-[11px] text-slate-700">
-                      {editorial.tradeoffsToKnow.map((t, idx) => (
-                        <p key={idx}>
-                          <strong>{t.title}:</strong> {t.desc}
+                      {tradeoffs.map((t) => (
+                        <p key={t.id}>
+                          <strong>{t.title}</strong>
+                          {t.description && `: ${t.description}`}
                         </p>
                       ))}
                     </div>
@@ -264,10 +266,21 @@ export default async function CountryHubPage({ params }: Props) {
                     </p>
                   </div>
                   <span className="text-xs font-bold text-[#1D5A6C] bg-[#1D5A6C]/10 px-2.5 py-1 rounded-lg">
-                    {availablePrograms.length} Core Streams
+                    {availablePrograms.length} Streams
                   </span>
                 </div>
 
+                {country.programsOfferedNotes && (
+                  <p className="mt-4 text-xs text-slate-600 leading-relaxed">
+                    {country.programsOfferedNotes}
+                  </p>
+                )}
+
+                {availablePrograms.length === 0 && (
+                  <p className="mt-6 text-xs">
+                    <NotProvided />
+                  </p>
+                )}
                 <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   {availablePrograms.map((prog) => (
                     <Link
@@ -281,11 +294,11 @@ export default async function CountryHubPage({ params }: Props) {
                             {prog.name}
                           </span>
                           <span className="rounded-md bg-[#FDFCF7] border border-[#D9CFB8]/50 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                            {prog.duration}
+                            {show(prog.duration)}
                           </span>
                         </div>
                         <p className="mt-1.5 text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
-                          {prog.summary}
+                          {show(prog.summary)}
                         </p>
                       </div>
                       <div className="mt-3 flex items-center gap-1 text-[11px] font-bold text-[#1D5A6C] group-hover:translate-x-1 transition-transform">
@@ -306,9 +319,12 @@ export default async function CountryHubPage({ params }: Props) {
                   </h2>
                 </div>
                 <p className="text-xs text-slate-500 mb-6">
-                  Based on current currency exchange rates ({country.currency} 1
-                  ≈ ₹{formatINRRate(country.exchangeRateToINR)}).{" "}
-                  <ExchangeRateCredit updatedAt={country.exchangeRateUpdatedAt} />
+                  {country.exchangeRateToINR !== null
+                    ? `Based on current currency exchange rates (${country.currency} 1 ≈ ₹${formatINRRate(country.exchangeRateToINR)}). `
+                    : "Exchange rate not provided. "}
+                  <ExchangeRateCredit
+                    updatedAt={country.exchangeRateUpdatedAt}
+                  />
                 </p>
 
                 <div className="overflow-x-auto">
@@ -322,34 +338,39 @@ export default async function CountryHubPage({ params }: Props) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium font-mono">
-                      {editorial?.costBreakdown ? (
-                        editorial.costBreakdown.map((c, i) => (
-                          <tr key={i} className="hover:bg-[#FDFCF7] transition">
+                      {guide.programCosts.length > 0 ? (
+                        guide.programCosts.map((c) => (
+                          <tr
+                            key={c.id}
+                            className="hover:bg-[#FDFCF7] transition"
+                          >
                             <td className="py-3 px-3 font-sans font-bold text-[#103B47]">
-                              {c.programType}
+                              {c.programLabel}
                             </td>
                             <td className="py-3 px-3 text-slate-600">
-                              {c.tuitionRangeINR}
+                              {show(c.tuitionRangeINR)}
                             </td>
                             <td className="py-3 px-3 text-slate-600">
-                              {c.livingCostINR}
+                              {show(c.livingCostINR)}
                             </td>
                             <td className="py-3 px-3 font-bold text-[#1D5A6C]">
-                              {c.totalAnnualINR}
+                              {show(c.totalAnnualINR)}
                             </td>
                           </tr>
                         ))
                       ) : (
                         <tr>
                           <td className="py-3 px-3 font-sans font-bold text-[#103B47]">
-                            General Degree Average
+                            Country Average
                           </td>
-                          <td className="py-3 px-3">{country.avgTuitionINR}</td>
                           <td className="py-3 px-3">
-                            {country.avgLivingCostINR}
+                            {show(country.avgTuitionINR)}
+                          </td>
+                          <td className="py-3 px-3">
+                            {show(country.avgLivingCostINR)}
                           </td>
                           <td className="py-3 px-3 font-bold text-[#1D5A6C]">
-                            ₹25 - 45 Lakhs
+                            <NotProvided />
                           </td>
                         </tr>
                       )}
@@ -357,23 +378,28 @@ export default async function CountryHubPage({ params }: Props) {
                   </table>
                 </div>
 
-                {editorial?.hiddenCosts && (
+                {guide.hiddenCosts.length > 0 && (
                   <div className="mt-6 pt-6 border-t border-[#D9CFB8]/40">
                     <h4 className="text-xs font-bold text-[#103B47] mb-2.5 font-mono">
                       Other Mandatory Incidental Costs:
                     </h4>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-                      {editorial.hiddenCosts.map((h, i) => (
+                      {guide.hiddenCosts.map((h) => (
                         <div
-                          key={i}
+                          key={h.id}
                           className="rounded-lg bg-[#FDFCF7] p-2.5 border border-[#D9CFB8]/60"
                         >
                           <span className="block text-slate-500 font-sans">
                             {h.item}
                           </span>
                           <span className="font-bold text-[#103B47] font-mono">
-                            {h.costINR}
+                            {show(h.costINR)}
                           </span>
+                          {h.frequency && (
+                            <span className="block text-[10px] text-slate-400">
+                              {h.frequency}
+                            </span>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -415,18 +441,18 @@ export default async function CountryHubPage({ params }: Props) {
                             <Building2 className="h-5 w-5 text-[#D89A3E]" />
                           </div>
                           <span className="rounded-md bg-[#F5EFE0] px-2 py-0.5 text-[10px] font-mono font-bold text-[#103B47] border border-[#D9CFB8]">
-                            QS #{uni.rankingGlobal}
+                            {show(uni.rankingGlobal, (v) => `QS #${v}`)}
                           </span>
                         </div>
                         <h3 className="mt-3 text-sm font-bold text-[#103B47] group-hover:text-[#D89A3E] transition font-sans">
                           {uni.name}
                         </h3>
                         <span className="text-xs text-slate-500">
-                          {uni.city}, {country.name}
+                          {[uni.city, country.name].filter(Boolean).join(", ")}
                         </span>
                         <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
                           <span className="text-slate-500 font-mono font-medium">
-                            {uni.tuitionFeeRangeINR}
+                            {show(uni.tuitionFeeRangeINR)}
                           </span>
                           <span className="font-bold text-[#1D5A6C] group-hover:text-[#D89A3E]">
                             View Profile →
@@ -437,8 +463,7 @@ export default async function CountryHubPage({ params }: Props) {
                   </div>
                 ) : (
                   <div className="rounded-xl border border-dashed border-[#D9CFB8] p-6 text-center text-xs text-slate-500">
-                    Showing all institutional programs matching {country.name}{" "}
-                    curriculum standards.
+                    No universities in {country.name} are listed yet.
                   </div>
                 )}
               </section>
@@ -458,14 +483,13 @@ export default async function CountryHubPage({ params }: Props) {
                       Visa Classification
                     </span>
                     <p className="mt-1 font-bold text-[#103B47]">
-                      {editorial?.visaDetails.visaType ||
-                        `${country.name} Student Visa`}
+                      {show(country.visaType)}
                     </p>
                     <span className="mt-2 block text-[10px] font-bold uppercase text-slate-400 font-mono">
                       Processing Time
                     </span>
                     <p className="mt-1 font-medium text-slate-700">
-                      {editorial?.visaDetails.processingTime || "4 to 6 weeks"}
+                      {show(country.visaProcessingTime)}
                     </p>
                   </div>
                   <div className="rounded-xl bg-[#FDFCF7] p-4 border border-[#D9CFB8]/60">
@@ -473,33 +497,42 @@ export default async function CountryHubPage({ params }: Props) {
                       Part-Time Work Limit
                     </span>
                     <p className="mt-1 font-bold text-[#103B47]">
-                      {editorial?.visaDetails.workHoursDuringTerm ||
-                        "20 hours / week during terms"}
+                      {show(country.workHoursDuringTerm)}
                     </p>
                     <span className="mt-2 block text-[10px] font-bold uppercase text-slate-400 font-mono">
                       Post-Study Work (PSW)
                     </span>
                     <p className="mt-1 font-mono font-bold text-[#D89A3E]">
-                      {editorial?.visaDetails.postStudyWorkDuration ||
-                        country.postStudyWorkVisa}
+                      {show(country.postStudyWorkVisa)}
                     </p>
                   </div>
                 </div>
 
-                {editorial?.visaDetails.prPathwaySummary && (
+                {country.financialProofRequired && (
+                  <div className="mt-4 rounded-xl bg-[#FDFCF7] p-4 border border-[#D9CFB8]/60 text-xs">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 font-mono">
+                      Financial Proof Required
+                    </span>
+                    <p className="mt-1 text-slate-700 leading-relaxed">
+                      {country.financialProofRequired}
+                    </p>
+                  </div>
+                )}
+
+                {country.prPathwaySummary && (
                   <div className="mt-4 rounded-xl bg-indigo-50/60 p-4 border border-indigo-100 text-xs">
                     <span className="font-bold text-indigo-950">
                       Permanent Residency (PR) & Settlement Outlook:
                     </span>
                     <p className="mt-1 text-slate-600 leading-relaxed">
-                      {editorial.visaDetails.prPathwaySummary}
+                      {country.prPathwaySummary}
                     </p>
                   </div>
                 )}
               </section>
 
               {/* 7. FAQs */}
-              {editorial?.faqs && editorial.faqs.length > 0 && (
+              {guide.faqs.length > 0 && (
                 <section className="rounded-2xl border border-[#D9CFB8]/70 bg-white p-6 sm:p-8 shadow-xs">
                   <div className="flex items-center gap-2 mb-6">
                     <HelpCircle className="h-5 w-5 text-[#D89A3E]" />
@@ -509,9 +542,9 @@ export default async function CountryHubPage({ params }: Props) {
                   </div>
 
                   <div className="space-y-3.5">
-                    {editorial.faqs.map((faq, i) => (
+                    {guide.faqs.map((faq) => (
                       <div
-                        key={i}
+                        key={faq.id}
                         className="rounded-xl border border-[#D9CFB8]/50 bg-[#FDFCF7] p-4"
                       >
                         <h4 className="text-xs font-bold text-[#103B47]">

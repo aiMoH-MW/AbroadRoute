@@ -33,34 +33,41 @@ interface EditUniversityProfileModalProps {
   onSave: (updated: any) => void;
 }
 
+function numberOrNull(value: unknown): number | null {
+  if (value === null || value === undefined || String(value).trim() === "") {
+    return null;
+  }
+  const num = Number(value);
+  return Number.isNaN(num) ? null : num;
+}
+
 export function EditUniversityProfileModal({
   isOpen,
   onClose,
   initialData,
   onSave,
 }: EditUniversityProfileModalProps) {
-  if (!isOpen) return null;
-
   const [name, setName] = useState(initialData.name || "");
-  const [city, setCity] = useState(initialData.city || "Munich");
-  const [country, setCountry] = useState(initialData.country || "Germany");
+  // Empty when the database has no value; nothing is pre-filled
+  const [city, setCity] = useState(initialData.city ?? "");
+  const [country, setCountry] = useState(initialData.country ?? "");
   const [rankingGlobal, setRankingGlobal] = useState(
-    initialData.rankingGlobal || "28",
+    initialData.rankingGlobal ?? "",
   );
   const [rankingNational, setRankingNational] = useState(
-    initialData.rankingNational || "1",
+    initialData.rankingNational ?? "",
   );
   const [tuitionFeeRangeINR, setTuitionFeeRangeINR] = useState(
-    initialData.tuitionFeeRangeINR || "€0 (Public University)",
+    initialData.tuitionFeeRangeINR ?? "",
   );
   const [ieltsMinScore, setIeltsMinScore] = useState(
-    initialData.ieltsMinScore || "6.5",
+    initialData.ieltsMinScore ?? "",
   );
   const [acceptanceRate, setAcceptanceRate] = useState(
-    initialData.acceptanceRate || "8",
+    initialData.acceptanceRate ?? "",
   );
   const [postStudyWorkMonths, setPostStudyWorkMonths] = useState(
-    initialData.postStudyWorkMonths || "18",
+    initialData.postStudyWorkMonths ?? "",
   );
 
   const [saving, setSaving] = useState(false);
@@ -83,12 +90,13 @@ export function EditUniversityProfileModal({
       name: name.trim(),
       city: city.trim(),
       country: country.trim(),
-      rankingGlobal: Number(rankingGlobal) || 28,
-      rankingNational: Number(rankingNational) || 1,
-      tuitionFeeRangeINR: tuitionFeeRangeINR.trim(),
-      ieltsMinScore: Number(ieltsMinScore) || 6.5,
-      acceptanceRate: Number(acceptanceRate) || 8,
-      postStudyWorkMonths: Number(postStudyWorkMonths) || 18,
+      // Blank fields stay null (the API leaves them unchanged)
+      rankingGlobal: numberOrNull(rankingGlobal),
+      rankingNational: numberOrNull(rankingNational),
+      tuitionFeeRangeINR: String(tuitionFeeRangeINR).trim() || null,
+      ieltsMinScore: numberOrNull(ieltsMinScore),
+      acceptanceRate: numberOrNull(acceptanceRate),
+      postStudyWorkMonths: numberOrNull(postStudyWorkMonths),
     };
 
     try {
@@ -109,8 +117,8 @@ export function EditUniversityProfileModal({
         body: JSON.stringify({
           name: updatedObj.name,
           slug: (initialData.id || updatedObj.name).toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-          country: updatedObj.country,
-          city: updatedObj.city,
+          // City and country are locked here: never sent, so the stored
+          // city id (cities.id) is not overwritten with a display name
           ranking_global: updatedObj.rankingGlobal,
           ranking_national: updatedObj.rankingNational,
           tuition_fee_range_inr: updatedObj.tuitionFeeRangeINR,
@@ -137,6 +145,9 @@ export function EditUniversityProfileModal({
       setSaving(false);
     }
   };
+
+  // After all hooks so their order never changes between renders
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-xs overflow-y-auto">

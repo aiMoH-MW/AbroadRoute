@@ -12,11 +12,12 @@ import { fetchLivePrograms } from "@/lib/supabase/dataFetchers";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { PeacockEye } from "@/components/ui/BrandSignatures";
+import { NotProvided, show } from "@/components/tools/NotProvided";
 
 export const metadata: Metadata = {
-  title: "8 Core Academic Programs Abroad | Compare ROI, Tuition & Visas",
+  title: "Core Academic Programs Abroad | Compare ROI, Tuition & Visas",
   description:
-    "Explore 8 core degree tracks for Indian students. Compare tuition in INR, global ROI rankings, and top destinations across STEM Master's, MBA, MBBS, Ausbildung, and Nursing.",
+    "Explore core degree tracks for Indian students. Compare tuition in INR, global ROI rankings, and top destinations across STEM Master's, MBA, MBBS, Ausbildung, and Nursing.",
   alternates: {
     canonical: "/programs",
   },
@@ -47,7 +48,11 @@ export default async function ProgramsIndexPage() {
           <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center sm:text-left">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs font-semibold backdrop-blur-md shadow-inner">
               <PeacockEye size={12} />
-              <span className="text-[#FDFCF7]">8 Core Career Disciplines</span>
+              <span className="text-[#FDFCF7]">
+                {programs.length > 0
+                  ? `${programs.length} Core Career Disciplines`
+                  : "Core Career Disciplines"}
+              </span>
             </div>
 
             <h1 className="mt-4 font-display text-3xl sm:text-5xl lg:text-6xl font-semibold tracking-tight text-[#FDFCF7] leading-tight">
@@ -96,7 +101,7 @@ export default async function ProgramsIndexPage() {
                     </div>
                     <div className="flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-mono font-bold text-emerald-700">
                       <Award className="h-3 w-3" />
-                      ROI: {program.roiScore}/100
+                      ROI: {show(program.roiScore, (v) => `${v}/100`)}
                     </div>
                   </div>
 
@@ -104,11 +109,11 @@ export default async function ProgramsIndexPage() {
                     {program.name}
                   </h3>
                   <span className="text-[11px] font-semibold text-slate-500 font-mono">
-                    {program.level} • {program.duration}
+                    {[program.level, program.duration].filter(Boolean).join(" • ") || <NotProvided />}
                   </span>
 
                   <p className="mt-3 text-xs leading-relaxed text-slate-600 line-clamp-3 font-sans">
-                    {program.summary}
+                    {show(program.summary)}
                   </p>
 
                   {/* Specializations */}

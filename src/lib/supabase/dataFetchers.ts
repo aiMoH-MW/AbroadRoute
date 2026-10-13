@@ -4,28 +4,30 @@ import {
   City,
   Country,
   University,
-  CourseItem,
   Program,
   Specialisation,
   TestPrepExam,
   ApplicationDeadline,
   DeadlineMilestone,
+  LoanLender,
+  Scholarship,
 } from "@/types";
 import {
   mapSupabaseCountry,
-  mapSanityCountry,
   mapSupabaseUniversity,
-  mapSanityUniversity,
+  UNIVERSITY_SELECT,
   mapSupabaseDeadline,
   DEADLINE_SELECT,
   mapSupabaseMilestone,
   MILESTONE_SELECT,
+  mapSupabaseLoanLender,
+  mapSupabaseScholarship,
+  SCHOLARSHIP_SELECT,
 } from "@/lib/data/mappers";
 import {
-  getSanityUniversities,
-  getSanityCountries,
-} from "@/lib/sanity/fetchers";
-import { withLiveExchangeRates } from "@/lib/exchangeRates";
+  getLiveExchangeRates,
+  withLiveExchangeRates,
+} from "@/lib/exchangeRates";
 
 async function queryWithTimeout<T>(
   promiseFactory: () => PromiseLike<T>,
@@ -87,35 +89,7 @@ export async function fetchLiveCountries(): Promise<Country[]> {
     console.warn("Supabase countries fetch error:", err);
   }
 
-  // 2. Merge Sanity CMS Countries (Prepend / update by slug)
-  try {
-    const sanityCountries = await queryWithTimeout(
-      () => getSanityCountries(),
-      2000,
-    );
-    if (sanityCountries && sanityCountries.length > 0) {
-      const map = new Map<string, Country>();
-
-      sanityCountries.forEach((sc: any) => {
-        const mapped = mapSanityCountry(sc);
-        if (mapped) {
-          map.set(mapped.slug, mapped);
-        }
-      });
-
-      list.forEach((c) => {
-        if (!map.has(c.slug)) {
-          map.set(c.slug, c);
-        }
-      });
-
-      list = Array.from(map.values());
-    }
-  } catch (err) {
-    console.warn("Sanity countries fetch error:", err);
-  }
-
-  // 3. Live exchange rates; the stored rate stays as the fallback
+  // Live exchange rates; the stored rate stays as the fallback
   return withLiveExchangeRates(list);
 }
 
@@ -139,69 +113,36 @@ export async function fetchLiveUniversities(): Promise<University[]> {
     }
   }
 
-  const uniMap = new Map<string, University>();
-
   // Server-side: Direct Supabase query using supabaseAdmin
   try {
     const client = typeof window === "undefined" ? supabaseAdmin : supabase;
-    let response = await queryWithTimeout(
-      () =>
-        client
-          .from("universities")
-          .select(
-            "*, university_programs(program_id, yearly_tuition_inr, duration, is_active)",
-          ),
-      2500,
-    );
+    const [uniRes, cityRes] = await Promise.all([
+      queryWithTimeout(
+        () => client.from("universities").select(UNIVERSITY_SELECT),
+        2500,
+      ),
+      queryWithTimeout(() => client.from("cities").select("id, name"), 2500),
+    ]);
+    let response: any = uniRes;
     // Before the university_programs migration is applied the embed fails
-    if (response && (response as any).error) {
+    if (response && response.error) {
       response = await queryWithTimeout(
-        () => client.from("universities").select("*"),
+        () => client.from("universities").select("*, countries(name)"),
         2500,
       );
     }
-    if (
-      response &&
-      !(response as any).error &&
-      (response as any).data &&
-      (response as any).data.length > 0
-    ) {
-      (response as any).data.forEach((u: any) => {
-        const mapped = mapSupabaseUniversity(u);
-        if (mapped) {
-          uniMap.set(mapped.slug, mapped);
-        }
-      });
-    }
+    if (!response || response.error || !response.data) return [];
+
+    const cityNames = new Map<string, string>(
+      ((cityRes as any)?.data ?? []).map((c: any) => [String(c.id), c.name]),
+    );
+    return (response.data as any[])
+      .map((u) => mapSupabaseUniversity(u, cityNames))
+      .filter((u): u is University => u !== null);
   } catch (err) {
     console.warn("Supabase universities fetch error:", err);
+    return [];
   }
-
-  // 2. Merge Sanity CMS Universities
-  try {
-    const sanityUnis = await queryWithTimeout(
-      () => getSanityUniversities(),
-      2000,
-    );
-    if (sanityUnis && sanityUnis.length > 0) {
-      sanityUnis.forEach((su: any) => {
-        const mapped = mapSanityUniversity(su);
-        if (mapped) {
-          // Program assignments live in Supabase; keep them over Sanity's defaults
-          const existing = uniMap.get(mapped.slug);
-          if (existing?.programs?.length) {
-            mapped.programs = existing.programs;
-            mapped.programsOffered = existing.programsOffered;
-          }
-          uniMap.set(mapped.slug, mapped);
-        }
-      });
-    }
-  } catch (err) {
-    console.warn("Sanity universities fetch fallback:", err);
-  }
-
-  return Array.from(uniMap.values());
 }
 
 export async function fetchLivePrograms(): Promise<Program[]> {
@@ -241,14 +182,14 @@ export async function fetchLivePrograms(): Promise<Program[]> {
         id: p.id || p.slug,
         name: p.name,
         slug: p.slug,
-        level: p.level || "Postgraduate",
-        duration: p.duration || "2 Years",
+        level: p.level || null,
+        duration: p.duration || null,
         keyFields: Array.isArray(p.key_fields) ? p.key_fields : [],
         topDestinations: Array.isArray(p.top_destinations)
           ? p.top_destinations
           : [],
-        summary: p.summary || "",
-        roiScore: Number(p.roi_score) || 90,
+        summary: p.summary || null,
+        roiScore: toNumberOrNull(p.roi_score),
         yearlyEducationalCost: toNumberOrNull(p.yearly_educational_cost),
       }));
     }
@@ -396,185 +337,6 @@ export async function fetchLiveClaims(): Promise<ClaimItem[]> {
   return [];
 }
 
-export async function fetchLiveCourses(): Promise<CourseItem[]> {
-  const courseMap = new Map<string, CourseItem>();
-
-  // 1. Fetch live universities from Supabase
-  const universities = await fetchLiveUniversities();
-
-  const flagMap: Record<string, string> = {
-    germany: "🇩🇪",
-    usa: "🇺🇸",
-    uk: "🇬🇧",
-    canada: "🇨🇦",
-    ireland: "🇮🇪",
-    australia: "🇦🇺",
-    france: "🇫🇷",
-    uzbekistan: "🇺🇿",
-    global: "🌐",
-  };
-
-  // 2. Build course catalog dynamically from fetched Supabase universities
-  universities.forEach((u) => {
-    const countryFlag = flagMap[u.countrySlug?.toLowerCase() || ""] || "🌐";
-
-    (u.programsOffered || []).forEach((prog) => {
-      let programTitle = "";
-      let level = "Postgraduate (Master's)";
-      let duration = "2 Years";
-      let coreModules = [
-        "Core Academic Curriculum",
-        "Applied Project",
-        "Research Thesis",
-        "Specialization Elective",
-      ];
-
-      if (prog === "ms") {
-        programTitle = `M.Sc. in ${u.name.includes("Technical") ? "Engineering & Data Science" : "Computer Science & Analytics"}`;
-        level = "Postgraduate (Master's)";
-        duration = u.countrySlug === "uk" ? "1 Year (Full-time)" : "2 Years";
-        coreModules = [
-          "Machine Learning & AI",
-          "Distributed Systems",
-          "Cloud Computing",
-          "Advanced Algorithms",
-        ];
-      } else if (prog === "mba") {
-        programTitle = `Master of Business Administration (MBA)`;
-        level = "Postgraduate (MBA)";
-        duration = u.countrySlug === "uk" ? "1 Year" : "16 - 24 Months";
-        coreModules = [
-          "Strategic Leadership",
-          "Corporate Finance",
-          "Global Marketing",
-          "Venture Capital & Innovation",
-        ];
-      } else if (prog === "mbbs") {
-        programTitle = `Doctor of Medicine (MD / MBBS - NMC Compliant)`;
-        level = "Undergraduate (Medicine)";
-        duration = "6 Years (5 Yrs + 1 Yr Clinical)";
-        coreModules = [
-          "Human Anatomy",
-          "Pathology & Histology",
-          "Clinical Surgery",
-          "Internal Medicine",
-        ];
-      } else if (prog === "bachelors") {
-        programTitle = `Bachelor of Science (B.Sc.) in Computer Engineering`;
-        level = "Undergraduate (Bachelor's)";
-        duration = u.countrySlug === "usa" ? "4 Years" : "3 Years";
-        coreModules = [
-          "Computer Systems",
-          "Linear Algebra",
-          "Data Structures",
-          "Software Engineering",
-        ];
-      } else if (prog === "nursing") {
-        programTitle = `B.Sc. / M.Sc. in Nursing & Healthcare Leadership`;
-        level = "Postgraduate / Undergraduate";
-        duration = "2 - 3 Years";
-        coreModules = [
-          "Clinical Care",
-          "Patient Safety",
-          "Healthcare Management",
-          "Pharmacology",
-        ];
-      } else if (prog === "ausbildung") {
-        programTitle = `Pflegefachfrau/mann Dual Vocational Nursing Ausbildung`;
-        level = "Vocational Diploma";
-        duration = "3 Years (Paid Apprenticeship)";
-        coreModules = [
-          "General Nursing",
-          "Anatomy & Physiology",
-          "Clinical Practice",
-          "Geriatric Care",
-        ];
-      } else {
-        programTitle = `${String(prog).toUpperCase()} Program`;
-      }
-
-      const courseId = `${u.slug}-${prog}`;
-      if (!courseMap.has(courseId)) {
-        courseMap.set(courseId, {
-          id: courseId,
-          slug: `${prog}-${u.slug}`,
-          name: programTitle,
-          universityName: u.name,
-          universitySlug: u.slug,
-          city: u.city,
-          country: u.country,
-          flagEmoji: countryFlag,
-          level,
-          duration,
-          tuitionFeeINR: u.tuitionFeeRangeINR,
-          tuitionFeeLocal:
-            u.countrySlug === "germany"
-              ? "€0 / yr (Semester Fee ~€150)"
-              : `${u.tuitionFeeRangeINR}`,
-          ieltsMinScore: u.ieltsMinScore,
-          greGmatRequired: u.greGmatRequired,
-          postStudyWorkMonths: u.postStudyWorkMonths,
-          intakeDeadline: u.intakes?.[0]
-            ? `${u.intakes[0]} Intake`
-            : "Fall Intake",
-          roiScore: Math.min(
-            99,
-            85 +
-              (u.rankingGlobal
-                ? Math.max(0, 15 - Math.floor(u.rankingGlobal / 20))
-                : 5),
-          ),
-          coreModules,
-        });
-      }
-    });
-  });
-
-  // 3. Direct fetch from Supabase `courses` table
-  try {
-    const client = typeof window === "undefined" ? supabaseAdmin : supabase;
-    const response = await queryWithTimeout(
-      () => client.from("courses").select("*"),
-      2000,
-    );
-    if (
-      response &&
-      !(response as any).error &&
-      (response as any).data &&
-      (response as any).data.length > 0
-    ) {
-      (response as any).data.forEach((c: any) => {
-        if (c.slug) {
-          courseMap.set(c.slug, {
-            id: c.id || c.slug,
-            slug: c.slug,
-            name: c.name,
-            universityName: c.university_name,
-            universitySlug: c.university_slug || "global",
-            city: c.city || "Campus City",
-            country: c.country || "Global",
-            flagEmoji: c.flag_emoji || "🌐",
-            level: c.level || "Postgraduate",
-            duration: c.duration || "2 Years",
-            tuitionFeeINR: c.tuition_fee_inr || "₹15 - 30 Lakhs / yr",
-            tuitionFeeLocal: c.tuition_fee_local || "Local Tuition",
-            ieltsMinScore: Number(c.ielts_min_score) || 6.5,
-            greGmatRequired: c.gre_gmat_required || false,
-            postStudyWorkMonths: c.post_study_work_months || 24,
-            intakeDeadline: c.intake_deadline || "Fall Intake",
-            roiScore: c.roi_score || 90,
-            coreModules: c.core_modules || ["Core Module 1", "Core Module 2"],
-          });
-        }
-      });
-    }
-  } catch (err) {
-    console.warn("Supabase courses table fetch notice:", err);
-  }
-
-  return Array.from(courseMap.values());
-}
-
 /**
  * Specialisations live only in the Supabase `specialisations` table (no static
  * fallback), ordered by `display_order` so tracks render in a fixed sequence.
@@ -657,31 +419,31 @@ function mapTestPrepExam(e: any): TestPrepExam {
     shortName: e.short_name,
     fullName: e.full_name,
     category: e.category,
-    heroTagline: e.hero_tagline || "",
+    heroTagline: e.hero_tagline || null,
     targetPrograms: Array.isArray(e.target_programs) ? e.target_programs : [],
     targetCountries: Array.isArray(e.target_countries)
       ? e.target_countries
       : [],
-    overview: e.overview || "",
-    feeINR: e.fee_inr || "",
-    feeOriginal: e.fee_original || "",
-    duration: e.duration || "",
-    formatMode: e.format_mode || "",
-    validityYears: e.validity_years ?? 0,
-    scoringScale: e.scoring_scale || "",
-    targetCutoffIndianStudents: e.target_cutoff_indian_students || "",
-    conductingBody: e.conducting_body || "",
-    frequency: e.frequency || "",
+    overview: e.overview || null,
+    feeINR: e.fee_inr || null,
+    feeOriginal: e.fee_original || null,
+    duration: e.duration || null,
+    formatMode: e.format_mode || null,
+    validityYears: e.validity_years ?? null,
+    scoringScale: e.scoring_scale || null,
+    targetCutoffIndianStudents: e.target_cutoff_indian_students || null,
+    conductingBody: e.conducting_body || null,
+    frequency: e.frequency || null,
     sections: (Array.isArray(e.test_prep_sections) ? e.test_prep_sections : [])
       .slice()
       .sort(byDisplayOrder)
       .map((s: any) => ({
         id: s.id,
         name: s.name,
-        duration: s.duration || "",
-        questionsCount: s.questions_count || "",
-        skillsTested: s.skills_tested || "",
-        tips: s.tips || "",
+        duration: s.duration || null,
+        questionsCount: s.questions_count || null,
+        skillsTested: s.skills_tested || null,
+        tips: s.tips || null,
       })),
     scoreRequirementsByCountry: Array.isArray(e.score_requirements)
       ? e.score_requirements
@@ -847,6 +609,106 @@ export async function fetchLiveMilestones(): Promise<DeadlineMilestone[]> {
     return ((response as any).data ?? []).map(mapSupabaseMilestone);
   } catch (err) {
     console.warn("Supabase deadline_milestones fetch error:", err);
+    return [];
+  }
+}
+
+// Active loan lenders in display order. Empty when none are added.
+export async function fetchLiveLoanLenders(): Promise<LoanLender[]> {
+  if (typeof window !== "undefined") {
+    try {
+      const res = await fetch("/api/loan-lenders");
+      const json = await res.json();
+      return res.ok && Array.isArray(json.lenders) ? json.lenders : [];
+    } catch (err) {
+      console.warn("Client fetch /api/loan-lenders error:", err);
+      return [];
+    }
+  }
+
+  try {
+    const response = await queryWithTimeout(
+      () =>
+        supabaseAdmin
+          .from("loan_lenders")
+          .select("*")
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true })
+          .order("name", { ascending: true }),
+      5000,
+    );
+    if (!response || (response as any).error) {
+      console.warn(
+        "Supabase loan_lenders fetch error:",
+        (response as any)?.error,
+      );
+      return [];
+    }
+    return ((response as any).data ?? []).map(mapSupabaseLoanLender);
+  } catch (err) {
+    console.warn("Supabase loan_lenders fetch error:", err);
+    return [];
+  }
+}
+
+// Active scholarships in display order. Empty when none are added.
+export async function fetchLiveScholarships(): Promise<Scholarship[]> {
+  if (typeof window !== "undefined") {
+    try {
+      const res = await fetch("/api/scholarships");
+      const json = await res.json();
+      return res.ok && Array.isArray(json.scholarships)
+        ? json.scholarships
+        : [];
+    } catch (err) {
+      console.warn("Client fetch /api/scholarships error:", err);
+      return [];
+    }
+  }
+
+  try {
+    const response = await queryWithTimeout(
+      () =>
+        supabaseAdmin
+          .from("scholarships")
+          .select(SCHOLARSHIP_SELECT)
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true })
+          .order("name", { ascending: true }),
+      5000,
+    );
+    if (!response || (response as any).error) {
+      console.warn(
+        "Supabase scholarships fetch error:",
+        (response as any)?.error,
+      );
+      return [];
+    }
+    const scholarships: Scholarship[] = ((response as any).data ?? []).map(
+      mapSupabaseScholarship,
+    );
+
+    // Award value in INR at the live rate (INR amounts need no rate)
+    const needsRate = scholarships.some(
+      (s) =>
+        s.awardValue !== null && s.awardCurrency && s.awardCurrency !== "INR",
+    );
+    const live = needsRate ? await getLiveExchangeRates() : null;
+    return scholarships.map((s) => {
+      if (s.awardValue === null || !s.awardCurrency) return s;
+      if (s.awardCurrency === "INR")
+        return { ...s, awardValueINR: s.awardValue };
+      const rate = live?.inrPerUnit[s.awardCurrency];
+      return rate
+        ? {
+            ...s,
+            awardValueINR: Math.round(s.awardValue * rate),
+            rateUpdatedAt: live!.updatedAt,
+          }
+        : s;
+    });
+  } catch (err) {
+    console.warn("Supabase scholarships fetch error:", err);
     return [];
   }
 }

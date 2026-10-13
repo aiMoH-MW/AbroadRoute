@@ -13,82 +13,15 @@ export interface SanityArticle {
   slug: string;
   tag: string;
   excerpt: string;
-  date: string;
-  readTime: string;
+  date: string | null; // null when the article has no publish date
+  readTime: string | null; // null when no read time is set
   country?: string;
   programCategory?: string;
   body?: unknown;
   author?: SanityAuthor;
 }
 
-export interface SanityPillarGuide {
-  _id: string;
-  title: string;
-  slug: string;
-  country: string;
-  heroSubtitle?: string;
-  overview?: string;
-  costOfLivingINR?: string;
-  visaWorkRights?: string;
-  faqs?: Array<{ question: string; answer: string }>;
-  updatedAt?: string;
-}
-
-export const FALLBACK_ARTICLES: SanityArticle[] = [
-  {
-    _id: "fb-1",
-    title:
-      "Germany Ausbildung 2027: Complete Dual Vocational Guide for Indian Students",
-    slug: "germany-ausbildung-2027-guide",
-    tag: "Germany • Vocational",
-    readTime: "6 min read",
-    excerpt:
-      "How to secure €1,100/month monthly stipend with 0 tuition in German hospitals and tech firms.",
-    date: "Sep 2026",
-    country: "germany",
-    programCategory: "ausbildung",
-  },
-  {
-    _id: "fb-2",
-    title:
-      "NMC Foreign Medical Graduate Regulations: Essential Checklist for MBBS Abroad",
-    slug: "nmc-fmgl-regulations-mbbs-abroad-checklist",
-    tag: "Medical • NMC Guidelines",
-    readTime: "8 min read",
-    excerpt:
-      "54-month course duration, 12-month internship, and CRMI clinical guidelines you must know before applying.",
-    date: "Sep 2026",
-    country: "uzbekistan",
-    programCategory: "mbbs",
-  },
-  {
-    _id: "fb-3",
-    title:
-      "UK Graduate Route vs Canada PGWP: Work Visa Rights Comparison in 2026-2027",
-    slug: "uk-graduate-route-vs-canada-pgwp-comparison",
-    tag: "Visa • Immigration",
-    readTime: "5 min read",
-    excerpt:
-      "An in-depth breakdown of current visa tenure, PR eligibility, and post-study employment trends.",
-    date: "Aug 2026",
-    country: "uk",
-    programCategory: "ms",
-  },
-  {
-    _id: "fb-4",
-    title:
-      "How to Build a High-Probability SOP for Top US & German Universities",
-    slug: "how-to-write-winning-sop-us-germany",
-    tag: "Admissions • Prep",
-    readTime: "7 min read",
-    excerpt:
-      "The 5 critical elements admissions committees evaluate in Indian engineering and MBA applicants.",
-    date: "Aug 2026",
-    country: "usa",
-    programCategory: "ms",
-  },
-];
-
+export 
 const LATEST_ARTICLES_QUERY = `*[_type == "article" && !(_id in path("drafts.**"))] | order(coalesce(publishedAt, _createdAt) desc)[0...4] {
   _id,
   title,
@@ -96,7 +29,7 @@ const LATEST_ARTICLES_QUERY = `*[_type == "article" && !(_id in path("drafts.**"
   tag,
   excerpt,
   "date": coalesce(publishedAt, _createdAt),
-  "readTime": coalesce(estimatedReadTime, "5 min read"),
+  "readTime": estimatedReadTime,
   country,
   programCategory,
   "author": author->{
@@ -113,7 +46,7 @@ const ARTICLE_BY_SLUG_QUERY = `*[_type == "article" && slug.current == $slug && 
   tag,
   excerpt,
   "date": coalesce(publishedAt, _createdAt),
-  "readTime": coalesce(estimatedReadTime, "5 min read"),
+  "readTime": estimatedReadTime,
   country,
   programCategory,
   body,
@@ -144,7 +77,7 @@ const ALL_ARTICLES_QUERY = `*[_type == "article" && !(_id in path("drafts.**"))]
   tag,
   excerpt,
   "date": coalesce(publishedAt, _createdAt),
-  "readTime": coalesce(estimatedReadTime, "5 min read"),
+  "readTime": estimatedReadTime,
   country,
   programCategory,
   "author": author->{
@@ -154,8 +87,8 @@ const ALL_ARTICLES_QUERY = `*[_type == "article" && !(_id in path("drafts.**"))]
   }
 }`;
 
-function formatArticleDate(rawDate?: string): string {
-  if (!rawDate) return "Recently Updated";
+function formatArticleDate(rawDate?: string | null): string | null {
+  if (!rawDate) return null;
   if (rawDate.length <= 10 && !rawDate.includes("-")) return rawDate;
   try {
     const d = new Date(rawDate);
@@ -184,20 +117,12 @@ export async function getAllArticles(): Promise<SanityArticle[]> {
         ...a,
         date: formatArticleDate(a.date),
       }));
-      const map = new Map<string, SanityArticle>();
-      formatted.forEach((a: SanityArticle) => map.set(a.slug, a));
-      FALLBACK_ARTICLES.forEach((fa) => {
-        if (!map.has(fa.slug)) map.set(fa.slug, fa);
-      });
-      return Array.from(map.values());
+      return formatted;
     }
-    return FALLBACK_ARTICLES;
+    return [];
   } catch (error) {
-    console.warn(
-      "Sanity getAllArticles fetch failed, serving fallbacks:",
-      error,
-    );
-    return FALLBACK_ARTICLES;
+    console.warn("Sanity getAllArticles fetch failed:", error);
+    return [];
   }
 }
 
@@ -217,13 +142,10 @@ export async function getLatestArticles(): Promise<SanityArticle[]> {
         date: formatArticleDate(a.date),
       }));
     }
-    return FALLBACK_ARTICLES;
+    return [];
   } catch (error) {
-    console.warn(
-      "Sanity article fetch failed, serving curated fallbacks:",
-      error,
-    );
-    return FALLBACK_ARTICLES;
+    console.warn("Sanity article fetch failed:", error);
+    return [];
   }
 }
 
@@ -248,21 +170,5 @@ export async function getArticleBySlug(
     console.warn(`Sanity fetch for slug '${slug}' failed:`, error);
   }
 
-  // Check fallback articles
-  const fallback = FALLBACK_ARTICLES.find((a) => a.slug === slug);
-  return fallback || null;
-}
-
-export async function getPillarGuideByCountry(
-  countrySlug: string,
-): Promise<SanityPillarGuide | null> {
   return null;
-}
-
-export async function getSanityUniversities() {
-  return [];
-}
-
-export async function getSanityCountries() {
-  return [];
 }

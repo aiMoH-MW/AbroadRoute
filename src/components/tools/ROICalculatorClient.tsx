@@ -186,9 +186,9 @@ export function ROICalculatorClient() {
                 className="w-full accent-[#1D5A6C] cursor-pointer h-2 bg-[#F5EFE0] rounded-lg"
               />
               <div className="flex justify-between text-[11px] font-mono text-[#6B6B6B] mt-1">
-                <span>₹15L (Europe/Asia)</span>
-                <span>₹55L (INSEAD/LBS)</span>
-                <span>₹1.2Cr (Wharton/Kellogg)</span>
+                <span>{formatCurrency(1500000)}</span>
+                <span>{formatCurrency(6750000)}</span>
+                <span>{formatCurrency(12000000)}</span>
               </div>
             </div>
 

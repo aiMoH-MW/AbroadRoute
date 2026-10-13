@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/supabase/requestAuth";
 
 const createRunsSchema = z
   .object({
@@ -13,7 +14,10 @@ const createRunsSchema = z
   .refine((v) => !v.pageFrom || !v.pageTo || v.pageTo >= v.pageFrom, "Page range end must be after its start");
 
 /** GET /api/admin/question-extraction/runs: the 50 most recent runs. */
-export async function GET() {
+export async function GET(req: Request) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
+
   const { data, error } = await supabaseAdmin
     .from("question_extraction_runs")
     .select("*, material:study_materials(title)")
@@ -32,6 +36,9 @@ export async function GET() {
  * chunk via /runs/[id]/process. A page range applies only when one material is selected.
  */
 export async function POST(req: NextRequest) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
+
   try {
     const input = createRunsSchema.parse(await req.json());
 

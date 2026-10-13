@@ -5,6 +5,7 @@ import { UniversityCardsSkeleton } from "./HomeSkeletons";
 import { SectionError } from "@/components/ui/SectionError";
 import { SectionEmpty } from "@/components/ui/SectionEmpty";
 import { fetchUniversitiesFromBackend } from "@/lib/data/liveContent";
+import { NotProvided } from "@/components/tools/NotProvided";
 
 async function UniversityCards() {
   let universities;
@@ -38,13 +39,8 @@ async function UniversityCards() {
   return (
     <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {featured.map((uni, idx) => {
-        const badgeText =
-          uni.tierBadge ||
-          (uni.rankingGlobal <= 25
-            ? "Platinum Partner"
-            : uni.rankingGlobal <= 100
-              ? "Gold Partner"
-              : "Silver Partner");
+        // Partner tier only when one is set; never inferred from ranking
+        const badgeText = uni.tierBadge;
         const badgeClass =
           badgeText === "Platinum Partner"
             ? "tier-badge platinum"
@@ -62,10 +58,15 @@ async function UniversityCards() {
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FDFCF7] text-[#1D5A6C] shadow-xs border border-[#D9CFB8]/40">
                   <Building2 className="h-5 w-5 text-[#D89A3E]" />
                 </div>
-                <span className={badgeClass}>{badgeText}</span>
+                {badgeText && <span className={badgeClass}>{badgeText}</span>}
               </div>
               <span className="font-mono rounded-full bg-[#D9CFB8]/30 px-2 py-0.5 text-[10px] font-bold text-[#103B47]">
-                Global #{uni.rankingGlobal}
+                Global{" "}
+                {uni.rankingGlobal !== null ? (
+                  `#${uni.rankingGlobal}`
+                ) : (
+                  <NotProvided />
+                )}
               </span>
             </div>
 
@@ -73,32 +74,42 @@ async function UniversityCards() {
               {uni.name}
             </h3>
             <p className="text-xs text-slate-500">
-              {uni.city}, {uni.country}
+              {[uni.city, uni.country].filter(Boolean).join(", ") || (
+                <NotProvided />
+              )}
             </p>
 
             <div className="mt-4 space-y-1.5 border-t border-[#D9CFB8]/40 pt-3 text-xs">
               <div className="flex justify-between">
                 <span className="text-slate-500">Tuition:</span>
                 <span className="font-mono font-bold text-[#1D5A6C]">
-                  {uni.tuitionFeeRangeINR}
+                  {uni.tuitionFeeRangeINR ?? <NotProvided />}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">IELTS Min:</span>
                 <span className="font-mono font-semibold text-slate-700">
-                  {uni.ieltsMinScore} Bands
+                  {uni.ieltsMinScore !== null ? (
+                    `${uni.ieltsMinScore} Bands`
+                  ) : (
+                    <NotProvided />
+                  )}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Work Visa:</span>
                 <span className="font-mono font-semibold text-emerald-700">
-                  {uni.postStudyWorkMonths} Months
+                  {uni.postStudyWorkMonths !== null ? (
+                    `${uni.postStudyWorkMonths} Months`
+                  ) : (
+                    <NotProvided />
+                  )}
                 </span>
               </div>
             </div>
 
             <LeadTriggerButton
-              country={uni.country}
+              country={uni.country ?? undefined}
               className="mt-5 w-full rounded-full bg-[#1D5A6C]/5 py-2 text-center text-xs font-bold text-[#1D5A6C] border border-[#1D5A6C]/20 hover:bg-[#1D5A6C] hover:text-white transition"
             >
               Check Admission Cutoffs

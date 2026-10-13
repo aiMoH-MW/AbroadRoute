@@ -9,6 +9,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Program } from "@/types";
+import { NotProvided, show } from "@/components/tools/NotProvided";
 
 interface AdminProgramsTabProps {
   programsList: Program[];
@@ -125,7 +126,7 @@ export function AdminProgramsTab({ programsList }: AdminProgramsTabProps) {
                 <div>
                   {p.level && (
                     <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                      {p.level}
+                      {show(p.level)}
                     </span>
                   )}
                   <h3 className="mt-2 font-black text-[#102C57] text-sm leading-snug">
@@ -134,12 +135,12 @@ export function AdminProgramsTab({ programsList }: AdminProgramsTabProps) {
                 </div>
                 <span className="rounded-xl bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-xs font-black text-emerald-800 flex items-center gap-1 shrink-0">
                   <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-                  ROI {p.roiScore}/100
+                  ROI {show(p.roiScore, (v) => `${v}/100`)}
                 </span>
               </div>
 
               <p className="mt-3 text-xs text-slate-600 line-clamp-2">
-                {p.summary}
+                {show(p.summary)}
               </p>
 
               <div className="mt-4 space-y-2 text-xs">

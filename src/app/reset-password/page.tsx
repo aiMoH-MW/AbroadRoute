@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
-  Compass,
   Lock,
   ArrowRight,
   ShieldCheck,
@@ -13,16 +12,20 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
-  Mail,
 } from "lucide-react";
 import { BrandLogo } from "@/components/ui/BrandSignatures";
+import { supabase } from "@/lib/supabase/client";
 
+// Only reachable through the one-time link Supabase emails from
+// /forgot-password: the link signs the browser in with a short-lived
+// recovery session, and the new password is set for that session's user.
 function ResetPasswordForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const emailParam = searchParams.get("email") || "";
 
-  const [email, setEmail] = useState(emailParam);
+  // "checking" until the recovery link has been processed
+  const [linkState, setLinkState] = useState<"checking" | "ready" | "invalid">(
+    "checking",
+  );
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -30,59 +33,106 @@ function ResetPasswordForm() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    let active = true;
+
+    // Implicit-flow links put the session in the URL hash, which supabase-js
+    // reads on load and reports as PASSWORD_RECOVERY
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (active && event === "PASSWORD_RECOVERY" && session) {
+        setLinkState("ready");
+      }
+    });
+
+    (async () => {
+      // PKCE-flow links arrive with ?code=...
+      const code = searchParams.get("code");
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (!active) return;
+        setLinkState(error ? "invalid" : "ready");
+        return;
+      }
+      const hash = typeof window !== "undefined" ? window.location.hash : "";
+      if (hash.includes("error")) {
+        setLinkState("invalid");
+        return;
+      }
+      const { data } = await supabase.auth.getSession();
+      if (!active) return;
+      if (data.session && hash.includes("type=recovery")) {
+        setLinkState("ready");
+      } else if (!hash.includes("access_token")) {
+        setLinkState("invalid");
+      }
+    })();
+
+    return () => {
+      active = false;
+      sub.subscription.unsubscribe();
+    };
+  }, [searchParams]);
+
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-
-    if (!email.trim()) {
-      setError("Please provide your account email.");
-      return;
-    }
 
     if (!password || !confirmPassword) {
       setError("Please fill in both password fields.");
       return;
     }
-
     if (password.length < 8) {
       setError("Password must be at least 8 characters long.");
       return;
     }
-
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
     }
 
     setLoading(true);
-
-    try {
-      const res = await fetch("/api/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.trim(),
-          password: password,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || data.error) {
-        setError(
-          data.error || "Failed to update password. Please check your email.",
-        );
-        setLoading(false);
-        return;
-      }
-
-      setSuccess(true);
+    const { error: updateError } = await supabase.auth.updateUser({ password });
+    if (updateError) {
+      setError(
+        updateError.message || "Failed to update password. Please try again.",
+      );
       setLoading(false);
-    } catch (err: any) {
-      setError(err?.message || "Failed to update password. Please try again.");
-      setLoading(false);
+      return;
     }
+    // End the recovery session; the user signs in with the new password
+    await supabase.auth.signOut();
+    setSuccess(true);
+    setLoading(false);
   };
+
+  if (linkState !== "ready" && !success) {
+    return (
+      <div className="w-full max-w-sm rounded-2xl border border-slate-200/80 bg-white p-6 sm:p-8 text-center shadow-[0_4px_24px_rgba(0,0,0,0.03)]">
+        {linkState === "checking" ? (
+          <Loader2 className="mx-auto h-6 w-6 animate-spin text-[#102C57]" />
+        ) : (
+          <>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 border border-rose-200/60 text-rose-600">
+              <AlertCircle className="h-6 w-6" />
+            </div>
+            <h1 className="mt-3 text-xl font-bold text-slate-900">
+              Reset link invalid or expired
+            </h1>
+            <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">
+              Open the most recent link from your password reset email, or
+              request a new one.
+            </p>
+            <Link
+              href="/forgot-password"
+              className="mt-5 inline-block w-full rounded-xl bg-[#102C57] py-2.5 text-xs font-bold text-white hover:bg-[#0c2242] transition"
+            >
+              Request a new link
+            </Link>
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-sm rounded-2xl border border-slate-200/80 bg-white p-6 sm:p-8 shadow-[0_4px_24px_rgba(0,0,0,0.03)]">
@@ -111,22 +161,6 @@ function ResetPasswordForm() {
 
           {/* Form */}
           <form onSubmit={handleReset} className="mt-5 space-y-4">
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Account Email
-              </label>
-              <div className="relative rounded-lg border border-slate-200 bg-white transition focus-within:border-[#102C57] focus-within:ring-2 focus-within:ring-[#102C57]/10 flex items-center">
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="student@example.com"
-                  className="w-full rounded-lg py-2 px-3 text-xs text-slate-800 placeholder-slate-400 focus:outline-none"
-                />
-              </div>
-            </div>
-
             <div>
               <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                 New Password (min. 8 characters)

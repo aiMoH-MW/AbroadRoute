@@ -4,10 +4,9 @@ import { Footer } from "@/components/layout/Footer";
 import { LoanCalculatorClient } from "@/components/tools/LoanCalculatorClient";
 
 export const metadata: Metadata = {
-  title:
-    "Study Abroad Education Loan & EMI Calculator (SBI, HDFC, Prodigy) | Abroadroute",
+  title: "Study Abroad Education Loan & EMI Calculator | Abroadroute",
   description:
-    "Calculate monthly EMI repayments, compare collateral vs non-collateral interest rates (8.15% - 11.25%), and check instant pre-approval eligibility across top partner banks.",
+    "Calculate your study abroad education loan EMI in INR, including interest during the course and grace period, and compare education loan lenders.",
   alternates: {
     canonical: "/loan-calculator",
   },

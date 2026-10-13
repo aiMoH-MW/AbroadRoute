@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/supabase/requestAuth";
 
 const PAGE_SIZE = 25;
 
@@ -14,6 +15,9 @@ const bulkSchema = z.object({
  * Paginated list of extracted questions.
  */
 export async function GET(req: NextRequest) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
+
   const sp = new URL(req.url).searchParams;
   const page = Math.max(1, Number(sp.get("page")) || 1);
 
@@ -58,6 +62,9 @@ export async function GET(req: NextRequest) {
 
 /** PATCH /api/admin/question-bank: bulk approve / reject / reset to draft / delete. */
 export async function PATCH(req: NextRequest) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
+
   try {
     const { ids, action } = bulkSchema.parse(await req.json());
     const table = supabaseAdmin.from("study_questions");

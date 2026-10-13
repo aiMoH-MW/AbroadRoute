@@ -2,6 +2,8 @@ import { Metadata } from 'next';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Mail, Phone, MapPin } from 'lucide-react';
+import { fetchSiteSettings } from '@/lib/siteContent';
+import { show } from '@/components/tools/NotProvided';
 
 export const metadata: Metadata = {
   title: "Contact Admissions Desk | Abroadroute",
@@ -9,7 +11,9 @@ export const metadata: Metadata = {
     "Contact Abroadroute admissions desk. Connect with international education strategists for university shortlists, intake guidance, and visa support.",
 };
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  // Contact details are edited in Admin → Site Content → Site Settings
+  const s = await fetchSiteSettings();
   return (
     <div className='min-h-screen bg-slate-50 flex flex-col justify-between'>
       <Header />
@@ -20,7 +24,7 @@ export default function ContactPage() {
               Get in Touch with Admissions Desk
             </h1>
             <p className='mt-3 text-sm text-slate-600'>
-              Have questions regarding 2027 intakes, university shortlisting, or institutional partnerships? Reach our central support desk.
+              Have questions regarding upcoming intakes, university shortlisting, or institutional partnerships? Reach our central support desk.
             </p>
           </div>
 
@@ -31,9 +35,13 @@ export default function ContactPage() {
               </div>
               <h3 className='mt-4 font-bold text-[#102C57]'>Email Support</h3>
               <p className='mt-1 text-xs text-slate-500'>Inquiries & Grievances</p>
-              <a href='mailto:admissions@abroadroute.com' className='mt-3 block text-xs font-bold text-[#EA5C2B] hover:underline'>
-                admissions@abroadroute.com
-              </a>
+              {s.admissions_email ? (
+                <a href={`mailto:${s.admissions_email}`} className='mt-3 block text-xs font-bold text-[#EA5C2B] hover:underline'>
+                  {s.admissions_email}
+                </a>
+              ) : (
+                <p className='mt-3'>{show(null)}</p>
+              )}
             </div>
 
             <div className='rounded-2xl border border-slate-200 bg-white p-6 shadow-xs text-center'>
@@ -41,8 +49,8 @@ export default function ContactPage() {
                 <Phone className='h-6 w-6' />
               </div>
               <h3 className='mt-4 font-bold text-[#102C57]'>Admissions Hotline</h3>
-              <p className='mt-1 text-xs text-slate-500'>Mon - Sat: 9:30 AM - 6:30 PM IST</p>
-              <p className='mt-3 text-xs font-bold text-[#102C57]'>+91 (020) 8492-3000</p>
+              <p className='mt-1 text-xs text-slate-500'>{show(s.support_hours)}</p>
+              <p className='mt-3 text-xs font-bold text-[#102C57]'>{show(s.support_phone)}</p>
             </div>
 
             <div className='rounded-2xl border border-slate-200 bg-white p-6 shadow-xs text-center'>
@@ -50,8 +58,8 @@ export default function ContactPage() {
                 <MapPin className='h-6 w-6' />
               </div>
               <h3 className='mt-4 font-bold text-[#102C57]'>Corporate Office</h3>
-              <p className='mt-1 text-xs text-slate-500'>Dnyanal Educon Pvt. Ltd.</p>
-              <p className='mt-3 text-xs text-slate-600'>Pune & Mumbai, Maharashtra, India</p>
+              <p className='mt-1 text-xs text-slate-500'>{show(s.company_name)}</p>
+              <p className='mt-3 text-xs text-slate-600'>{show(s.office_locations)}</p>
             </div>
           </div>
         </div>

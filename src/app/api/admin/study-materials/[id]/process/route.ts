@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { STUDY_MATERIALS_BUCKET, PAGES_PER_CHUNK, materialPaths, ocrPdfChunk } from "@/lib/studyMaterials/processing";
 import type { ProcessProgress } from "@/lib/studyMaterials/types";
+import { requireAdmin } from "@/lib/supabase/requestAuth";
 
 export const maxDuration = 60;
 
@@ -14,7 +15,10 @@ interface Params {
  * OCRs the next unprocessed chunk and stores its pages. The admin UI calls
  * this repeatedly until `done` is true, so a stopped run can simply resume.
  */
-export async function POST(_req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, { params }: Params) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
+
   const { id } = await params;
 
   const { data: material, error } = await supabaseAdmin

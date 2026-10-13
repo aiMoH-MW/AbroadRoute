@@ -3,6 +3,20 @@
  * Keys are scoped per user email (e.g. `vista_saved_shortlist_student1_gmail_com`) or `vista_saved_shortlist_guest`.
  */
 
+import { getAuthHeaders } from "@/lib/supabase/client";
+
+// Shortlist API calls carry the login token; the server takes the user
+// from it (never from ids or emails in the request)
+async function shortlistApi(url: string, init: RequestInit = {}) {
+  return fetch(url, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(await getAuthHeaders()),
+    },
+  });
+}
+
 const MAX_AGE_SECONDS = 365 * 24 * 60 * 60; // 1 year
 
 /**
@@ -156,14 +170,9 @@ export function addToShortlist(
 
   // If user is authenticated, persist to Supabase backend
   if (user && (user.id || user.email)) {
-    fetch("/api/shortlist", {
+    shortlistApi("/api/shortlist", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId: user.id,
-        email: user.email,
-        slug,
-      }),
+      body: JSON.stringify({ slug }),
     }).catch((err) => console.warn("Backend shortlist add error:", err));
   }
 
@@ -184,14 +193,9 @@ export function removeFromShortlist(
 
   // If user is authenticated, delete from Supabase backend
   if (user && (user.id || user.email)) {
-    fetch("/api/shortlist", {
+    shortlistApi("/api/shortlist", {
       method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId: user.id,
-        email: user.email,
-        slug,
-      }),
+      body: JSON.stringify({ slug }),
     }).catch((err) => console.warn("Backend shortlist remove error:", err));
   }
 
@@ -255,10 +259,7 @@ export async function fetchBackendShortlist(user: {
   if (!user || (!user.id && !user.email)) return getSavedShortlist(user);
 
   try {
-    const query = user.id
-      ? `userId=${user.id}`
-      : `email=${encodeURIComponent(user.email || "")}`;
-    const res = await fetch(`/api/shortlist?${query}`);
+    const res = await shortlistApi("/api/shortlist");
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data.shortlists)) {
@@ -288,14 +289,9 @@ export async function syncShortlistWithBackend(user: {
   }
 
   try {
-    const res = await fetch("/api/shortlist/sync", {
+    const res = await shortlistApi("/api/shortlist/sync", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId: user.id,
-        email: user.email,
-        slugs: guestSlugs,
-      }),
+      body: JSON.stringify({ slugs: guestSlugs }),
     });
 
     if (res.ok) {

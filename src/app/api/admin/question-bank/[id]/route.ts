@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { questionHash } from "@/lib/studyMaterials/questionExtraction";
+import { requireAdmin } from "@/lib/supabase/requestAuth";
 
 interface Params {
   params: Promise<{ id: string }>;
@@ -30,6 +31,9 @@ const updateSchema = z.object({
 
 /** PATCH /api/admin/question-bank/[id]: edit a question after review. */
 export async function PATCH(req: NextRequest, { params }: Params) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
+
   const { id } = await params;
   try {
     const input = updateSchema.parse(await req.json());
@@ -85,7 +89,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 /** DELETE /api/admin/question-bank/[id] */
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, { params }: Params) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
+
   const { id } = await params;
   const { error } = await supabaseAdmin.from("study_questions").delete().eq("id", id);
   if (error) {

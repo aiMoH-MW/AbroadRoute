@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { University, Country } from "@/types";
 import { CountryFlag } from "@/components/ui/CountryFlag";
+import { NotProvided } from "@/components/tools/NotProvided";
 
 interface UniversitiesClientDirectoryProps {
   initialUniversities: University[];
@@ -30,29 +31,49 @@ export function UniversitiesClientDirectory({
   const filteredUniversities = useMemo(() => {
     return initialUniversities
       .filter((uni) => {
-        const matchesSearch =
-          uni.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          uni.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          uni.country.toLowerCase().includes(searchQuery.toLowerCase());
+        const q = searchQuery.toLowerCase();
+        const matchesSearch = [uni.name, uni.city, uni.country].some((v) =>
+          v?.toLowerCase().includes(q),
+        );
 
         const matchesCountry =
-          selectedCountry === "all" ||
-          uni.country.toLowerCase() === selectedCountry.toLowerCase();
+          selectedCountry === "all" || uni.countrySlug === selectedCountry;
 
         return matchesSearch && matchesCountry;
       })
       .sort((a, b) => {
         if (sortBy === "rank") {
-          return a.rankingGlobal - b.rankingGlobal;
+          // Unranked universities go last
+          return (
+            (a.rankingGlobal ?? Infinity) - (b.rankingGlobal ?? Infinity) ||
+            a.name.localeCompare(b.name)
+          );
         }
         return a.name.localeCompare(b.name);
       });
   }, [initialUniversities, searchQuery, selectedCountry, sortBy]);
 
+  // Countries that have universities, most universities first
   const uniqueCountries = useMemo(() => {
-    const list = Array.from(new Set(initialUniversities.map((u) => u.country)));
-    return list.sort();
+    const counts = new Map<
+      string,
+      { slug: string; name: string; count: number }
+    >();
+    initialUniversities.forEach((u) => {
+      if (!u.countrySlug) return;
+      const entry = counts.get(u.countrySlug) ?? {
+        slug: u.countrySlug,
+        name: u.country ?? u.countrySlug,
+        count: 0,
+      };
+      entry.count += 1;
+      counts.set(u.countrySlug, entry);
+    });
+    return Array.from(counts.values()).sort(
+      (a, b) => b.count - a.count || a.name.localeCompare(b.name),
+    );
   }, [initialUniversities]);
+  const popularCountries = uniqueCountries.slice(0, 6);
 
   return (
     <div className="space-y-8">
@@ -82,11 +103,13 @@ export function UniversitiesClientDirectory({
               <option value="all">
                 All Countries ({initialUniversities.length})
               </option>
-              {uniqueCountries.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
+              {[...uniqueCountries]
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((c) => (
+                  <option key={c.slug} value={c.slug}>
+                    {c.name} ({c.count})
+                  </option>
+                ))}
             </select>
           </div>
 
@@ -108,15 +131,14 @@ export function UniversitiesClientDirectory({
           <span className="text-xs font-bold text-slate-500 mr-1">
             Popular Destinations:
           </span>
-          {["USA", "UK", "Canada", "Australia", "Germany", "Ireland"].map(
-            (cName) => {
-              const isSelected =
-                selectedCountry.toLowerCase() === cName.toLowerCase();
+          {popularCountries.map(
+            ({ slug: cSlug, name: cName }) => {
+              const isSelected = selectedCountry === cSlug;
               return (
                 <button
-                  key={cName}
+                  key={cSlug}
                   type="button"
-                  onClick={() => setSelectedCountry(isSelected ? "all" : cName)}
+                  onClick={() => setSelectedCountry(isSelected ? "all" : cSlug)}
                   className={`min-h-[36px] rounded-full px-4 py-1.5 text-xs font-bold transition cursor-pointer ${
                     isSelected
                       ? "bg-[#103B47] text-white shadow-2xs"
@@ -179,7 +201,7 @@ export function UniversitiesClientDirectory({
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredUniversities.map((uni) => {
             const countryObj = countries.find(
-              (c) => c.name.toLowerCase() === uni.country.toLowerCase(),
+              (c) => c.id === uni.countrySlug || c.slug === uni.countrySlug,
             );
 
             return (
@@ -191,18 +213,24 @@ export function UniversitiesClientDirectory({
                   {/* Top Badge: Rank & Country */}
                   <div className="flex items-center justify-between gap-2 mb-3">
                     <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#D89A3E]/10 px-2.5 py-1 text-xs font-bold text-[#D89A3E] border border-[#D89A3E]/30 font-mono">
-                      <Award className="h-3.5 w-3.5 text-[#D89A3E]" />#
-                      {uni.rankingGlobal} QS Global
+                      <Award className="h-3.5 w-3.5 text-[#D89A3E]" />
+                      {uni.rankingGlobal !== null ? (
+                        `#${uni.rankingGlobal} QS Global`
+                      ) : (
+                        <>
+                          QS Global: <NotProvided />
+                        </>
+                      )}
                     </span>
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
                       {countryObj && (
                         <CountryFlag
                           code={countryObj.code}
-                          name={uni.country}
+                          name={uni.country ?? undefined}
                           size="sm"
                         />
                       )}
-                      <span>{uni.country}</span>
+                      <span>{uni.country ?? <NotProvided />}</span>
                     </div>
                   </div>
 
@@ -220,7 +248,9 @@ export function UniversitiesClientDirectory({
                   <div className="mt-1 flex items-center gap-1 text-xs text-slate-500">
                     <MapPin className="h-3.5 w-3.5 text-[#D89A3E] shrink-0" />
                     <span>
-                      {uni.city}, {uni.country}
+                      {[uni.city, uni.country].filter(Boolean).join(", ") || (
+                        <NotProvided />
+                      )}
                     </span>
                   </div>
 
@@ -231,7 +261,7 @@ export function UniversitiesClientDirectory({
                         Annual Tuition
                       </span>
                       <span className="font-bold text-[#103B47] font-mono">
-                        {uni.tuitionFeeRangeINR || "Contact for INR"}
+                        {uni.tuitionFeeRangeINR ?? <NotProvided />}
                       </span>
                     </div>
                     <div>
@@ -239,32 +269,38 @@ export function UniversitiesClientDirectory({
                         Acceptance Rate
                       </span>
                       <span className="font-bold text-[#103B47] font-mono">
-                        {uni.acceptanceRate
-                          ? `${uni.acceptanceRate}%`
-                          : "Competitive"}
+                        {uni.acceptanceRate !== null ? (
+                          `${uni.acceptanceRate}%`
+                        ) : (
+                          <NotProvided />
+                        )}
                       </span>
                     </div>
-                    {uni.ieltsMinScore ? (
-                      <div>
-                        <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">
-                          IELTS Cutoff
-                        </span>
-                        <span className="font-bold text-slate-700 font-mono">
-                          {uni.ieltsMinScore} Overall
-                        </span>
-                      </div>
-                    ) : null}
-                    {uni.postStudyWorkMonths ? (
-                      <div>
-                        <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">
-                          PSW Visa
-                        </span>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">
+                        IELTS Cutoff
+                      </span>
+                      <span className="font-bold text-slate-700 font-mono">
+                        {uni.ieltsMinScore !== null ? (
+                          `${uni.ieltsMinScore} Overall`
+                        ) : (
+                          <NotProvided />
+                        )}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase text-slate-400 block tracking-wider">
+                        PSW Visa
+                      </span>
+                      {uni.postStudyWorkMonths !== null ? (
                         <span className="font-bold text-[#D89A3E] flex items-center gap-1 font-mono">
                           <Sparkles className="h-3 w-3" />{" "}
                           {uni.postStudyWorkMonths} Months
                         </span>
-                      </div>
-                    ) : null}
+                      ) : (
+                        <NotProvided />
+                      )}
+                    </div>
                   </div>
                 </div>
 

@@ -11,6 +11,8 @@ const leadSchema = z.object({
   highestEducation: z.string().optional(),
   budgetRangeINR: z.string().optional(),
   intakeYear: z.string().optional(),
+  // Set when the inquiry is made from a university's page
+  universityId: z.string().uuid().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -26,32 +28,43 @@ export async function POST(req: NextRequest) {
           full_name: validated.fullName,
           email: validated.email,
           phone: validated.phone,
-          country_target: validated.countryTarget || "germany",
-          program_target: validated.programTarget || "ms",
+          // Only what the student entered; unanswered fields stay null
+          country_target: validated.countryTarget || null,
+          program_target: validated.programTarget,
           highest_education: validated.highestEducation || null,
-          budget_range_inr: validated.budgetRangeINR || "15-25Lakhs",
-          intake_year: validated.intakeYear || "Fall 2026",
+          budget_range_inr: validated.budgetRangeINR || null,
+          intake_year: validated.intakeYear || null,
           status: "raw",
+          // Inquiry from a university page (columns from migration 0022)
+          ...(validated.universityId
+            ? { university_id: validated.universityId, university_status: "new" }
+            : {}),
         };
 
-        const { data, error } = await supabaseAdmin.from("leads").insert([payload]).select();
+        let { data, error } = await supabaseAdmin.from("leads").insert([payload]).select();
+        // Before migration 0022 the university columns don't exist: keep the lead anyway
+        if (error && validated.universityId && /university_(id|status)/.test(error.message)) {
+          const { university_id: _u, university_status: _s, ...basePayload } = payload as any;
+          ({ data, error } = await supabaseAdmin.from("leads").insert([basePayload]).select());
+        }
 
+        // No fallback through the public key: leads are not publicly writable
         if (error) {
           console.error("Supabase admin insert error:", error);
-          // Fallback to client if admin key issue
-          const { supabase } = await import("@/lib/supabase/client");
-          const { data: fbData, error: fbErr } = await supabase.from("leads").insert([payload]).select();
-          if (fbErr) {
-            console.error("Supabase fallback insert error:", fbErr);
-          } else if (fbData && fbData.length > 0) {
-            dbRecord = fbData[0];
-          }
         } else if (data && data.length > 0) {
           dbRecord = data[0];
         }
       }
     } catch (dbErr) {
       console.warn("Database storage exception:", dbErr);
+    }
+
+    // Don't tell the student we have their details when nothing was saved
+    if (!dbRecord) {
+      return NextResponse.json(
+        { error: "We couldn't save your request. Please try again in a moment." },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({

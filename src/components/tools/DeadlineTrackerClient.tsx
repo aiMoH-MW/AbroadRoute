@@ -15,10 +15,12 @@ import {
   Country,
   DeadlineMilestone,
   Program,
+  Scholarship,
 } from "@/types";
 import {
   fetchLiveCountries,
   fetchLiveDeadlines,
+  fetchLiveScholarships,
   fetchLiveMilestones,
   fetchLivePrograms,
 } from "@/lib/supabase/dataFetchers";
@@ -38,7 +40,37 @@ import {
 const NOT_SET = "Not added yet";
 
 const deadlineTitle = (d: ApplicationDeadline) =>
-  d.universityName ?? `All universities in ${d.countryName ?? d.countryId}`;
+  d.scholarshipName ??
+  d.universityName ??
+  `All universities in ${d.countryName ?? d.countryId}`;
+
+// "Fall 2027"; scholarships have no intake
+const intakeLabel = (d: ApplicationDeadline) =>
+  d.scholarshipName ? "Scholarship" : `${d.intakeTerm} ${d.intakeYear}`;
+
+// A scholarship with a deadline, as a tracker deadline (milestones then
+// come from the "scholarship" deadline type)
+const scholarshipToDeadline = (s: Scholarship): ApplicationDeadline => ({
+  id: `scholarship-${s.id}`,
+  scholarshipName: s.name,
+  countryId: s.countryId ?? "",
+  countryName: s.countryName ?? s.destinationLabel,
+  universityId: s.universityId,
+  universityName: s.universityName,
+  programId: null,
+  programName: null,
+  intakeTerm: "",
+  intakeYear: 0,
+  intakeStartDate: null,
+  deadlineType: "scholarship",
+  roundName: null,
+  applicationsOpenDate: s.opensOn,
+  deadlineDate: s.deadline as string,
+  isRolling: false,
+  sourceUrl: s.websiteUrl,
+  notes: s.awardSummary,
+  isActive: true,
+});
 
 const daysLeftLabel = (days: number) =>
   days === 0 ? "Closes today" : days === 1 ? "1 day left" : `${days} days left`;
@@ -61,7 +93,18 @@ export function DeadlineTrackerClient() {
   const [reminderScheduled, setReminderScheduled] = useState(false);
 
   useEffect(() => {
-    fetchLiveDeadlines().then(setDeadlines);
+    // Application deadlines plus scholarships that have a deadline date
+    Promise.all([fetchLiveDeadlines(), fetchLiveScholarships()]).then(
+      ([applicationDeadlines, scholarships]) =>
+        setDeadlines(
+          [
+            ...applicationDeadlines,
+            ...scholarships
+              .filter((s) => s.deadline)
+              .map(scholarshipToDeadline),
+          ].sort((a, b) => a.deadlineDate.localeCompare(b.deadlineDate)),
+        ),
+    );
     fetchLiveCountries().then(setCountries);
     fetchLivePrograms().then(setPrograms);
     fetchLiveMilestones().then(setMilestones);
@@ -91,7 +134,7 @@ export function DeadlineTrackerClient() {
   const active =
     openDeadlines.find((d) => d.id === selectedId) ?? openDeadlines[0];
   const activeLabel = active
-    ? `${deadlineTitle(active)} – ${active.intakeTerm} ${active.intakeYear}${active.roundName ? ` (${active.roundName})` : ""}`
+    ? `${deadlineTitle(active)} – ${intakeLabel(active)}${active.roundName ? ` (${active.roundName})` : ""}`
     : "";
   const activeMilestones = active ? milestonesFor(milestones, active) : [];
 
@@ -206,8 +249,7 @@ export function DeadlineTrackerClient() {
                     <div className="min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <span className="truncate text-[10px] font-mono font-semibold uppercase tracking-wider text-[#6B6B6B]">
-                          {d.countryName ?? d.countryId} • {d.intakeTerm}{" "}
-                          {d.intakeYear}
+                          {d.countryName ?? d.countryId} • {intakeLabel(d)}
                         </span>
                         <span className="shrink-0 rounded-md bg-white border border-[#D9CFB8] px-1.5 py-0.5 text-[10px] font-mono font-semibold text-[#1D5A6C]">
                           {deadlineTypeLabel(d.deadlineType)}
@@ -217,7 +259,9 @@ export function DeadlineTrackerClient() {
                         {deadlineTitle(d)}
                       </h3>
                       <p className="text-[11px] text-[#6B6B6B] mt-0.5">
-                        {d.programName ?? "All programs"}
+                        {d.scholarshipName
+                          ? (d.notes ?? "Scholarship")
+                          : (d.programName ?? "All programs")}
                         {d.roundName ? ` · ${d.roundName}` : ""}
                         {d.isRolling ? " · Rolling" : ""}
                       </p>
@@ -271,16 +315,20 @@ export function DeadlineTrackerClient() {
                       ? formatDateOnly(active.applicationsOpenDate)
                       : null,
                   },
-                  {
-                    label: "Classes Start",
-                    value: active.intakeStartDate
-                      ? formatDateOnly(active.intakeStartDate)
-                      : null,
-                  },
-                  {
-                    label: "Program",
-                    value: active.programName ?? "All programs",
-                  },
+                  ...(active.scholarshipName
+                    ? [{ label: "Award", value: active.notes }]
+                    : [
+                        {
+                          label: "Classes Start",
+                          value: active.intakeStartDate
+                            ? formatDateOnly(active.intakeStartDate)
+                            : null,
+                        },
+                        {
+                          label: "Program",
+                          value: active.programName ?? "All programs",
+                        },
+                      ]),
                 ].map((item) => (
                   <div
                     key={item.label}
@@ -297,7 +345,9 @@ export function DeadlineTrackerClient() {
                   </div>
                 ))}
               </dl>
-              {(active.notes || active.sourceUrl || active.isRolling) && (
+              {((active.notes && !active.scholarshipName) ||
+                active.sourceUrl ||
+                active.isRolling) && (
                 <div className="mb-6 rounded-xl border border-[#D9CFB8]/70 bg-[#F5EFE0]/50 p-3 text-xs text-[#103B47] space-y-1">
                   {active.isRolling && (
                     <p>
@@ -305,7 +355,9 @@ export function DeadlineTrackerClient() {
                       arrive, so seats can fill before this date.
                     </p>
                   )}
-                  {active.notes && <p>{active.notes}</p>}
+                  {active.notes && !active.scholarshipName && (
+                    <p>{active.notes}</p>
+                  )}
                   {active.sourceUrl && (
                     <a
                       href={active.sourceUrl}

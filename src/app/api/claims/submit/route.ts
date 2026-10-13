@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { checkClaimEmailDomain } from "@/lib/claims/domainCheck";
 import { verifyOtp, otpKey, MAX_ATTEMPTS } from "@/lib/claims/otpStore";
+import { getRequestUser, hasConfirmedEmail } from "@/lib/supabase/requestAuth";
 
 const OTP_ERRORS: Record<string, string> = {
   missing:
@@ -13,6 +14,22 @@ const OTP_ERRORS: Record<string, string> = {
 
 export async function POST(request: Request) {
   try {
+    // The claim is made by, and later granted to, the signed-in account.
+    // Its email must be confirmed so nobody can claim as someone else.
+    const user = await getRequestUser(request);
+    if (!user) {
+      return NextResponse.json(
+        { error: "Please sign in to claim a university profile." },
+        { status: 401 },
+      );
+    }
+    if (!hasConfirmedEmail(user)) {
+      return NextResponse.json(
+        { error: "Please confirm your account email before claiming a profile." },
+        { status: 403 },
+      );
+    }
+
     const body = await request.json();
     const {
       universityId,
@@ -20,7 +37,6 @@ export async function POST(request: Request) {
       countryId,
       countrySlug,
       countryName,
-      userId,
       applicantName,
       officialEmail,
       designation,
@@ -67,14 +83,9 @@ export async function POST(request: Request) {
 
     const claimId = `claim-${Date.now()}`;
     let realId = claimId;
-    const finalCountryId = countryId || countrySlug || "global";
+    const finalCountryId = countryId || countrySlug || null;
 
-    const isValidUuid = (id: any) =>
-      typeof id === "string" &&
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        id,
-      );
-    const validUserId = isValidUuid(userId) ? userId : null;
+    const validUserId = user.id;
 
     // 1. Attempt Supabase Table Insert
     try {
@@ -87,7 +98,7 @@ export async function POST(request: Request) {
           user_id: validUserId,
           applicant_name: applicantName,
           official_email: officialEmail,
-          designation: designation || "Admissions Representative",
+          designation: designation || null,
           proof_document_url: proofDocumentUrl || "",
           verification_status: "pending",
           created_at: new Date().toISOString(),

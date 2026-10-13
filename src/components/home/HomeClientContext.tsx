@@ -55,7 +55,7 @@ export function HomeModalProvider({ children }: { children: ReactNode }) {
   >();
   const [leadModalOpen, setLeadModalOpen] = useState(false);
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
-  const [selectedCountryName, setSelectedCountryName] = useState("Germany");
+  const [selectedCountryName, setSelectedCountryName] = useState("");
   const [doNotDisturb, setDoNotDisturb] = useState(false);
 
   const openAICounsellor = (initialQuery?: string) => {
@@ -69,7 +69,7 @@ export function HomeModalProvider({ children }: { children: ReactNode }) {
     if (typeof countryOrProgram === "string") {
       setSelectedCountryName(countryOrProgram);
     } else {
-      setSelectedCountryName("germany");
+      setSelectedCountryName("");
     }
     setLeadModalOpen(true);
   };

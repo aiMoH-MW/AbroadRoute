@@ -1,512 +1,755 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ShieldCheck,
   CheckCircle2,
   AlertTriangle,
   XCircle,
-  Sparkles,
-  Building2,
-  Award,
-  ArrowRight,
-  TrendingUp,
+  Ban,
   FileText,
+  Info,
+  Loader2,
 } from "lucide-react";
 import { useHomeModals } from "@/components/home/HomeClientContext";
 import { CountryFlag } from "@/components/ui/CountryFlag";
+import { Country, University } from "@/types";
+import {
+  fetchLiveCountries,
+  fetchLiveUniversities,
+} from "@/lib/supabase/dataFetchers";
+import {
+  AcademicScale,
+  DEGREE_OPTIONS,
+  ENGLISH_TESTS,
+  EligibilityDegree,
+  EligibilityProfile,
+  EligibilityResult,
+  EnglishTest,
+  MatchTier,
+  evaluateProfile,
+  toPercentage,
+} from "@/lib/eligibility";
+import { formatDateOnly } from "@/lib/deadlines";
 
-interface UniversityEvaluation {
-  id: string;
-  name: string;
-  country: string;
-  countryCode: string;
-  qsRank: number;
-  probability: "Safe" | "Target" | "Reach";
-  minGpaRequired: number; // out of 10
-  minIeltsRequired: number;
-  greRequired: boolean;
-  matchReason: string;
-  tuitionFeeINR: string;
-  slug: string;
-}
+const SCALE_OPTIONS: {
+  value: AcademicScale;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  initial: number;
+}[] = [
+  { value: "percentage", label: "Percentage", min: 0, max: 100, step: 0.5, initial: 75 },
+  { value: "cgpa10", label: "CGPA (out of 10)", min: 0, max: 10, step: 0.1, initial: 7.5 },
+  { value: "gpa4", label: "GPA (out of 4)", min: 0, max: 4, step: 0.1, initial: 3.0 },
+];
 
-const SAMPLE_DATABASE: UniversityEvaluation[] = [
+const ENGLISH_DEFAULTS: Record<EnglishTest, number> = {
+  ielts: 6.5,
+  toefl: 90,
+  pte: 60,
+  duolingo: 115,
+  none: 0,
+};
+
+const TIERS: {
+  tier: MatchTier;
+  title: string;
+  subtitle: string;
+  icon: typeof CheckCircle2;
+  box: string;
+  card: string;
+  badge: string;
+  iconBox: string;
+}[] = [
   {
-    id: "tum-germany",
-    name: "Technical University of Munich (TUM)",
-    country: "Germany",
-    countryCode: "de",
-    qsRank: 28,
-    probability: "Target",
-    minGpaRequired: 7.8,
-    minIeltsRequired: 6.5,
-    greRequired: false,
-    matchReason:
-      "Requires strong GPA and German APS certificate with zero tuition fees.",
-    tuitionFeeINR: "₹0 / Free Tuition",
-    slug: "technical-university-of-munich",
+    tier: "strong",
+    title: "Strong Match",
+    subtitle: "You clear the published minimums with room to spare.",
+    icon: CheckCircle2,
+    box: "border-[#A8CDBD]",
+    card: "border-[#A8CDBD]/50 bg-[#A8CDBD]/10",
+    badge: "bg-[#A8CDBD]/20 border-[#A8CDBD] text-[#103B47]",
+    iconBox: "bg-[#A8CDBD]/20 text-[#1D5A6C]",
   },
   {
-    id: "utoronto-canada",
-    name: "University of Toronto",
-    country: "Canada",
-    countryCode: "ca",
-    qsRank: 21,
-    probability: "Reach",
-    minGpaRequired: 8.5,
-    minIeltsRequired: 7.0,
-    greRequired: false,
-    matchReason:
-      "Highly competitive global ranking with strong emphasis on research thesis.",
-    tuitionFeeINR: "₹22 - 38 Lakhs/yr",
-    slug: "university-of-toronto",
+    tier: "possible",
+    title: "Possible",
+    subtitle: "You meet the minimums. A strong SOP and LORs will matter.",
+    icon: AlertTriangle,
+    box: "border-[#D9CFB8]",
+    card: "border-[#D9CFB8]/80 bg-[#FDFCF7]",
+    badge: "bg-[#F5EFE0] border-[#D9CFB8] text-[#D89A3E]",
+    iconBox: "bg-[#F5EFE0] text-[#D89A3E]",
   },
   {
-    id: "rwth-aachen",
-    name: "RWTH Aachen University",
-    country: "Germany",
-    countryCode: "de",
-    qsRank: 99,
-    probability: "Safe",
-    minGpaRequired: 7.0,
-    minIeltsRequired: 6.5,
-    greRequired: false,
-    matchReason:
-      "Profile comfortably exceeds engineering cutoff with tuition-free status.",
-    tuitionFeeINR: "₹0 / Free Tuition",
-    slug: "rwth-aachen-university",
-  },
-  {
-    id: "manchester-uk",
-    name: "University of Manchester",
-    country: "United Kingdom",
-    countryCode: "gb",
-    qsRank: 32,
-    probability: "Target",
-    minGpaRequired: 7.5,
-    minIeltsRequired: 6.5,
-    greRequired: false,
-    matchReason: "Well matched with 2-year Graduate Route PSW visa rights.",
-    tuitionFeeINR: "₹24 - 34 Lakhs/yr",
-    slug: "university-of-manchester",
-  },
-  {
-    id: "asu-usa",
-    name: "Arizona State University (ASU)",
-    country: "United States",
-    countryCode: "us",
-    qsRank: 179,
-    probability: "Safe",
-    minGpaRequired: 6.5,
-    minIeltsRequired: 6.5,
-    greRequired: false,
-    matchReason:
-      "High acceptance probability with 3-Year STEM OPT extension eligibility.",
-    tuitionFeeINR: "₹25 - 35 Lakhs/yr",
-    slug: "arizona-state-university",
-  },
-  {
-    id: "stanford-usa",
-    name: "Stanford University",
-    country: "United States",
-    countryCode: "us",
-    qsRank: 5,
-    probability: "Reach",
-    minGpaRequired: 9.2,
-    minIeltsRequired: 7.5,
-    greRequired: true,
-    matchReason:
-      "Ultra-selective Ivy-tier admissions requiring elite GRE and publications.",
-    tuitionFeeINR: "₹45 - 65 Lakhs/yr",
-    slug: "stanford-university",
-  },
-  {
-    id: "tashkent-med",
-    name: "Tashkent Medical Academy",
-    country: "Uzbekistan",
-    countryCode: "uz",
-    qsRank: 450,
-    probability: "Safe",
-    minGpaRequired: 5.5,
-    minIeltsRequired: 5.5,
-    greRequired: false,
-    matchReason:
-      "100% NMC FMGL compliant 54-month English medium MBBS program.",
-    tuitionFeeINR: "₹3.5 - 4.5 Lakhs/yr",
-    slug: "tashkent-medical-academy",
-  },
-  {
-    id: "monash-australia",
-    name: "Monash University (Group of Eight)",
-    country: "Australia",
-    countryCode: "au",
-    qsRank: 42,
-    probability: "Target",
-    minGpaRequired: 7.2,
-    minIeltsRequired: 6.5,
-    greRequired: false,
-    matchReason:
-      "Eligible for Australian Post-Study Work rights up to 4 years.",
-    tuitionFeeINR: "₹24 - 36 Lakhs/yr",
-    slug: "monash-university",
+    tier: "ambitious",
+    title: "Ambitious",
+    subtitle: "You are eligible, but competition is intense.",
+    icon: XCircle,
+    box: "border-[#7C6BAE]/30",
+    card: "border-[#7C6BAE]/20 bg-[#7C6BAE]/5",
+    badge: "bg-[#7C6BAE]/15 border-[#7C6BAE]/30 text-[#7C6BAE]",
+    iconBox: "bg-[#7C6BAE]/10 text-[#7C6BAE]",
   },
 ];
+
+const inputClass =
+  "min-h-[44px] w-full rounded-xl border border-[#D9CFB8] bg-[#FDFCF7] px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-[#103B47] focus:outline-none focus:border-[#1D5A6C]";
+const labelClass =
+  "block text-xs font-mono font-bold uppercase tracking-wider text-[#103B47] mb-1.5";
+
+function numberOr(value: string, fallback: number): number {
+  const num = Number(value);
+  return value === "" || Number.isNaN(num) ? fallback : num;
+}
+
+function englishRequirement(u: University): string {
+  const parts: string[] = [];
+  if (u.ieltsMinScore !== null) {
+    parts.push(
+      `IELTS ${u.ieltsMinScore}` +
+        (u.ieltsMinBand !== undefined ? ` (${u.ieltsMinBand} each)` : ""),
+    );
+  }
+  if (u.toeflMinScore !== undefined) parts.push(`TOEFL ${u.toeflMinScore}`);
+  if (u.pteMinScore !== undefined) parts.push(`PTE ${u.pteMinScore}`);
+  if (u.duolingoMinScore !== undefined) parts.push(`DET ${u.duolingoMinScore}`);
+  return parts.length > 0 ? parts.join(" / ") : "Not provided";
+}
+
+function ResultCard({
+  result,
+  countryName,
+  countryCode,
+  cardClass,
+}: {
+  result: EligibilityResult;
+  countryName: string;
+  countryCode?: string;
+  cardClass: string;
+}) {
+  const u = result.university;
+  return (
+    <div className={`p-4 rounded-xl border transition flex flex-col justify-between ${cardClass}`}>
+      <div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <CountryFlag code={countryCode} name={countryName} size="sm" />
+            <span className="text-[10px] font-mono font-bold text-[#6B6B6B] uppercase truncate">
+              {countryName}
+            </span>
+          </div>
+          {u.rankingGlobal ? (
+            <span className="text-[11px] font-mono font-bold text-[#103B47] shrink-0">
+              QS #{u.rankingGlobal}
+            </span>
+          ) : null}
+        </div>
+        <Link
+          href={`/universities/${u.slug}`}
+          className="block text-xs sm:text-sm font-bold text-[#103B47] mt-2 hover:underline"
+        >
+          {u.name}
+        </Link>
+
+        {result.blockers.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {result.blockers.map((b) => (
+              <li key={b} className="text-xs text-[#9B2C2C] flex gap-1.5">
+                <Ban className="h-3.5 w-3.5 shrink-0 mt-px" />
+                <span>{b}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {result.actions.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {result.actions.map((a) => (
+              <li key={a} className="text-xs text-[#8A5A14] flex gap-1.5">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" />
+                <span>{a}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {result.eligible && result.notes.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {result.notes.map((n) => (
+              <li key={n} className="text-xs text-[#6B6B6B]">
+                {n}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <dl className="mt-3 pt-2 border-t border-[#D9CFB8]/50 space-y-1 text-[11px] font-mono text-[#103B47]">
+        <div className="flex justify-between gap-2">
+          <dt className="text-[#6B6B6B]">English:</dt>
+          <dd className="font-bold text-right">{englishRequirement(u)}</dd>
+        </div>
+        <div className="flex justify-between gap-2">
+          <dt className="text-[#6B6B6B]">Tuition:</dt>
+          <dd className="font-bold text-right">
+            {u.tuitionFeeRangeINR ?? "Not provided"}
+          </dd>
+        </div>
+        <div className="flex justify-between gap-2">
+          <dt className="text-[#6B6B6B]">Post-study work:</dt>
+          <dd className="font-bold text-right">
+            {u.postStudyWorkMonths !== null
+              ? `up to ${u.postStudyWorkMonths} months`
+              : "Not provided"}
+          </dd>
+        </div>
+        <div className="pt-1 text-[10px] text-[#6B6B6B]">
+          {u.requirementsVerifiedOn ? (
+            <>
+              Verified {formatDateOnly(u.requirementsVerifiedOn)}
+              {u.requirementsSourceUrl && (
+                <>
+                  {" · "}
+                  <a
+                    href={u.requirementsSourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-[#103B47]"
+                  >
+                    Official source
+                  </a>
+                </>
+              )}
+            </>
+          ) : (
+            "Confirm requirements on the university's website."
+          )}
+        </div>
+      </dl>
+    </div>
+  );
+}
 
 export function EligibilityCheckerClient() {
   const homeModals = useHomeModals();
 
-  // Profile Inputs
-  const [gpa, setGpa] = useState<number>(7.6);
-  const [ieltsScore, setIeltsScore] = useState<number>(7.0);
-  const [greScore, setGreScore] = useState<number>(315);
-  const [workExperienceYears, setWorkExperienceYears] = useState<number>(2);
-  const [targetDegree, setTargetDegree] = useState("masters");
-  const [evaluated, setEvaluated] = useState(false);
+  const [universities, setUniversities] = useState<University[]>([]);
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Dynamic Probability Calculation Engine [FR-TOOLS-008]
-  const evaluateProbability = (uni: UniversityEvaluation) => {
-    let score = 0;
+  // Profile inputs
+  const [degree, setDegree] = useState<EligibilityDegree>("ms");
+  const [countrySlug, setCountrySlug] = useState("");
+  const [academicScale, setAcademicScale] = useState<AcademicScale>("percentage");
+  const [academicScore, setAcademicScore] = useState(75);
+  const [englishTest, setEnglishTest] = useState<EnglishTest>("ielts");
+  const [englishScore, setEnglishScore] = useState(6.5);
+  const [ieltsLowestBand, setIeltsLowestBand] = useState(6.0);
+  const [greTaken, setGreTaken] = useState(false);
+  const [greScore, setGreScore] = useState(310);
+  const [workExperienceYears, setWorkExperienceYears] = useState(0);
+  const [backlogs, setBacklogs] = useState(0);
+  const [bachelorYears, setBachelorYears] = useState<3 | 4>(4);
+  const [neetQualified, setNeetQualified] = useState(false);
+  const [hasAps, setHasAps] = useState(false);
 
-    // GPA delta
-    if (gpa >= uni.minGpaRequired + 0.8) score += 3;
-    else if (gpa >= uni.minGpaRequired) score += 2;
-    else score += 0;
+  useEffect(() => {
+    let active = true;
+    Promise.all([fetchLiveUniversities(), fetchLiveCountries()])
+      .then(([unis, ctrs]) => {
+        if (!active) return;
+        setUniversities(unis);
+        setCountries(ctrs);
+      })
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
+  }, []);
 
-    // IELTS delta
-    if (ieltsScore >= uni.minIeltsRequired + 0.5) score += 2;
-    else if (ieltsScore >= uni.minIeltsRequired) score += 1;
+  const countryBySlug = useMemo(() => {
+    const map = new Map<string, Country>();
+    countries.forEach((c) => {
+      map.set(c.slug, c);
+      map.set(c.id, c);
+    });
+    return map;
+  }, [countries]);
 
-    // Work experience bonus
-    if (workExperienceYears >= 2) score += 1;
+  // Only countries that have a university offering the chosen degree
+  const countryOptions = useMemo(() => {
+    const slugs = new Set(
+      universities
+        .filter((u) => (u.programsOffered || []).includes(degree))
+        .map((u) => u.countrySlug)
+        .filter((slug): slug is string => slug !== null),
+    );
+    return Array.from(slugs)
+      .map((slug) => ({ slug, name: countryBySlug.get(slug)?.name || slug }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [universities, degree, countryBySlug]);
 
-    // GRE requirement bonus
-    if (uni.greRequired && greScore >= 320) score += 2;
+  const activeCountry =
+    countrySlug && countryOptions.some((c) => c.slug === countrySlug)
+      ? countrySlug
+      : "";
 
-    if (score >= 5 && uni.qsRank > 30) return "Safe";
-    if (score >= 3 || uni.qsRank > 20) return "Target";
-    return "Reach";
+  const profile: EligibilityProfile = {
+    degree,
+    academicScale,
+    academicScore,
+    englishTest,
+    englishScore,
+    ieltsLowestBand,
+    greTaken,
+    greScore,
+    workExperienceYears,
+    backlogs,
+    bachelorYears,
+    neetQualified,
+    hasAps,
+  };
+  const results = evaluateProfile(universities, profile, activeCountry);
+  const eligible = results.filter((r) => r.eligible);
+  const notEligible = results.filter((r) => !r.eligible);
+  const anyApsRequired = results.some((r) => r.university.apsRequired);
+
+  const isPostgraduate = degree !== "bachelors" && degree !== "mbbs";
+  const scale = SCALE_OPTIONS.find((s) => s.value === academicScale)!;
+  const test = ENGLISH_TESTS.find((t) => t.value === englishTest)!;
+  const academicLabel =
+    degree === "mbbs"
+      ? "Class 12 Score (PCB)"
+      : degree === "bachelors"
+        ? "Class 12 Score"
+        : "Bachelor's Score";
+
+  const countryInfo = (u: University) => {
+    const c = u.countrySlug ? countryBySlug.get(u.countrySlug) : undefined;
+    return { name: c?.name ?? u.country ?? "Not provided", code: c?.code };
   };
 
-  const results = SAMPLE_DATABASE.map((uni) => ({
-    ...uni,
-    computedTier: evaluateProbability(uni),
-  }));
-
-  const safeUnis = results.filter((r) => r.computedTier === "Safe");
-  const targetUnis = results.filter((r) => r.computedTier === "Target");
-  const reachUnis = results.filter((r) => r.computedTier === "Reach");
+  const leadSummary = [
+    DEGREE_OPTIONS.find((d) => d.value === degree)?.label,
+    `${academicLabel} ${academicScore} (${scale.label})`,
+    englishTest === "none" ? "No English test" : `${test.label} ${englishScore}`,
+    isPostgraduate && greTaken ? `GRE ${greScore}` : null,
+    isPostgraduate ? `Exp ${workExperienceYears}y, ${backlogs} backlogs` : null,
+    degree === "mbbs" ? `NEET ${neetQualified ? "qualified" : "not qualified"}` : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   return (
     <div className="min-h-screen bg-[#FDFCF7] pb-20 pt-8 sm:pt-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* Header Breadcrumb & Hero */}
+        {/* Hero */}
         <div className="mb-8 text-center sm:text-left">
           <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#D9CFB8] bg-[#F5EFE0] px-3.5 py-1 text-xs font-semibold text-[#1D5A6C]">
             <ShieldCheck className="h-3.5 w-3.5 text-[#D89A3E]" />
-            <span>AI Admissions Probability Engine</span>
+            <span>Admission Eligibility Checker</span>
           </div>
           <h1 className="font-serif text-3xl font-black text-[#103B47] sm:text-4xl lg:text-5xl">
-            Admission Eligibility & Probability Checker
+            Admission Eligibility Checker
           </h1>
           <p className="mt-3 max-w-3xl text-xs sm:text-sm md:text-base leading-relaxed text-[#6B6B6B]">
-            Input your GPA, English proficiency, and test scores to instantly
-            evaluate your admission odds across global universities categorized
-            into Safe (🟢), Target (🟡), and Reach (🟣) tiers.
+            Enter your academic scores and English test result to see which
+            universities you are eligible for, what is still missing, and how
+            competitive each one is for your profile.
           </p>
         </div>
 
-        {/* 2-Column: Profile Inputs + Categorized Results */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Left Column: Profile Inputs */}
-          <div className="lg:col-span-4 rounded-2xl border border-[#D9CFB8] bg-white p-6 sm:p-8 shadow-xs space-y-6 h-fit">
+          {/* Profile inputs */}
+          <div className="lg:col-span-4 rounded-2xl border border-[#D9CFB8] bg-white p-6 sm:p-8 shadow-xs space-y-5 h-fit">
             <h2 className="text-base font-serif font-bold text-[#103B47] flex items-center gap-2">
               <FileText className="h-4 w-4 text-[#D89A3E]" />
-              <span>Your Academic Profile</span>
+              <span>Your Profile</span>
             </h2>
 
-            {/* GPA Slider */}
             <div>
-              <div className="flex justify-between items-center text-xs font-semibold mb-1.5">
-                <span className="text-[#103B47]">
-                  Undergrad GPA (10-Point Scale)
-                </span>
-                <span className="text-[#103B47] font-mono font-bold bg-[#F5EFE0] border border-[#D9CFB8]/70 px-2.5 py-1 rounded-md text-sm">
-                  {gpa.toFixed(1)} / 10
-                </span>
-              </div>
-              <input
-                type="range"
-                min={5.0}
-                max={10.0}
-                step={0.1}
-                value={gpa}
-                onChange={(e) => setGpa(Number(e.target.value))}
-                className="w-full accent-[#D89A3E] cursor-pointer h-2 bg-[#F5EFE0] rounded-lg"
-              />
-              <div className="flex justify-between text-[11px] font-mono text-[#6B6B6B] mt-1">
-                <span>5.0 (50%)</span>
-                <span>7.5 (First Class)</span>
-                <span>10.0 (Gold Medal)</span>
-              </div>
-            </div>
-
-            {/* IELTS Band */}
-            <div>
-              <div className="flex justify-between items-center text-xs font-semibold mb-1.5">
-                <span className="text-[#103B47]">
-                  IELTS Academic Overall Band
-                </span>
-                <span className="text-[#103B47] font-mono font-bold bg-[#F5EFE0] border border-[#D9CFB8]/70 px-2.5 py-1 rounded-md text-sm">
-                  Band {ieltsScore.toFixed(1)}
-                </span>
-              </div>
-              <input
-                type="range"
-                min={5.0}
-                max={9.0}
-                step={0.5}
-                value={ieltsScore}
-                onChange={(e) => setIeltsScore(Number(e.target.value))}
-                className="w-full accent-[#1D5A6C] cursor-pointer h-2 bg-[#F5EFE0] rounded-lg"
-              />
-            </div>
-
-            {/* GRE Score */}
-            <div>
-              <div className="flex justify-between items-center text-xs font-semibold mb-1.5">
-                <span className="text-[#103B47]">
-                  GRE General Score (Optional)
-                </span>
-                <span className="text-[#103B47] font-mono font-bold bg-[#F5EFE0] border border-[#D9CFB8]/70 px-2.5 py-1 rounded-md text-sm">
-                  {greScore} / 340
-                </span>
-              </div>
-              <input
-                type="range"
-                min={280}
-                max={340}
-                step={2}
-                value={greScore}
-                onChange={(e) => setGreScore(Number(e.target.value))}
-                className="w-full accent-[#1D5A6C] cursor-pointer h-2 bg-[#F5EFE0] rounded-lg"
-              />
-            </div>
-
-            {/* Work Experience */}
-            <div>
-              <div className="flex justify-between items-center text-xs font-semibold mb-1.5">
-                <span className="text-[#103B47]">Relevant Work Experience</span>
-                <span className="text-[#103B47] font-mono font-bold bg-[#F5EFE0] border border-[#D9CFB8]/70 px-2.5 py-1 rounded-md text-sm">
-                  {workExperienceYears}{" "}
-                  {workExperienceYears === 1 ? "Year" : "Years"}
-                </span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={10}
-                step={1}
-                value={workExperienceYears}
-                onChange={(e) => setWorkExperienceYears(Number(e.target.value))}
-                className="w-full accent-[#1D5A6C] cursor-pointer h-2 bg-[#F5EFE0] rounded-lg"
-              />
-            </div>
-
-            {/* Target Program Level */}
-            <div>
-              <label className="block text-xs font-mono font-bold uppercase tracking-wider text-[#103B47] mb-1.5">
-                Target Degree Level
+              <label htmlFor="ec-degree" className={labelClass}>
+                Degree You Want
               </label>
               <select
-                aria-label="Target degree level"
-                value={targetDegree}
-                onChange={(e) => setTargetDegree(e.target.value)}
-                className="min-h-[44px] w-full rounded-xl border border-[#D9CFB8] bg-[#FDFCF7] px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-[#103B47] focus:outline-none focus:border-[#1D5A6C]"
+                id="ec-degree"
+                value={degree}
+                onChange={(e) => setDegree(e.target.value as EligibilityDegree)}
+                className={inputClass}
               >
-                <option value="masters">Postgraduate Masters (MS/MA)</option>
-                <option value="bachelors">
-                  Undergraduate Bachelors (BS/BA)
-                </option>
-                <option value="mbbs">Medical Degree (MBBS/MD)</option>
-                <option value="mba">Executive MBA (EMBA)</option>
+                {DEGREE_OPTIONS.map((d) => (
+                  <option key={d.value} value={d.value}>
+                    {d.label}
+                  </option>
+                ))}
               </select>
             </div>
 
+            <div>
+              <label htmlFor="ec-country" className={labelClass}>
+                Country
+              </label>
+              <select
+                id="ec-country"
+                value={activeCountry}
+                onChange={(e) => setCountrySlug(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">All countries</option>
+                {countryOptions.map((c) => (
+                  <option key={c.slug} value={c.slug}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="ec-academic" className={labelClass}>
+                {academicLabel}
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  aria-label="Score format"
+                  value={academicScale}
+                  onChange={(e) => {
+                    const next = SCALE_OPTIONS.find((s) => s.value === e.target.value)!;
+                    setAcademicScale(next.value);
+                    setAcademicScore(next.initial);
+                  }}
+                  className={inputClass}
+                >
+                  {SCALE_OPTIONS.map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  id="ec-academic"
+                  type="number"
+                  min={scale.min}
+                  max={scale.max}
+                  step={scale.step}
+                  value={academicScore}
+                  onChange={(e) =>
+                    setAcademicScore(
+                      Math.min(scale.max, Math.max(0, numberOr(e.target.value, 0))),
+                    )
+                  }
+                  className={inputClass}
+                />
+              </div>
+              {academicScale !== "percentage" && (
+                <p className="mt-1 text-[11px] font-mono text-[#6B6B6B]">
+                  ≈ {toPercentage(academicScale, academicScore).toFixed(1)}%
+                  {academicScale === "cgpa10" ? " (CGPA × 9.5)" : " (approx.)"}
+                </p>
+              )}
+            </div>
+
+            {isPostgraduate && (
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label htmlFor="ec-years" className={labelClass}>
+                    Degree Length
+                  </label>
+                  <select
+                    id="ec-years"
+                    value={bachelorYears}
+                    onChange={(e) => setBachelorYears(Number(e.target.value) as 3 | 4)}
+                    className={inputClass}
+                  >
+                    <option value={4}>4 years</option>
+                    <option value={3}>3 years</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="ec-backlogs" className={labelClass}>
+                    Backlogs
+                  </label>
+                  <input
+                    id="ec-backlogs"
+                    type="number"
+                    min={0}
+                    max={50}
+                    value={backlogs}
+                    onChange={(e) =>
+                      setBacklogs(Math.max(0, Math.round(numberOr(e.target.value, 0))))
+                    }
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label htmlFor="ec-english" className={labelClass}>
+                English Test
+              </label>
+              <div className={englishTest === "none" ? "" : "grid grid-cols-2 gap-2"}>
+                <select
+                  aria-label="English test"
+                  value={englishTest}
+                  onChange={(e) => {
+                    const next = e.target.value as EnglishTest;
+                    setEnglishTest(next);
+                    setEnglishScore(ENGLISH_DEFAULTS[next]);
+                  }}
+                  className={inputClass}
+                >
+                  {ENGLISH_TESTS.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+                {englishTest !== "none" && (
+                  <input
+                    id="ec-english"
+                    type="number"
+                    min={test.min}
+                    max={test.max}
+                    step={test.step}
+                    value={englishScore}
+                    onChange={(e) =>
+                      setEnglishScore(
+                        Math.min(test.max, Math.max(0, numberOr(e.target.value, 0))),
+                      )
+                    }
+                    aria-label={`${test.label} overall score`}
+                    className={inputClass}
+                  />
+                )}
+              </div>
+              {englishTest === "ielts" && (
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <label htmlFor="ec-band" className="text-xs font-semibold text-[#103B47]">
+                    Lowest section band
+                  </label>
+                  <input
+                    id="ec-band"
+                    type="number"
+                    min={4}
+                    max={9}
+                    step={0.5}
+                    value={ieltsLowestBand}
+                    onChange={(e) =>
+                      setIeltsLowestBand(
+                        Math.min(9, Math.max(0, numberOr(e.target.value, 0))),
+                      )
+                    }
+                    className={`${inputClass} max-w-[110px]`}
+                  />
+                </div>
+              )}
+              {englishTest !== "ielts" && englishTest !== "none" && (
+                <p className="mt-1 text-[11px] text-[#6B6B6B]">
+                  Compared using official score concordances where a university
+                  states no {test.label.split(" ")[0]} minimum.
+                </p>
+              )}
+            </div>
+
+            {isPostgraduate && (
+              <>
+                <div>
+                  <label className="flex items-center gap-2 text-xs font-semibold text-[#103B47] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={greTaken}
+                      onChange={(e) => setGreTaken(e.target.checked)}
+                      className="h-4 w-4 accent-[#1D5A6C]"
+                    />
+                    <span>I have a GRE score</span>
+                  </label>
+                  {greTaken && (
+                    <div className="mt-2">
+                      <div className="flex justify-between items-center text-xs font-semibold mb-1.5">
+                        <span className="text-[#103B47]">GRE General</span>
+                        <span className="text-[#103B47] font-mono font-bold bg-[#F5EFE0] border border-[#D9CFB8]/70 px-2.5 py-1 rounded-md text-sm">
+                          {greScore} / 340
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={260}
+                        max={340}
+                        step={1}
+                        value={greScore}
+                        aria-label="GRE score"
+                        onChange={(e) => setGreScore(Number(e.target.value))}
+                        className="w-full accent-[#1D5A6C] cursor-pointer h-2 bg-[#F5EFE0] rounded-lg"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center text-xs font-semibold mb-1.5">
+                    <span className="text-[#103B47]">Work Experience</span>
+                    <span className="text-[#103B47] font-mono font-bold bg-[#F5EFE0] border border-[#D9CFB8]/70 px-2.5 py-1 rounded-md text-sm">
+                      {workExperienceYears} {workExperienceYears === 1 ? "Year" : "Years"}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={15}
+                    step={1}
+                    value={workExperienceYears}
+                    aria-label="Work experience in years"
+                    onChange={(e) => setWorkExperienceYears(Number(e.target.value))}
+                    className="w-full accent-[#1D5A6C] cursor-pointer h-2 bg-[#F5EFE0] rounded-lg"
+                  />
+                </div>
+              </>
+            )}
+
+            {degree === "mbbs" && (
+              <label className="flex items-center gap-2 text-xs font-semibold text-[#103B47] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={neetQualified}
+                  onChange={(e) => setNeetQualified(e.target.checked)}
+                  className="h-4 w-4 accent-[#1D5A6C]"
+                />
+                <span>I have qualified NEET-UG</span>
+              </label>
+            )}
+
+            {anyApsRequired && (
+              <label className="flex items-center gap-2 text-xs font-semibold text-[#103B47] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={hasAps}
+                  onChange={(e) => setHasAps(e.target.checked)}
+                  className="h-4 w-4 accent-[#1D5A6C]"
+                />
+                <span>I have my APS certificate (Germany)</span>
+              </label>
+            )}
+
             <button
               type="button"
-              onClick={() =>
-                homeModals.openLeadModal(
-                  `Profile Evaluation: GPA ${gpa}/10, IELTS ${ieltsScore}, GRE ${greScore}, Exp: ${workExperienceYears}y`,
-                )
-              }
+              onClick={() => homeModals.openLeadModal(`Profile Evaluation: ${leadSummary}`)}
               className="min-h-[44px] w-full flex items-center justify-center gap-2 rounded-xl bg-[#D89A3E] py-3.5 px-6 text-xs sm:text-sm font-bold text-[#103B47] shadow-md hover:bg-[#c4872d] transition cursor-pointer"
             >
-              <span>Get Human Counselor Audit →</span>
+              <span>Get a Counsellor to Review My Profile →</span>
             </button>
           </div>
 
-          {/* Right Column: 3-Tier Color-Coded Categorized Results */}
+          {/* Results */}
           <div className="lg:col-span-8 space-y-6">
-            {/* 1. Safe Tier */}
-            <div className="rounded-2xl border border-[#A8CDBD] bg-white p-5 sm:p-6 shadow-xs">
-              <div className="flex items-center gap-2.5 mb-4">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#A8CDBD]/20 text-[#1D5A6C] font-bold">
-                  <CheckCircle2 className="h-4 w-4" />
-                </span>
-                <div>
-                  <h3 className="text-sm font-bold text-[#103B47] flex items-center gap-2">
-                    <span>Safe Universities</span>
-                    <span className="rounded-md bg-[#A8CDBD]/20 border border-[#A8CDBD] px-2 py-0.5 text-[10px] font-mono font-bold text-[#103B47]">
-                      &gt;85% Probability (Green)
-                    </span>
-                  </h3>
-                  <p className="text-xs text-[#6B6B6B] mt-0.5">
-                    Your profile comfortably exceeds all admission cutoffs.
-                  </p>
-                </div>
+            {loading ? (
+              <div className="flex items-center justify-center gap-2 rounded-2xl border border-[#D9CFB8] bg-white p-10 text-sm text-[#6B6B6B]">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Loading universities…</span>
               </div>
+            ) : results.length === 0 ? (
+              <div className="rounded-2xl border border-[#D9CFB8] bg-white p-8 text-center text-sm text-[#6B6B6B]">
+                {universities.length === 0
+                  ? "We couldn't load universities right now. Please try again shortly."
+                  : "No universities in our catalogue offer this degree in the selected country yet."}
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-[#103B47]">
+                  You are eligible for <strong>{eligible.length}</strong> of{" "}
+                  <strong>{results.length}</strong> universities offering this degree
+                  {activeCountry ? ` in ${countryBySlug.get(activeCountry)?.name || activeCountry}` : ""}.
+                </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {safeUnis.map((u) => (
-                  <div
-                    key={u.id}
-                    className="p-4 rounded-xl border border-[#A8CDBD]/50 bg-[#A8CDBD]/10 hover:bg-[#A8CDBD]/20 transition flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <CountryFlag code={u.countryCode} size="sm" />
-                          <span className="text-[10px] font-mono font-bold text-[#6B6B6B] uppercase">
-                            {u.country}
-                          </span>
-                        </div>
-                        <span className="text-[11px] font-mono font-bold text-[#103B47]">
-                          QS #{u.qsRank}
+                {TIERS.map((t) => {
+                  const items = eligible.filter((r) => r.tier === t.tier);
+                  const Icon = t.icon;
+                  return (
+                    <section key={t.tier} className={`rounded-2xl border bg-white p-5 sm:p-6 shadow-xs ${t.box}`}>
+                      <div className="flex items-center gap-2.5 mb-4">
+                        <span className={`flex h-7 w-7 items-center justify-center rounded-lg font-bold ${t.iconBox}`}>
+                          <Icon className="h-4 w-4" />
                         </span>
-                      </div>
-                      <h4 className="text-xs sm:text-sm font-bold text-[#103B47] mt-2">
-                        {u.name}
-                      </h4>
-                      <p className="text-xs text-[#6B6B6B] mt-1">
-                        {u.matchReason}
-                      </p>
-                    </div>
-                    <div className="mt-3 pt-2 border-t border-[#A8CDBD]/40 text-xs font-mono font-bold text-[#103B47] flex justify-between">
-                      <span className="text-[#6B6B6B]">Tuition:</span>
-                      <span>{u.tuitionFeeINR}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* 2. Target Tier */}
-            <div className="rounded-2xl border border-[#D9CFB8] bg-white p-5 sm:p-6 shadow-xs">
-              <div className="flex items-center gap-2.5 mb-4">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#F5EFE0] text-[#D89A3E] font-bold">
-                  <AlertTriangle className="h-4 w-4" />
-                </span>
-                <div>
-                  <h3 className="text-sm font-bold text-[#103B47] flex items-center gap-2">
-                    <span>Target Universities</span>
-                    <span className="rounded-md bg-[#F5EFE0] border border-[#D9CFB8] px-2 py-0.5 text-[10px] font-mono font-bold text-[#D89A3E]">
-                      55% - 85% Probability (Yellow)
-                    </span>
-                  </h3>
-                  <p className="text-xs text-[#6B6B6B] mt-0.5">
-                    Strong competitive alignment; compelling SOP & LOR required.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {targetUnis.map((u) => (
-                  <div
-                    key={u.id}
-                    className="p-4 rounded-xl border border-[#D9CFB8]/80 bg-[#FDFCF7] hover:bg-[#F5EFE0]/60 transition flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <CountryFlag code={u.countryCode} size="sm" />
-                          <span className="text-[10px] font-mono font-bold text-[#6B6B6B] uppercase">
-                            {u.country}
-                          </span>
+                        <div>
+                          <h3 className="text-sm font-bold text-[#103B47] flex items-center gap-2">
+                            <span>{t.title}</span>
+                            <span className={`rounded-md border px-2 py-0.5 text-[10px] font-mono font-bold ${t.badge}`}>
+                              {items.length}
+                            </span>
+                          </h3>
+                          <p className="text-xs text-[#6B6B6B] mt-0.5">{t.subtitle}</p>
                         </div>
-                        <span className="text-[11px] font-mono font-bold text-[#103B47]">
-                          QS #{u.qsRank}
-                        </span>
                       </div>
-                      <h4 className="text-xs sm:text-sm font-bold text-[#103B47] mt-2">
-                        {u.name}
-                      </h4>
-                      <p className="text-xs text-[#6B6B6B] mt-1">
-                        {u.matchReason}
-                      </p>
-                    </div>
-                    <div className="mt-3 pt-2 border-t border-[#D9CFB8]/60 text-xs font-mono font-bold text-[#103B47] flex justify-between">
-                      <span className="text-[#6B6B6B]">Tuition:</span>
-                      <span>{u.tuitionFeeINR}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* 3. Reach Tier */}
-            <div className="rounded-2xl border border-[#7C6BAE]/30 bg-white p-5 sm:p-6 shadow-xs">
-              <div className="flex items-center gap-2.5 mb-4">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#7C6BAE]/10 text-[#7C6BAE] font-bold">
-                  <XCircle className="h-4 w-4" />
-                </span>
-                <div>
-                  <h3 className="text-sm font-bold text-[#103B47] flex items-center gap-2">
-                    <span>Reach / Dream Universities</span>
-                    <span className="rounded-md bg-[#7C6BAE]/15 border border-[#7C6BAE]/30 px-2 py-0.5 text-[10px] font-mono font-bold text-[#7C6BAE]">
-                      &lt;55% Highly Competitive (Purple)
-                    </span>
-                  </h3>
-                  <p className="text-xs text-[#6B6B6B] mt-0.5">
-                    Elite institution; requires outstanding research, profile
-                    boosters, or higher test percentiles.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {reachUnis.map((u) => (
-                  <div
-                    key={u.id}
-                    className="p-4 rounded-xl border border-[#7C6BAE]/20 bg-[#7C6BAE]/5 hover:bg-[#7C6BAE]/15 transition flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <CountryFlag code={u.countryCode} size="sm" />
-                          <span className="text-[10px] font-mono font-bold text-[#6B6B6B] uppercase">
-                            {u.country}
-                          </span>
+                      {items.length === 0 ? (
+                        <p className="text-xs text-[#6B6B6B]">No universities in this group for your profile.</p>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {items.map((r) => {
+                            const c = countryInfo(r.university);
+                            return (
+                              <ResultCard
+                                key={r.university.slug}
+                                result={r}
+                                countryName={c.name}
+                                countryCode={c.code}
+                                cardClass={t.card}
+                              />
+                            );
+                          })}
                         </div>
-                        <span className="text-[11px] font-mono font-bold text-[#103B47]">
-                          QS #{u.qsRank}
-                        </span>
+                      )}
+                    </section>
+                  );
+                })}
+
+                {notEligible.length > 0 && (
+                  <section className="rounded-2xl border border-[#E8C4C4] bg-white p-5 sm:p-6 shadow-xs">
+                    <div className="flex items-center gap-2.5 mb-4">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#F8E5E5] text-[#9B2C2C] font-bold">
+                        <Ban className="h-4 w-4" />
+                      </span>
+                      <div>
+                        <h3 className="text-sm font-bold text-[#103B47] flex items-center gap-2">
+                          <span>Not Eligible Yet</span>
+                          <span className="rounded-md border border-[#E8C4C4] bg-[#F8E5E5] px-2 py-0.5 text-[10px] font-mono font-bold text-[#9B2C2C]">
+                            {notEligible.length}
+                          </span>
+                        </h3>
+                        <p className="text-xs text-[#6B6B6B] mt-0.5">
+                          You miss at least one published minimum. Each card shows what to fix.
+                        </p>
                       </div>
-                      <h4 className="text-xs sm:text-sm font-bold text-[#103B47] mt-2">
-                        {u.name}
-                      </h4>
-                      <p className="text-xs text-[#6B6B6B] mt-1">
-                        {u.matchReason}
-                      </p>
                     </div>
-                    <div className="mt-3 pt-2 border-t border-[#7C6BAE]/20 text-xs font-mono font-bold text-[#103B47] flex justify-between">
-                      <span className="text-[#6B6B6B]">Tuition:</span>
-                      <span>{u.tuitionFeeINR}</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {notEligible.map((r) => {
+                        const c = countryInfo(r.university);
+                        return (
+                          <ResultCard
+                            key={r.university.slug}
+                            result={r}
+                            countryName={c.name}
+                            countryCode={c.code}
+                            cardClass="border-[#E8C4C4]/70 bg-[#FDF7F7]"
+                          />
+                        );
+                      })}
                     </div>
-                  </div>
-                ))}
-              </div>
+                  </section>
+                )}
+              </>
+            )}
+
+            <div className="flex gap-2 rounded-xl border border-[#D9CFB8] bg-[#F5EFE0]/60 p-4 text-[11px] leading-relaxed text-[#6B6B6B]">
+              <Info className="h-4 w-4 shrink-0 text-[#1D5A6C]" />
+              <p>
+                This is guidance, not an admission prediction. It compares your
+                scores with each university&apos;s published minimums and how
+                selective it is. Where a university has not stated an academic
+                minimum, we estimate it from its QS ranking. Requirements vary by
+                program and change every year, so always confirm on the
+                university&apos;s official admissions page.
+              </p>
             </div>
           </div>
         </div>

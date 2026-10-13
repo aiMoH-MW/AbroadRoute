@@ -1,12 +1,13 @@
+import { fetchCompareCourses } from "@/lib/compareData";
 import { NextResponse } from "next/server";
 import {
   fetchLiveUniversities,
-  fetchLiveCourses,
   fetchLivePrograms,
   fetchLiveCountries,
   fetchTestPrepExams,
 } from "@/lib/supabase/dataFetchers";
 import { getAllArticles } from "@/lib/sanity/fetchers";
+import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,7 @@ const SITE_TOOLS = [
     id: "tool-cost-calculator",
     title: "Cost of Living & Study Calculator",
     subtitle:
-      "Calculate tuition, accommodation, food, and blocked account across 19 countries in INR & EUR",
+      "Calculate tuition, accommodation, food, and living costs by destination in INR",
     badge: "Interactive Tool",
     url: "/cost-calculator",
     keywords: [
@@ -161,14 +162,13 @@ const SITE_TOOLS = [
     id: "tool-deadline-tracker",
     title: "Intake Deadline Tracker & Alerts",
     subtitle:
-      "Track Fall/Spring 2027 university application deadlines with 90-day countdown alerts",
+      "Track university application deadlines with countdown milestones",
     badge: "Milestones",
     url: "/deadline-tracker",
     keywords: [
       "deadlines",
       "tracker",
       "intake",
-      "fall 2027",
       "spring",
       "application timeline",
       "countdown",
@@ -179,7 +179,7 @@ const SITE_TOOLS = [
     id: "tool-scholarships",
     title: "Scholarship & Grant Finder",
     subtitle:
-      "Search DAAD, Chevening, Fulbright, Erasmus & Women in STEM scholarships",
+      "Search scholarships, fellowships and grants that match your profile",
     badge: "Scholarships",
     url: "/scholarships",
     keywords: [
@@ -216,7 +216,7 @@ const SITE_TOOLS = [
     id: "tool-loan-calculator",
     title: "Education Loan & EMI Calculator",
     subtitle:
-      "Calculate monthly EMI and compare partner bank rates from SBI, HDFC Credila & Prodigy",
+      "Calculate monthly EMI and compare education loan lender rates",
     badge: "Finance",
     url: "/loan-calculator",
     keywords: [
@@ -264,7 +264,7 @@ export async function GET(request: Request) {
     const [universities, courses, programs, countries, articles] =
       await Promise.all([
         fetchLiveUniversities(),
-        fetchLiveCourses(),
+        fetchCompareCourses(),
         fetchLivePrograms(),
         fetchLiveCountries(),
         getAllArticles(),
@@ -333,17 +333,20 @@ export async function GET(request: Request) {
           results.push({
             id: `uni-${u.id || u.slug}`,
             title: u.name,
-            subtitle: `${u.city ? `${u.city}, ` : ""}${u.country} • Global Rank #${u.rankingGlobal || "N/A"}`,
+            subtitle: [
+              [u.city, u.country].filter(Boolean).join(", "),
+              u.rankingGlobal !== null ? `Global Rank #${u.rankingGlobal}` : null,
+            ]
+              .filter(Boolean)
+              .join(" • "),
             category: "universities",
             categoryLabel: "University",
             badge:
               u.tuitionFeeRangeINR || (u.featured ? "Featured" : undefined),
             url: `/universities/${u.slug}`,
             iconType: "university",
-            countryCode:
-              u.countrySlug ||
-              (u.country ? u.country.toLowerCase() : undefined),
-            countrySlug: u.countrySlug,
+            countryCode: u.countrySlug ?? undefined,
+            countrySlug: u.countrySlug ?? undefined,
             score,
           });
         }
@@ -353,28 +356,31 @@ export async function GET(request: Request) {
     // 2. Search Courses
     if (categoryFilter === "all" || categoryFilter === "courses") {
       courses.forEach((c) => {
-        const bodyContent = Array.isArray(c.coreModules)
-          ? c.coreModules.join(" ")
-          : "";
         const score = computeRelevance(
-          c.slug || "",
+          c.programId,
           c.name || "",
-          `${c.universityName || ""} ${c.country || ""} ${c.level || ""}`,
-          bodyContent,
+          `${c.universityName || ""} ${c.countryName || ""} ${c.level || ""}`,
+          c.keyFields.join(" "),
         );
 
         if (score > 0) {
           results.push({
-            id: `course-${c.id || c.slug}`,
+            id: `course-${c.id}`,
             title: c.name,
-            subtitle: `${c.universityName} • ${c.country} (${c.duration})`,
+            subtitle: [c.universityName, c.countryName, c.duration]
+              .filter(Boolean)
+              .join(" • "),
             category: "courses",
             categoryLabel: "Course & Degree",
-            badge: c.tuitionFeeINR || `IELTS ${c.ieltsMinScore}+`,
+            badge:
+              c.yearlyTuitionINR !== null
+                ? `${formatCurrency(c.yearlyTuitionINR)} / yr`
+                : c.ieltsMinScore !== null
+                  ? `IELTS ${c.ieltsMinScore}+`
+                  : undefined,
             url: `/compare/courses?search=${encodeURIComponent(c.name)}`,
             iconType: "course",
-            countryCode: c.country ? c.country.toLowerCase() : undefined,
-            flagEmoji: c.flagEmoji,
+            countryCode: c.countryId ?? undefined,
             score,
           });
         }
@@ -396,10 +402,18 @@ export async function GET(request: Request) {
           results.push({
             id: `prog-${p.id || p.slug}`,
             title: p.name,
-            subtitle: `${p.level} • Duration: ${p.duration} • Top: ${p.topDestinations?.slice(0, 3).join(", ") || "Global"}`,
+            subtitle: [
+              p.level,
+              p.duration && `Duration: ${p.duration}`,
+              p.topDestinations?.length
+                ? `Top: ${p.topDestinations.slice(0, 3).join(", ")}`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" • "),
             category: "programs",
             categoryLabel: "Program / Discipline",
-            badge: `ROI ${p.roiScore || 90}/100`,
+            badge: p.roiScore !== null ? `ROI ${p.roiScore}/100` : undefined,
             url: `/programs/${p.slug}`,
             iconType: "program",
             score,
@@ -426,12 +440,12 @@ export async function GET(request: Request) {
             subtitle: `${c.tier} • Visa: ${c.postStudyWorkVisa} • Avg Living: ${c.avgLivingCostINR}`,
             category: "destinations",
             categoryLabel: "Country Destination",
-            badge: c.avgTuitionINR,
+            badge: c.avgTuitionINR ?? undefined,
             url: `/study-in-${c.slug}`,
             iconType: "country",
             countryCode: c.code || c.slug,
             countrySlug: c.slug,
-            flagEmoji: c.flagEmoji,
+            flagEmoji: c.flagEmoji ?? undefined,
             score,
           });
         }
@@ -453,10 +467,10 @@ export async function GET(request: Request) {
           results.push({
             id: `guide-${a._id || a.slug}`,
             title: a.title,
-            subtitle: `${a.tag || "Guide"} • ${a.readTime || "5 min read"}`,
+            subtitle: [a.tag, a.readTime].filter(Boolean).join(" • "),
             category: "guides",
             categoryLabel: "Guide / Blog Article",
-            badge: a.date || "Updated",
+            badge: a.date ?? undefined,
             url: `/articles/${a.slug}`,
             iconType: "guide",
             score,
@@ -515,7 +529,7 @@ export async function GET(request: Request) {
             categoryLabel: "Test Prep Exam",
             badge: t.validityYears
               ? `${t.validityYears} Years Validity`
-              : "Standard Validity",
+              : undefined,
             url: `/test-prep/${t.slug}`,
             iconType: "test_prep",
             score,

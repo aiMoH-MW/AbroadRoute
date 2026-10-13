@@ -31,6 +31,7 @@ import {
   type ExtractionRun,
   type QuestionStatus,
 } from "@/lib/studyMaterials/questionTypes";
+import { adminFetch } from "@/lib/adminFetch";
 
 interface Props {
   programsList: Program[];
@@ -134,13 +135,13 @@ export function AdminQuestionExtractionTab({ programsList }: Props) {
 
   // ---------- Data loading ----------
   const fetchMaterials = useCallback(async () => {
-    const res = await fetch("/api/admin/study-materials");
+    const res = await adminFetch("/api/admin/study-materials");
     const data = await res.json();
     if (data.success) setMaterials(data.items);
   }, []);
 
   const fetchRuns = useCallback(async () => {
-    const res = await fetch("/api/admin/question-extraction/runs");
+    const res = await adminFetch("/api/admin/question-extraction/runs");
     const data = await res.json();
     if (data.success) setRuns(data.items);
   }, []);
@@ -151,7 +152,7 @@ export function AdminQuestionExtractionTab({ programsList }: Props) {
       const params = new URLSearchParams({ page: String(page) });
       Object.entries(reviewFilters).forEach(([key, value]) => value && params.set(key, value));
       if (debouncedQuery) params.set("q", debouncedQuery);
-      const res = await fetch(`/api/admin/question-bank?${params}`);
+      const res = await adminFetch(`/api/admin/question-bank?${params}`);
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       setQuestions(data.items);
@@ -205,7 +206,7 @@ export function AdminQuestionExtractionTab({ programsList }: Props) {
     updateRun(run.id, { status: "running", error_message: null });
     try {
       while (activeRunsRef.current.has(run.id)) {
-        const res = await fetch(`/api/admin/question-extraction/runs/${run.id}/process`, { method: "POST" });
+        const res = await adminFetch(`/api/admin/question-extraction/runs/${run.id}/process`, { method: "POST" });
         const data = await res.json();
         if (!data.success) throw new Error(data.error || "Extraction failed");
         updateRun(run.id, {
@@ -246,7 +247,7 @@ export function AdminQuestionExtractionTab({ programsList }: Props) {
     setStatusMessage(null);
     try {
       const single = selectedMaterials.length === 1;
-      const res = await fetch("/api/admin/question-extraction/runs", {
+      const res = await adminFetch("/api/admin/question-extraction/runs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -279,7 +280,7 @@ export function AdminQuestionExtractionTab({ programsList }: Props) {
   const bulkAction = async (action: QuestionStatus | "delete", ids: string[]) => {
     if (ids.length === 0) return;
     if (action === "delete" && !window.confirm(`Delete ${ids.length} question(s)? This cannot be undone.`)) return;
-    const res = await fetch("/api/admin/question-bank", {
+    const res = await adminFetch("/api/admin/question-bank", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids, action }),
@@ -296,7 +297,7 @@ export function AdminQuestionExtractionTab({ programsList }: Props) {
     if (!editing) return;
     setSavingEdit(true);
     try {
-      const res = await fetch(`/api/admin/question-bank/${editing.id}`, {
+      const res = await adminFetch(`/api/admin/question-bank/${editing.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

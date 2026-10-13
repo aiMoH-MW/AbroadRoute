@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { X, Save, Building2, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
-import { Program, ProgramCategory, University, UniversityProgram } from "@/types";
+import { City, Program, ProgramCategory, University, UniversityProgram } from "@/types";
 import { getAuthHeaders } from "@/lib/supabase/client";
-import { fetchLivePrograms } from "@/lib/supabase/dataFetchers";
+import { fetchLiveCities, fetchLivePrograms } from "@/lib/supabase/dataFetchers";
+import { UniversityMediaUploader } from "./UniversityMediaUploader";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -30,6 +31,56 @@ function initialProgramRows(university: University): ProgramRow[] {
     duration: "",
   }));
 }
+
+// Admission requirements used by the Eligibility Checker: university field
+// -> API column. Only changed ones are sent, so other edits keep working
+// before migration 0018 is applied.
+const REQUIREMENT_FIELDS = {
+  minPercentage: "min_percentage",
+  ieltsMinBand: "ielts_min_band",
+  toeflMinScore: "toefl_min_score",
+  pteMinScore: "pte_min_score",
+  duolingoMinScore: "duolingo_min_score",
+  maxBacklogs: "max_backlogs",
+  greGmatRequired: "gre_gmat_required",
+  nmcCompliant: "nmc_compliant",
+  apsRequired: "aps_required",
+  fourYearDegreeRequired: "four_year_degree_required",
+  requirementsSourceUrl: "requirements_source_url",
+  requirementsVerifiedOn: "requirements_verified_on",
+} as const satisfies Partial<Record<keyof University, string>>;
+
+function changedRequirements(original: University, edited: University) {
+  const payload: Record<string, unknown> = {};
+  for (const [field, column] of Object.entries(REQUIREMENT_FIELDS)) {
+    const key = field as keyof typeof REQUIREMENT_FIELDS;
+    const before = original[key] ?? null;
+    const after = edited[key] ?? null;
+    if (before !== after) payload[column] = after === "" ? null : after;
+  }
+  return payload;
+}
+
+const NUMBER_REQUIREMENTS: {
+  field: keyof University;
+  label: string;
+  step: number;
+  placeholder: string;
+}[] = [
+  { field: "minPercentage", label: "Min % (previous degree)", step: 0.5, placeholder: "e.g. 70" },
+  { field: "ieltsMinBand", label: "Lowest IELTS Band", step: 0.5, placeholder: "e.g. 6.0" },
+  { field: "toeflMinScore", label: "Min TOEFL iBT", step: 1, placeholder: "e.g. 90" },
+  { field: "pteMinScore", label: "Min PTE Academic", step: 1, placeholder: "e.g. 58" },
+  { field: "duolingoMinScore", label: "Min Duolingo", step: 5, placeholder: "e.g. 115" },
+  { field: "maxBacklogs", label: "Max Backlogs", step: 1, placeholder: "No limit" },
+];
+
+const BOOLEAN_REQUIREMENTS: { field: keyof University; label: string }[] = [
+  { field: "greGmatRequired", label: "GRE/GMAT required" },
+  { field: "apsRequired", label: "APS certificate required" },
+  { field: "fourYearDegreeRequired", label: "4-year bachelor's required" },
+  { field: "nmcCompliant", label: "NMC compliant (MBBS)" },
+];
 
 interface Props {
   university: University | null;
@@ -67,9 +118,17 @@ function EditUniversityForm({
   // Program assignments are stored against the Supabase row id
   const canAssignPrograms = UUID_PATTERN.test(university.id);
 
+  // Cities of the university's country (universities.city stores cities.id)
+  const [countryCities, setCountryCities] = useState<City[]>([]);
+
   useEffect(() => {
     fetchLivePrograms().then(setAllPrograms);
-  }, []);
+    fetchLiveCities().then((cities) =>
+      setCountryCities(
+        cities.filter((c) => c.countryId === university.countrySlug),
+      ),
+    );
+  }, [university.countrySlug]);
 
   const toggleProgram = (programId: string, checked: boolean) => {
     setProgramRows((rows) =>
@@ -142,13 +201,13 @@ function EditUniversityForm({
         body: JSON.stringify({
           slug: formData.slug,
           name: formData.name,
-          city: formData.city,
-          country: formData.country,
+          city: formData.cityId,
           ranking_global: formData.rankingGlobal,
           tuition_fee_range_inr: formData.tuitionFeeRangeINR,
           ielts_min_score: formData.ieltsMinScore,
           acceptance_rate: formData.acceptanceRate,
           post_study_work_months: formData.postStudyWorkMonths,
+          ...changedRequirements(university, formData),
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -239,13 +298,29 @@ function EditUniversityForm({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block font-bold text-slate-700 mb-1">City</label>
-              <input
-                type="text"
+              <select
                 required
-                value={formData.city}
-                onChange={(e) => handleChange("city", e.target.value)}
-                className="w-full rounded-xl border border-slate-200 py-2 px-3 text-slate-900 font-medium focus:border-[#102C57] focus:outline-none"
-              />
+                value={formData.cityId ?? ""}
+                onChange={(e) => handleChange("cityId", e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white py-2 px-3 text-slate-900 font-medium focus:border-[#102C57] focus:outline-none"
+              >
+                <option value="">Select city</option>
+                {/* Keep a stored value that isn't in the list yet visible */}
+                {formData.cityId &&
+                  !countryCities.some((c) => c.id === formData.cityId) && (
+                    <option value={formData.cityId}>{formData.cityId}</option>
+                  )}
+                {countryCities.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              {countryCities.length === 0 && (
+                <p className="mt-1 text-[10px] text-slate-400">
+                  No cities added for this country yet.
+                </p>
+              )}
             </div>
 
             <div>
@@ -253,8 +328,8 @@ function EditUniversityForm({
               <input
                 type="text"
                 required
-                value={formData.country}
-                onChange={(e) => handleChange("country", e.target.value)}
+                value={formData.country ?? ""}
+                readOnly
                 className="w-full rounded-xl border border-slate-200 py-2 px-3 text-slate-900 font-medium focus:border-[#102C57] focus:outline-none"
               />
             </div>
@@ -333,6 +408,106 @@ function EditUniversityForm({
                 }
                 className="w-full rounded-xl border border-slate-200 py-2 px-3 text-slate-900 font-medium focus:border-[#102C57] focus:outline-none"
               />
+            </div>
+          </div>
+
+          {/* Logo & Banner */}
+          <div className="border-t border-slate-100 pt-4">
+            <label className="block font-bold text-slate-700">Images</label>
+            <p className="mt-0.5 mb-2 text-[11px] text-slate-500">
+              Shown on the university profile page. Images save as soon as they
+              are uploaded or removed.
+            </p>
+            {!canAssignPrograms ? (
+              <p className="rounded-xl bg-amber-50 border border-amber-200 p-2.5 text-[11px] font-semibold text-amber-800">
+                This university is not in the database yet, so images cannot be uploaded.
+              </p>
+            ) : (
+              <div className="grid grid-cols-[auto_1fr] gap-4">
+                <UniversityMediaUploader
+                  slug={university.slug}
+                  kind="logo"
+                  url={formData.logoUrl}
+                  onChange={(url) => handleChange("logoUrl", url)}
+                />
+                <UniversityMediaUploader
+                  slug={university.slug}
+                  kind="banner"
+                  url={formData.bannerUrl}
+                  onChange={(url) => handleChange("bannerUrl", url)}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Admission Requirements (Eligibility Checker) */}
+          <div className="border-t border-slate-100 pt-4">
+            <label className="block font-bold text-slate-700">Admission Requirements</label>
+            <p className="mt-0.5 mb-2 text-[11px] text-slate-500">
+              Used by the Eligibility Checker. Leave a number empty if the
+              university does not state it.
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              {NUMBER_REQUIREMENTS.map(({ field, label, step, placeholder }) => (
+                <div key={field}>
+                  <label className="block font-bold text-slate-700 mb-1">{label}</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={step}
+                    value={(formData[field] as number | undefined) ?? ""}
+                    placeholder={placeholder}
+                    onChange={(e) =>
+                      handleChange(
+                        field,
+                        e.target.value === "" ? undefined : Number(e.target.value),
+                      )
+                    }
+                    className="w-full rounded-xl border border-slate-200 py-2 px-3 text-slate-900 font-medium focus:border-[#102C57] focus:outline-none"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {BOOLEAN_REQUIREMENTS.map(({ field, label }) => (
+                <label
+                  key={field}
+                  className="flex cursor-pointer items-center gap-2 font-semibold text-slate-800"
+                >
+                  <input
+                    type="checkbox"
+                    checked={formData[field] === true}
+                    onChange={(e) => handleChange(field, e.target.checked)}
+                    className="h-3.5 w-3.5 accent-[#102C57]"
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-3">
+              <div className="col-span-2">
+                <label className="block font-bold text-slate-700 mb-1">Source URL</label>
+                <input
+                  type="url"
+                  value={formData.requirementsSourceUrl || ""}
+                  placeholder="Official admissions page"
+                  onChange={(e) =>
+                    handleChange("requirementsSourceUrl", e.target.value || undefined)
+                  }
+                  className="w-full rounded-xl border border-slate-200 py-2 px-3 text-slate-900 font-medium focus:border-[#102C57] focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Verified On</label>
+                <input
+                  type="date"
+                  value={formData.requirementsVerifiedOn || ""}
+                  onChange={(e) =>
+                    handleChange("requirementsVerifiedOn", e.target.value || undefined)
+                  }
+                  className="w-full rounded-xl border border-slate-200 py-2 px-3 text-slate-900 font-medium focus:border-[#102C57] focus:outline-none"
+                />
+              </div>
             </div>
           </div>
 

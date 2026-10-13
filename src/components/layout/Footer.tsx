@@ -7,74 +7,17 @@ import {
 } from "@/components/layout/FooterCatalogLinks";
 import { BrandLogo } from "@/components/ui/BrandSignatures";
 import { FooterTestPrepLinks } from "@/components/layout/FooterTestPrepLinks";
+import {
+  FooterCompanyCredit,
+  FooterLegalLine,
+  FooterTrustStrip,
+} from "@/components/layout/FooterSiteContent";
 
 export function Footer() {
   return (
     <footer className="cv-auto border-t border-[#1D5A6C]/40 bg-[#103B47] text-[#FDFCF7]/80">
-      {/* Section 14 · Trust and Compliance Strip */}
-      <div className="border-b border-[#1D5A6C]/30 bg-[#0D2F39] py-6">
-        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-4 px-4 sm:grid-cols-4 sm:px-6 lg:px-8">
-          {/* N · NMC Recognised */}
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1D5A6C]/30 border border-[#1D5A6C]/50 font-display font-bold text-sm text-[#A8CDBD]">
-              N
-            </div>
-            <div>
-              <p className="text-xs font-bold text-white leading-tight">
-                NMC Recognised
-              </p>
-              <p className="text-[10px] text-slate-300 mt-0.5">
-                Every MBBS university verified against official NMC gazette.
-              </p>
-            </div>
-          </div>
-
-          {/* W · WHO Verified */}
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1D5A6C]/30 border border-[#1D5A6C]/50 font-display font-bold text-sm text-[#A8CDBD]">
-              W
-            </div>
-            <div>
-              <p className="text-xs font-bold text-white leading-tight">
-                WHO Verified
-              </p>
-              <p className="text-[10px] text-slate-300 mt-0.5">
-                Cross-checked against WHO World Directory of Medical Schools.
-              </p>
-            </div>
-          </div>
-
-          {/* D · DPDP Act 2023 */}
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1D5A6C]/30 border border-[#1D5A6C]/50 font-display font-bold text-sm text-[#A8CDBD]">
-              D
-            </div>
-            <div>
-              <p className="text-xs font-bold text-white leading-tight">
-                DPDP Act 2023
-              </p>
-              <p className="text-[10px] text-slate-300 mt-0.5">
-                Lawful data handling with zero spam and encryption guarantee.
-              </p>
-            </div>
-          </div>
-
-          {/* I · ISO Certified */}
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1D5A6C]/30 border border-[#1D5A6C]/50 font-display font-bold text-sm text-[#A8CDBD]">
-              I
-            </div>
-            <div>
-              <p className="text-xs font-bold text-white leading-tight">
-                ISO Certified
-              </p>
-              <p className="text-[10px] text-slate-300 mt-0.5">
-                Audited data security and student service operations standards.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Trust and compliance strip (admin: Site Content) */}
+      <FooterTrustStrip />
 
       {/* Main Taxonomy Directory — Brand Header + 6 Columns */}
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
@@ -88,10 +31,13 @@ export function Footer() {
           />
 
           <p className="max-w-md text-xs leading-relaxed text-slate-400">
-            A brand by <strong>Dnyanal Educon Pvt. Ltd.</strong> · Founder
-            Director: <strong>Nikhita Pradeep Deshmukh</strong>. Empowering
-            Indian students with zero-bias admissions intelligence across{" "}
-            <FooterCatalogCount of="destinations" label="global destinations" />{" "}
+            <FooterCompanyCredit />
+            Empowering Indian students with zero-bias admissions intelligence
+            across{" "}
+            <FooterCatalogCount
+              of="destinations"
+              label="global destinations"
+            />{" "}
             and <FooterCatalogCount of="programs" label="career disciplines" />.
           </p>
         </div>
@@ -121,10 +67,10 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/universities/technical-university-of-munich"
+                  href="/universities"
                   className="text-slate-400 hover:text-white transition"
                 >
-                  Verified Universities
+                  Universities
                 </Link>
               </li>
               <li>
@@ -350,15 +296,7 @@ export function Footer() {
         {/* Bottom Bar with Parent Entity & Legal Notice */}
         <div className="mt-14 flex flex-col items-center justify-between border-t border-slate-800 pt-8 text-xs text-slate-500 sm:flex-row">
           <div className="flex flex-col gap-1 text-center sm:text-left">
-            <p className="font-semibold text-slate-400">
-              © 2026 Abroadroute · Study Abroad Simplified. A brand by Dnyanal
-              Educon Pvt. Ltd.
-            </p>
-            <p className="text-[11px] text-slate-500">
-              Founder Director: Nikhita Pradeep Deshmukh · Pune & Mumbai, India
-              · Contact: contact@abroadroute.com · Grievance Officer:
-              dpo@abroadroute.com · DPDP 2023 Compliant.
-            </p>
+            <FooterLegalLine />
             <p className="mt-1 text-[11px] text-slate-400">
               Website developed by{" "}
               <a

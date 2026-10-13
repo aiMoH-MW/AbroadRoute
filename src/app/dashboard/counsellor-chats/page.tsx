@@ -21,6 +21,7 @@ import {
 import { useAuth } from "@/lib/auth/AuthContext";
 import { AIChatMessage } from "@/types";
 import { BrandLogo } from "@/components/ui/BrandSignatures";
+import { getAuthHeaders } from "@/lib/supabase/client";
 
 interface SavedConversation {
   id: string;
@@ -50,9 +51,10 @@ export default function CounsellorChatsDashboardPage() {
     }
     setLoading(true);
     try {
-      const res = await fetch(
-        `/api/ai/chats?email=${encodeURIComponent(user.email)}`,
-      );
+      // Lists the signed-in user's own chats (identity from the login token)
+      const res = await fetch("/api/ai/chats", {
+        headers: await getAuthHeaders(),
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.conversations)) {
@@ -80,6 +82,7 @@ export default function CounsellorChatsDashboardPage() {
     try {
       await fetch(`/api/ai/chats?sessionId=${encodeURIComponent(sessionId)}`, {
         method: "DELETE",
+        headers: await getAuthHeaders(),
       });
       setConversations((prev) =>
         prev.filter((c) => c.session_id !== sessionId),

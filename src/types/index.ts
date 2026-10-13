@@ -20,18 +20,30 @@ export interface Country {
   slug: string;
   code: string;
   tier: TierCategory;
-  flagEmoji: string;
+  // Fields below are null (or empty lists) when not set in the database
+  flagEmoji: string | null;
   currency: string;
   currencySymbol: string;
-  exchangeRateToINR: number;
+  exchangeRateToINR: number | null;
   popularPrograms: ProgramCategory[];
-  avgTuitionINR: string;
-  avgLivingCostINR: string;
-  postStudyWorkVisa: string;
+  avgTuitionINR: string | null;
+  avgLivingCostINR: string | null;
+  postStudyWorkVisa: string | null;
   topIntakes: string[];
-  heroTagline: string;
-  overview: string;
-  safetyRating: number; // out of 5
+  heroTagline: string | null;
+  overview: string | null;
+  safetyRating: number | null; // out of 5
+  isAnchor: boolean; // one of the featured "anchor" destinations
+  // Country guide (editorial) and visa facts
+  heroSubtitle: string | null;
+  overviewHeading: string | null;
+  overviewBody: string | null; // paragraphs separated by a blank line
+  programsOfferedNotes: string | null;
+  visaType: string | null;
+  visaProcessingTime: string | null;
+  workHoursDuringTerm: string | null;
+  financialProofRequired: string | null;
+  prPathwaySummary: string | null;
   // Set when exchangeRateToINR is a live rate (ISO time); absent = stored rate
   exchangeRateUpdatedAt?: string;
 }
@@ -40,13 +52,19 @@ export interface Program {
   id: string;
   name: string;
   slug: ProgramCategory;
+  // Fields below are null (or empty lists) when not set in the database
   level:
-    "Postgraduate" | "Undergraduate" | "Vocational" | "Doctoral" | "Executive";
-  duration: string;
+    | "Postgraduate"
+    | "Undergraduate"
+    | "Vocational"
+    | "Doctoral"
+    | "Executive"
+    | null;
+  duration: string | null;
   keyFields: string[];
   topDestinations: string[];
-  summary: string;
-  roiScore: number; // out of 100
+  summary: string | null;
+  roiScore: number | null; // out of 100
   yearlyEducationalCost?: number | null; // INR per year; null when not set
 }
 
@@ -83,20 +101,32 @@ export interface University {
   id: string;
   name: string;
   slug: string;
-  country: string;
-  countrySlug: string;
-  city: string;
-  rankingGlobal: number;
-  rankingNational?: number;
+  // Fields below are null (or empty lists) when not set in the database
+  country: string | null; // country name
+  countrySlug: string | null;
+  city: string | null; // city name
+  cityId: string | null; // universities.city as stored (cities.id)
+  rankingGlobal: number | null;
+  rankingNational: number | null;
   programsOffered: ProgramCategory[];
-  tuitionFeeRangeINR: string;
-  ieltsMinScore: number;
+  tuitionFeeRangeINR: string | null;
+  ieltsMinScore: number | null;
   toeflMinScore?: number;
-  greGmatRequired: boolean;
+  greGmatRequired: boolean | null;
+  // Eligibility Checker requirements; undefined = not stated
+  minPercentage?: number; // previous qualification, %
+  ieltsMinBand?: number; // lowest IELTS section band
+  pteMinScore?: number;
+  duolingoMinScore?: number;
+  apsRequired?: boolean;
+  fourYearDegreeRequired?: boolean;
+  maxBacklogs?: number;
+  requirementsSourceUrl?: string;
+  requirementsVerifiedOn?: string; // YYYY-MM-DD
   intakes: string[];
-  acceptanceRate: number; // percentage
+  acceptanceRate: number | null; // percentage
   nmcCompliant?: boolean; // For MBBS
-  postStudyWorkMonths: number;
+  postStudyWorkMonths: number | null;
   featured: boolean;
   logoUrl?: string;
   bannerUrl?: string;
@@ -143,6 +173,9 @@ export interface ApplicationDeadline {
   sourceUrl: string | null;
   notes: string | null;
   isActive: boolean;
+  // Set on scholarship deadlines shown in the Deadline Tracker (built from
+  // the scholarships table): the scholarship's name
+  scholarshipName?: string;
 }
 
 /** A row of `deadline_milestones`: a countdown step before a deadline. */
@@ -156,6 +189,76 @@ export interface DeadlineMilestone {
   description: string | null;
   actionLabel: string | null;
   isActive: boolean;
+}
+
+export type LenderType = "public_bank" | "private_bank" | "nbfc" | "international";
+
+/** A row of `loan_lenders`, shown on the Loan Calculator. */
+export interface LoanLender {
+  id: string;
+  name: string;
+  lenderType: LenderType;
+  currency: string; // currency the loan is given in, e.g. "INR", "USD"
+  rateMin: number | null; // % p.a.
+  rateMax: number | null;
+  rateNote: string | null;
+  maxAmountINR: number | null;
+  maxUnsecuredINR: number | null; // 0 = collateral always needed
+  moratoriumNote: string | null;
+  processingFeeNote: string | null;
+  websiteUrl: string | null;
+  lastVerifiedOn: string | null; // YYYY-MM-DD
+  notes: string | null;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export type ScholarshipFundingType =
+  | "scholarship"
+  | "fellowship"
+  | "grant"
+  | "tuition_waiver"
+  | "loan_scholarship";
+export type ScholarshipCoverage = "full" | "partial" | "tuition" | "stipend";
+export type StudyLevel = "bachelors" | "masters" | "phd" | "diploma";
+export type SocialCategory = "sc" | "st" | "obc" | "ews" | "minority";
+
+/** A row of `scholarships`, with the linked names joined in. */
+export interface Scholarship {
+  id: string;
+  name: string;
+  provider: string | null;
+  countryId: string | null; // null = several countries (destinationLabel)
+  countryName: string | null;
+  countryCode: string | null; // ISO 2-letter, for the flag
+  destinationLabel: string | null;
+  universityId: string | null;
+  universityName: string | null;
+  fundingType: ScholarshipFundingType;
+  coverage: ScholarshipCoverage;
+  awardSummary: string | null;
+  awardValue: number | null;
+  awardCurrency: string | null;
+  awardPeriod: "month" | "year" | "total" | null;
+  studyLevels: StudyLevel[]; // empty = any level
+  fields: string | null;
+  minWorkExperienceMonths: number | null;
+  womenOnly: boolean;
+  socialCategories: SocialCategory[]; // empty = everyone
+  needBased: boolean;
+  eligibilityNote: string | null;
+  overview: string | null;
+  opensOn: string | null; // YYYY-MM-DD
+  deadline: string | null; // YYYY-MM-DD
+  deadlineNote: string | null;
+  websiteUrl: string | null;
+  lastVerifiedOn: string | null; // YYYY-MM-DD
+  sortOrder: number;
+  isActive: boolean;
+  // Computed when read: award value in INR at the live rate, and when that
+  // rate was published (absent when there is no amount or no live rate)
+  awardValueINR?: number;
+  rateUpdatedAt?: string;
 }
 
 export interface LeadSubmission {
@@ -194,27 +297,6 @@ export interface ComparisonItem {
   ielts: string;
 }
 
-export interface CourseItem {
-  id: string;
-  slug: string;
-  name: string;
-  universityName: string;
-  universitySlug: string;
-  city: string;
-  country: string;
-  flagEmoji: string;
-  level: string;
-  duration: string;
-  tuitionFeeINR: string;
-  tuitionFeeLocal: string;
-  ieltsMinScore: number | string;
-  greGmatRequired: boolean;
-  postStudyWorkMonths: number;
-  intakeDeadline: string;
-  roiScore: number;
-  coreModules: string[];
-}
-
 export type TestPrepCategory =
   | "English Proficiency"
   | "Graduate Admissions"
@@ -223,13 +305,14 @@ export type TestPrepCategory =
 export interface TestPrepSection {
   id: string;
   name: string;
-  duration: string;
-  questionsCount: string;
-  skillsTested: string;
-  tips: string;
+  duration: string | null;
+  questionsCount: string | null;
+  skillsTested: string | null;
+  tips: string | null;
 }
 
 /** A test prep exam from the Supabase `test_prep_exams` table (with its sections). */
+// Text fields are null when not set in the database (shown as "Not provided")
 export interface TestPrepExam {
   id: string;
   slug: string;
@@ -237,19 +320,19 @@ export interface TestPrepExam {
   shortName: string;
   fullName: string;
   category: TestPrepCategory;
-  heroTagline: string;
+  heroTagline: string | null;
   targetPrograms: string[];
   targetCountries: string[];
-  overview: string;
-  feeINR: string;
-  feeOriginal: string;
-  duration: string;
-  formatMode: string;
-  validityYears: number;
-  scoringScale: string;
-  targetCutoffIndianStudents: string;
-  conductingBody: string;
-  frequency: string;
+  overview: string | null;
+  feeINR: string | null;
+  feeOriginal: string | null;
+  duration: string | null;
+  formatMode: string | null;
+  validityYears: number | null;
+  scoringScale: string | null;
+  targetCutoffIndianStudents: string | null;
+  conductingBody: string | null;
+  frequency: string | null;
   sections: TestPrepSection[];
   scoreRequirementsByCountry: {
     country: string;

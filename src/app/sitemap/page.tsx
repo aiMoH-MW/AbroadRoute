@@ -25,6 +25,8 @@ import {
   fetchTestPrepExams,
 } from "@/lib/supabase/dataFetchers";
 import type { TestPrepExam } from "@/types";
+import { NotProvided, show } from "@/components/tools/NotProvided";
+import { withCount } from "@/lib/siteStats";
 
 const TEST_PREP_SITEMAP_GROUPS: {
   category: TestPrepExam["category"];
@@ -52,14 +54,15 @@ const TEST_PREP_SITEMAP_GROUPS: {
   },
 ];
 
+
 export const metadata: Metadata = {
   title: "HTML Sitemap & Complete URL Directory | Abroadroute",
   description:
-    "Comprehensive navigational sitemap and directory of all 19 country guides, 8 academic programs, 9 test prep blueprints, verified universities, and tools.",
+    "Comprehensive navigational sitemap and directory of all country guides, academic programs, test prep blueprints, universities, and tools.",
   openGraph: {
     title: "Complete Website Sitemap | Abroadroute",
     description:
-      "Comprehensive navigational sitemap and directory of all 19 country guides, 8 academic programs, 9 test prep blueprints, verified universities, and tools.",
+      "Comprehensive navigational sitemap and directory of all country guides, academic programs, test prep blueprints, universities, and tools.",
     url: "https://abroadroute.com/sitemap",
     type: "website",
   },
@@ -104,22 +107,26 @@ export default async function SitemapPage() {
               Abroadroute Sitemap
             </h1>
             <p className="mt-3 text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-              Explore the complete structured index of all 19 global destination
-              guides, 8 academic degree disciplines, 9 standardized test
-              blueprints, decision tools, and institutional portals.
+              Explore the complete structured index of all{" "}
+              {withCount(countries.length, "global destination guides")},{" "}
+              {withCount(programs.length, "academic degree disciplines")},{" "}
+              {withCount(testPrepExams.length, "standardized test blueprints")}
+              , decision tools, and institutional portals.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-4 text-xs font-medium text-slate-300">
               <span className="flex items-center gap-1.5">
-                <Globe2 className="h-4 w-4 text-[#EA5C2B]" /> 19 Destinations
+                <Globe2 className="h-4 w-4 text-[#EA5C2B]" />{" "}
+                {withCount(countries.length, "Destinations")}
               </span>
               <span>•</span>
               <span className="flex items-center gap-1.5">
-                <GraduationCap className="h-4 w-4 text-emerald-400" /> 8
-                Disciplines
+                <GraduationCap className="h-4 w-4 text-emerald-400" />{" "}
+                {withCount(programs.length, "Disciplines")}
               </span>
               <span>•</span>
               <span className="flex items-center gap-1.5">
-                <BookOpen className="h-4 w-4 text-amber-300" /> 9 Test Preps
+                <BookOpen className="h-4 w-4 text-amber-300" />{" "}
+                {withCount(testPrepExams.length, "Test Preps")}
               </span>
               <span>•</span>
               <span className="flex items-center gap-1.5">
@@ -168,7 +175,7 @@ export default async function SitemapPage() {
                   Test Prep Hub
                 </p>
                 <p className="text-slate-500 mt-1 text-[11px]">
-                  9 Exams, Cutoffs & 8-Week Roadmaps
+                  {withCount(testPrepExams.length, "Exams")}, Cutoffs & Study Roadmaps
                 </p>
               </Link>
               <Link
@@ -185,15 +192,17 @@ export default async function SitemapPage() {
             </div>
           </div>
 
-          {/* Section 2: 19 Destination Guides */}
+          {/* Section 2: Destination Guides */}
           <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4 gap-2">
               <h2 className="text-lg font-bold text-[#102C57] flex items-center gap-2">
                 <Globe2 className="h-5 w-5 text-[#EA5C2B]" />
-                <span>Global Country Hubs (19 Destinations)</span>
+                <span>
+                  Global Country Hubs ({withCount(countries.length, "Destinations")})
+                </span>
               </h2>
               <span className="text-xs font-semibold text-slate-400">
-                All 19 Destinations in Phase 1
+                {withCount(countries.length, "Destinations")}
               </span>
             </div>
 
@@ -284,11 +293,13 @@ export default async function SitemapPage() {
             </div>
           </div>
 
-          {/* Section 3: 8 Program Disciplines */}
+          {/* Section 3: Program Disciplines */}
           <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs">
             <h2 className="text-lg font-bold text-[#102C57] flex items-center gap-2 border-b border-slate-100 pb-4">
               <GraduationCap className="h-5 w-5 text-[#EA5C2B]" />
-              <span>Academic Degree Programs (8 Disciplines)</span>
+              <span>
+                Academic Degree Programs ({withCount(programs.length, "Disciplines")})
+              </span>
             </h2>
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
               {programs.map((p) => (
@@ -298,13 +309,13 @@ export default async function SitemapPage() {
                   className="rounded-2xl border border-slate-100 bg-slate-50 p-4 hover:border-[#102C57] hover:bg-white hover:shadow-xs transition group"
                 >
                   <span className="rounded-md bg-white border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600">
-                    {p.level}
+                    {show(p.level)}
                   </span>
                   <h3 className="mt-2.5 font-bold text-slate-900 group-hover:text-[#EA5C2B] transition">
                     {p.name}
                   </h3>
                   <p className="mt-1 text-[11px] text-slate-500">
-                    Duration: {p.duration}
+                    Duration: {show(p.duration)}
                   </p>
                   <p className="mt-2 text-[10px] font-medium text-[#102C57]">
                     Top: {p.topDestinations.slice(0, 3).join(", ")}
@@ -415,7 +426,7 @@ export default async function SitemapPage() {
                       {u.name}
                     </p>
                     <p className="text-[11px] text-slate-500">
-                      {u.city}, {u.country} • Rank #{u.rankingGlobal}
+                      {[u.city, u.country].filter(Boolean).join(", ") || "Location not provided"} • Rank {show(u.rankingGlobal, (v) => `#${v}`)}
                     </p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-[#EA5C2B] transition" />

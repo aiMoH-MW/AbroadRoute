@@ -49,7 +49,7 @@ export function AdminUniversitiesTab({
       const matchesSearch =
         !searchQuery ||
         u.name.toLowerCase().includes(q) ||
-        u.city.toLowerCase().includes(q) ||
+        u.city?.toLowerCase().includes(q) ||
         (u.country && u.country.toLowerCase().includes(q));
 
       return matchesCountry && matchesSearch;
@@ -184,14 +184,14 @@ export function AdminUniversitiesTab({
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2.5">
                         <CountryFlag
-                          code={uni.countrySlug || uni.country}
-                          name={uni.country}
+                          code={uni.countrySlug ?? undefined}
+                          name={uni.country ?? undefined}
                           size="sm"
                         />
                         <div>
                           <p className="font-bold text-[#102C57]">{uni.name}</p>
                           <p className="text-[11px] text-slate-500">
-                            {uni.city}, {uni.country}
+                            {[uni.city, uni.country].filter(Boolean).join(", ") || "—"}
                           </p>
                           {/* Assigned programs (university_programs) */}
                           {(uni.programs?.length ?? 0) > 0 && (

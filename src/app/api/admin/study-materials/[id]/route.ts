@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { STUDY_MATERIALS_BUCKET, materialPaths } from "@/lib/studyMaterials/processing";
+import { requireAdmin } from "@/lib/supabase/requestAuth";
 
 interface Params {
   params: Promise<{ id: string }>;
@@ -13,6 +14,9 @@ const PAGE_LIMIT = 20;
  * Returns the material plus up to 20 extracted pages starting at page `from`.
  */
 export async function GET(req: NextRequest, { params }: Params) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
+
   const { id } = await params;
   const from = Math.max(1, Number(new URL(req.url).searchParams.get("from")) || 1);
 
@@ -54,7 +58,10 @@ export async function GET(req: NextRequest, { params }: Params) {
  * DELETE /api/admin/study-materials/[id]
  * Removes the original file, its OCR chunks and all extracted pages.
  */
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, { params }: Params) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
+
   const { id } = await params;
   const storage = supabaseAdmin.storage.from(STUDY_MATERIALS_BUCKET);
 

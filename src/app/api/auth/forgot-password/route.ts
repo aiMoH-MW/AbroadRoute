@@ -1,51 +1,53 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 
+// Same reply whether or not the account exists, so this endpoint can't be
+// used to discover registered emails. The reset link is only ever emailed.
+const GENERIC_REPLY = {
+  success: true,
+  message:
+    "If an account exists for this email, a password reset link has been sent to it.",
+};
+
+/**
+ * Starts a password reset: Supabase emails a one-time recovery link that
+ * opens /reset-password with a recovery session. Nothing secret is returned.
+ */
 export async function POST(request: Request) {
   try {
     const { email } = await request.json();
-
-    if (!email || !email.trim()) {
+    if (typeof email !== "string" || !/^\S+@\S+\.\S+$/.test(email.trim())) {
       return NextResponse.json(
-        { error: "Email address is required." },
-        { status: 400 }
+        { error: "Please enter a valid email address." },
+        { status: 400 },
       );
     }
 
-    const trimmedEmail = email.trim().toLowerCase();
-    const origin = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const origin =
+      process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+    // Public-key client: resetPasswordForEmail sends the email itself and is
+    // rate-limited by Supabase Auth
+    const auth = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!,
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    ).auth;
 
-    // 1. Generate password recovery link via Supabase Admin
-    const { data, error } = await supabaseAdmin.auth.admin.generateLink({
-      type: "recovery",
-      email: trimmedEmail,
-      options: {
-        redirectTo: `${origin}/reset-password?email=${encodeURIComponent(trimmedEmail)}`,
-      },
+    const { error } = await auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+      redirectTo: `${origin}/reset-password`,
     });
-
     if (error) {
-      return NextResponse.json(
-        { error: error.message || "Unable to find an account with that email." },
-        { status: 400 }
-      );
+      // Logged for us; the caller still gets the generic reply
+      console.warn("Password reset email error:", error.message);
     }
 
-    const actionLink = data.properties?.action_link || "";
-    const emailOtp = data.properties?.email_otp || "";
-
-    return NextResponse.json({
-      success: true,
-      email: trimmedEmail,
-      actionLink,
-      emailOtp,
-      directResetUrl: `/reset-password?email=${encodeURIComponent(trimmedEmail)}`,
-      message: "Password reset link generated successfully.",
-    });
+    return NextResponse.json(GENERIC_REPLY);
   } catch (err: any) {
+    console.error("POST /api/auth/forgot-password error:", err);
     return NextResponse.json(
-      { error: err?.message || "Internal server error." },
-      { status: 500 }
+      { error: "Something went wrong. Please try again." },
+      { status: 500 },
     );
   }
 }

@@ -23,12 +23,48 @@ import {
   fetchBackendShortlist,
 } from "@/lib/cookies/shortlist";
 import { BrandLogo } from "@/components/ui/BrandSignatures";
+import { NotProvided, show } from "@/components/tools/NotProvided";
+import { useSiteStats } from "@/lib/useSiteStats";
+import { withCount } from "@/lib/siteStatsFormat";
+import { getAuthHeaders } from "@/lib/supabase/client";
+
+interface StudentInquiry {
+  id: string;
+  countryName: string | null;
+  programName: string | null;
+  intakeYear: string | null;
+  budgetRange: string | null;
+  createdAt: string;
+}
 
 export default function StudentDashboardPage() {
+  const siteStats = useSiteStats();
   const { user, logout } = useAuth();
   const displayName = user?.name || "Student";
   const [allUniversities, setAllUniversities] = useState<University[]>([]);
   const [shortlistedUnis, setShortlistedUnis] = useState<University[]>([]);
+  // Counselling requests this student has submitted (leads with their email)
+  const [inquiries, setInquiries] = useState<StudentInquiry[] | null>(null);
+
+  useEffect(() => {
+    if (!user?.email) return;
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/student/inquiries", {
+          headers: await getAuthHeaders(),
+        });
+        const json = await res.json();
+        if (active) setInquiries(res.ok && json.success ? json.inquiries : []);
+      } catch {
+        if (active) setInquiries([]);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [user?.email]);
+  const latestInquiry = inquiries?.[0] ?? null;
 
   // 1. Fetch universities once on mount
   useEffect(() => {
@@ -158,15 +194,14 @@ export default function StudentDashboardPage() {
         <div className="mb-8 rounded-3xl bg-gradient-to-r from-[#103B47] via-[#154654] to-[#1D5A6C] p-6 sm:p-8 text-white shadow-md flex flex-col md:flex-row md:items-center justify-between gap-5 border border-[#103B47]">
           <div>
             <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[11px] font-bold text-[#D89A3E] border border-[#D89A3E]/30">
-              <GraduationCap className="h-3.5 w-3.5" /> Aspirant Workspace ·
-              Profile Verified
+              <GraduationCap className="h-3.5 w-3.5" /> Aspirant Workspace
             </div>
             <h1 className="mt-2.5 text-2xl font-black font-serif text-white sm:text-3xl">
               Welcome back, {displayName}!
             </h1>
             <p className="mt-1 text-xs text-white/80 font-medium">
               {user?.email ? `Registered email: ${user.email} • ` : ""}Target
-              Intake: Fall 2027 • DPDP Act 2023 Compliant Workspace
+              Intake: {latestInquiry?.intakeYear ?? "Not provided"}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -174,13 +209,13 @@ export default function StudentDashboardPage() {
               href="/"
               className="min-h-[44px] flex items-center rounded-xl bg-[#D89A3E] px-5 py-2.5 text-xs font-bold text-[#103B47] shadow-xs hover:bg-[#EBC783] transition"
             >
-              Explore 19 Destinations →
+              Explore {withCount(siteStats.countries, "Destinations")} →
             </Link>
           </div>
         </div>
 
         {/* Profile Card & Stats */}
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <div className="rounded-2xl border border-[#D9CFB8]/60 bg-white p-5 sm:p-6 shadow-xs">
             <div className="flex items-center gap-2 text-[#103B47]">
               <Bookmark className="h-5 w-5 text-[#D89A3E]" />
@@ -200,14 +235,18 @@ export default function StudentDashboardPage() {
             <div className="flex items-center gap-2 text-[#103B47]">
               <FileText className="h-5 w-5 text-[#1D5A6C]" />
               <span className="text-xs font-serif font-bold uppercase tracking-wider text-[#103B47]/80">
-                Evaluations
+                Counselling Requests
               </span>
             </div>
             <p className="mt-3 text-3xl font-mono font-bold text-[#103B47]">
-              2 Active
+              {inquiries === null ? "—" : inquiries.length}
             </p>
             <span className="text-[11px] text-[#103B47]/70 mt-1 block">
-              Germany MS & Ireland
+              {latestInquiry
+                ? [latestInquiry.programName, latestInquiry.countryName]
+                    .filter(Boolean)
+                    .join(" · ") || "Latest request"
+                : "No requests yet"}
             </span>
           </div>
 
@@ -233,21 +272,6 @@ export default function StudentDashboardPage() {
               Saved Route AI advice & shortlists
             </span>
           </Link>
-
-          <div className="rounded-2xl border border-[#D9CFB8]/60 bg-white p-5 sm:p-6 shadow-xs">
-            <div className="flex items-center gap-2 text-[#103B47]">
-              <GraduationCap className="h-5 w-5 text-[#D89A3E]" />
-              <span className="text-xs font-serif font-bold uppercase tracking-wider text-[#103B47]/80">
-                Consultation
-              </span>
-            </div>
-            <p className="mt-3 text-3xl font-serif font-bold text-[#103B47]">
-              Confirmed
-            </p>
-            <span className="text-[11px] text-emerald-700 font-semibold mt-1 block">
-              1-on-1 Call Scheduled
-            </span>
-          </div>
         </div>
 
         {/* Shortlist Table */}
@@ -278,7 +302,11 @@ export default function StudentDashboardPage() {
                 No universities shortlisted yet
               </h3>
               <p className="mt-1 text-xs text-[#103B47]/70 max-w-sm mx-auto leading-relaxed">
-                Explore universities across 19 countries and click the{" "}
+                Explore universities across{" "}
+                {siteStats.countries > 0
+                  ? `${siteStats.countries} countries`
+                  : "our destinations"}{" "}
+                and click the{" "}
                 <strong className="text-[#103B47]">★ Shortlist</strong> button
                 on any profile to save it to your dashboard.
               </p>
@@ -319,19 +347,19 @@ export default function StudentDashboardPage() {
                         </Link>
                       </td>
                       <td className="p-3.5 font-medium text-[#103B47]/80">
-                        {uni.country}
+                        {show(uni.country)}
                       </td>
                       <td className="p-3.5 font-mono font-bold text-[#103B47]">
-                        #{uni.rankingGlobal}
+                        {show(uni.rankingGlobal, (v) => `#${v}`)}
                       </td>
                       <td className="p-3.5 font-mono font-bold text-[#103B47]">
-                        {uni.tuitionFeeRangeINR}
+                        {show(uni.tuitionFeeRangeINR)}
                       </td>
                       <td className="p-3.5 font-mono text-[#103B47]/80">
-                        {uni.ieltsMinScore} Bands
+                        {show(uni.ieltsMinScore, (v) => `${v} Bands`)}
                       </td>
                       <td className="p-3.5 text-emerald-700 font-mono font-semibold">
-                        {uni.postStudyWorkMonths} Months
+                        {show(uni.postStudyWorkMonths, (v) => `${v} Months`)}
                       </td>
                       <td className="p-3.5 text-right">
                         <div className="flex items-center justify-end gap-2">

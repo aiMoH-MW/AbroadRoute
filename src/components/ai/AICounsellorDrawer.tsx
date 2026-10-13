@@ -25,6 +25,7 @@ import {
   parseMessageActions,
 } from "@/components/ai/AIChatActionCard";
 import { PeacockEye } from "@/components/ui/BrandSignatures";
+import { getAuthHeaders } from "@/lib/supabase/client";
 
 interface AICounsellorDrawerProps {
   isOpen: boolean;
@@ -54,7 +55,7 @@ export function AICounsellorDrawer({
     if (existing) {
       setSessionId(existing);
     } else {
-      const newId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      const newId = `session_${crypto.randomUUID()}`;
       sessionStorage.setItem("route_ai_session_id", newId);
       setSessionId(newId);
     }
@@ -144,16 +145,21 @@ export function AICounsellorDrawer({
   ) => {
     if (!sessionId) return;
     try {
-      await fetch("/api/ai/counselor/save", {
+      // Same endpoint as the full-page counsellor; the account comes from
+      // the login token
+      await fetch("/api/ai/chats", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(await getAuthHeaders()),
+        },
         body: JSON.stringify({
           sessionId,
-          userId: user?.id || null,
           messages: msgs,
-          leadCapturedStage,
-          leadEmail: leadEmail || user?.email || null,
-          leadName: leadName || user?.name || null,
+          leadLevel: leadCapturedStage,
+          leadEmail: leadEmail || null,
+          leadName: leadName || null,
+          pageContext: { url: pathname },
         }),
       });
     } catch (e) {

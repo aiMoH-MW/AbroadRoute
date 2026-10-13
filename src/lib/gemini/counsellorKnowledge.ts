@@ -31,68 +31,41 @@ export interface AIPageContext {
 
 /**
  * [FR-AI-002] Context-Aware Initial Greeting
- * Generates an opening greeting personalized to the user's current browsing page.
+ * Opening greeting for the page the user is on. It names the destination or
+ * topic from the URL but states no facts: figures come from the database or
+ * the AI's answers, never from hardcoded copy.
  */
 export function getContextAwareGreeting(pathname?: string): string {
+  const generic =
+    "Namaste! I am your ✦ Route AI Counsellor by Abroadroute. What destination, degree, or budget are you exploring today?";
   if (!pathname || pathname === "/" || pathname === "/ai-counsellor") {
-    return "Namaste! I am your ✦ Route AI Counsellor by Abroadroute. What destination, degree, or budget in ₹ Lakhs are you exploring today?";
+    return generic;
   }
 
   const p = pathname.toLowerCase();
-
-  // Country & Program specific combinations (e.g. /study-in-uk/masters/)
-  if (
-    p.includes("/study-in-uk/masters") ||
-    (p.includes("uk") && p.includes("master"))
-  ) {
-    return "I see you are looking at MS in UK. What's on your mind? I can help with 1-year degrees, top Russell Group universities, and the 2-year Graduate Route visa!";
+  // /study-in-<country>[/...] or /destinations/<country>[/...]
+  const countryMatch =
+    p.match(/^\/study-in-([a-z-]+)/) ?? p.match(/^\/destinations\/([a-z-]+)/);
+  if (countryMatch) {
+    const name = countryMatch[1]
+      .split("-")
+      .map((w) => (w.length <= 3 ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1)))
+      .join(" ");
+    return `I see you are exploring ${name}. What would you like to know about universities, costs, visas or intakes there?`;
   }
-  if (p.includes("/study-in-germany") || p.includes("/destinations/germany")) {
-    return "I see you are exploring Germany. Did you know public universities offer €0 tuition? What questions do you have about blocked accounts, APS certificates, or top TU9 universities?";
-  }
-  if (
-    p.includes("/study-in-usa") ||
-    p.includes("/destinations/usa") ||
-    p.includes("/destinations/united-states")
-  ) {
-    return "I see you are exploring higher education in the USA. Are you interested in 3-year STEM OPT extensions, GRE waivers, or top MS & MBA universities?";
-  }
-  if (p.includes("/study-in-ireland") || p.includes("/destinations/ireland")) {
-    return "I see you are exploring Ireland, Europe's premier tech and pharma hub with a 2-year post-study work visa. How can I help you today?";
-  }
-  if (p.includes("/study-in-canada") || p.includes("/destinations/canada")) {
-    return "I see you are exploring studying in Canada. What would you like to know about SDS visa processing, PGWP work permits, or co-op programs?";
-  }
-  if (
-    p.includes("/study-in-australia") ||
-    p.includes("/destinations/australia")
-  ) {
-    return "I see you are exploring Australia. What questions do you have regarding CRICOS programs, regional post-study work visas, or intakes?";
-  }
-  if (
-    p.includes("mbbs") ||
-    p.includes("russia") ||
-    p.includes("georgia") ||
-    p.includes("kazakhstan") ||
-    p.includes("uzbekistan") ||
-    p.includes("philippines")
-  ) {
-    return "I see you are exploring MBBS abroad. All our partner medical universities are 100% NMC FMGL compliant with 54+12 months curriculum. How can I assist you?";
-  }
-  if (p.includes("ausbildung")) {
-    return "I see you are exploring Germany's Ausbildung dual-vocational program (with €0 tuition and a monthly stipend of €1,000–€1,400!). What trade or field interests you?";
+  if (p.includes("mbbs")) {
+    return "I see you are exploring MBBS abroad. How can I help with universities, NMC rules or costs?";
   }
   if (p.includes("cost-calculator")) {
-    return "I see you are estimating study abroad expenses. Need help calculating tuition, blocked accounts, or living costs in ₹ Lakhs for your target country?";
+    return "I see you are estimating study abroad expenses. Which country and course should we work out costs for?";
   }
   if (p.includes("scholarship")) {
-    return "Looking for study abroad scholarships? I can help you evaluate merit-based, DSU Italy 100% grants, DAAD, and country-specific funding options.";
+    return "Looking for scholarships? Tell me your course, destination and profile and I'll help you find options.";
   }
   if (p.includes("compare") || p.includes("universities")) {
     return "Comparing universities? Tell me your preferred destination, CGPA, or budget, and I'll find the best academic and career matches for you.";
   }
-
-  return "Namaste! I am your Abroadroute AI Counsellor. What questions can I answer about universities, fees, visas, or admissions today?";
+  return generic;
 }
 
 /**
@@ -102,6 +75,9 @@ export function buildSystemPrompt(
   pageContext?: AIPageContext,
   userProfile?: AIUserProfile,
   shortlistCount?: number,
+  // From the database: active destination names and site settings
+  destinations: string[] = [],
+  company: { name?: string | null; founder?: string | null } = {},
 ): string {
   const dynamicContext: string[] = [];
 
@@ -141,16 +117,23 @@ export function buildSystemPrompt(
       : "";
 
   return `
-You are the **✦ Route AI Counsellor**, an expert, empathetic, and strategic global admissions counsellor for Indian students and working professionals.
-You represent **Abroadroute** (a brand by Dnyanal Educon Pvt. Ltd. · Founder Director: Nikhita Pradeep Deshmukh).
+You are the **✦ AbroadRoute AI Counsellor**, an expert, empathetic, and strategic global admissions counsellor for Indian students and working professionals.
+You represent **AbroadRoute**${
+    company.name
+      ? ` (a brand by ${company.name}${company.founder ? ` · Founder Director: ${company.founder}` : ""})`
+      : ""
+  }.
 
 ${dynamicContextSection}
 
 ### CORE MISSION & PERSONA:
-1. Provide accurate, practical, and highly transparent advice on studying abroad across 19 global destinations (USA, UK, Germany, Canada, Australia, Ireland, France, Italy, Singapore, New Zealand, Netherlands, Switzerland, Sweden, Spain, UAE, Russia, Georgia, Kazakhstan, Philippines).
-2. Always quote estimated costs in **Indian Rupees (₹ Lakhs)** alongside the host nation's currency (e.g., "€11,904/year (~₹10.5 Lakhs)", "$35,000/year (~₹29 Lakhs)").
+1. Provide accurate, practical, and highly transparent advice on studying abroad${
+    destinations.length > 0
+      ? ` across our ${destinations.length} destinations (${destinations.join(", ")})`
+      : ""
+  }.
+2. Always quote estimated costs in **Indian Rupees (₹ Lakhs)** alongside the host nation's currency (format: "<amount in local currency>/year (~₹<amount> Lakhs)").
 3. Break down responses into clean, readable sections with bullet points, bold highlights, and actionable steps.
-4. If the student mentions a tight budget, highlight tuition-free Germany (or Ausbildung), DSU scholarships in Italy, or high-ROI 1-year programs in the UK/Ireland.
 
 ### [FR-AI-006] FUNCTION-CALLING FOR SITE ACTIONS:
 When relevant, recommend helpful site actions by including special action tags at the end of your response. The client UI will render these as interactive clickable cards:
@@ -164,7 +147,7 @@ When relevant, recommend helpful site actions by including special action tags a
 - **No Visa Guarantees**: Never promise or guarantee 100% visa approval. Visas are at the sole discretion of the destination embassy/consulate.
 - **NMC Compliance**: For MBBS abroad, always emphasize the National Medical Commission (NMC) FMGL 54+12 month criteria (English medium, same-institute internship, single license).
 - **No Politics or Religion**: Politely decline discussing political controversies or religious debates, steering the focus back to academic programs and career pathways.
-- **No External Competitor Promotion**: Do not recommend or endorse third-party commercial consulting agencies outside Abroadroute / Dnyanal Educon partner networks.
+- **No External Competitor Promotion**: Do not recommend or endorse third-party commercial consulting agencies outside the Abroadroute partner network.
 - **Objective Factual Data**: Avoid subjective personal opinions; base all university and country insights on factual data (tuition, rankings, post-study work rights, living costs, accreditation).
 
 ### RESPONSE FORMATTING RULES:
@@ -175,85 +158,29 @@ When relevant, recommend helpful site actions by including special action tags a
 }
 
 /**
- * Generate intelligent follow-up suggestions based on user query and destination
+ * Follow-up suggestions: the starter questions (ai_suggested_questions)
+ * that share the most words with the user's message and page context.
  */
 export function getSmartFollowUpQuestions(
   query: string,
+  questions: { category: string; question: string }[],
   pageContext?: AIPageContext,
+  limit = 4,
 ): string[] {
-  const q = query.toLowerCase();
-
-  if (
-    q.includes("germany") ||
-    q.includes("ausbildung") ||
-    pageContext?.country === "Germany"
-  ) {
-    return [
-      "How much money is needed in a German Blocked Account?",
-      "Can I study in Germany in English without German language?",
-      "What are the eligibility requirements for Germany Ausbildung?",
-      "How does the 18-month German jobseeker visa work?",
-    ];
-  }
-
-  if (
-    q.includes("mbbs") ||
-    q.includes("doctor") ||
-    q.includes("neet") ||
-    pageContext?.program === "MBBS"
-  ) {
-    return [
-      "Which MBBS countries are 100% NMC FMGL compliant?",
-      "What is the total 6-year MBBS cost in Russia vs Georgia?",
-      "Is NEET qualification mandatory for MBBS abroad?",
-      "How does the NEXT exam work for foreign medical graduates?",
-    ];
-  }
-
-  if (
-    q.includes("uk") ||
-    q.includes("england") ||
-    pageContext?.country === "United Kingdom"
-  ) {
-    return [
-      "Can I get a UK post-study work visa for 2 years?",
-      "Top UK universities for MS Computer Science under ₹20 Lakhs?",
-      "What is the difference between 1-year and 2-year UK Master's?",
-      "How much living cost is required for UK student visa?",
-    ];
-  }
-
-  if (
-    q.includes("usa") ||
-    q.includes("us") ||
-    pageContext?.country === "United States"
-  ) {
-    return [
-      "Which US programs offer 3-year STEM OPT extension?",
-      "What are the average GRE and IELTS cutoffs for US universities?",
-      "How to apply for Teaching/Research Assistantships (TA/RA)?",
-      "What is the total cost for MS in CS in USA including living?",
-    ];
-  }
-
-  if (
-    q.includes("scholarship") ||
-    q.includes("free") ||
-    q.includes("budget") ||
-    q.includes("low cost")
-  ) {
-    return [
-      "How does Italy DSU 100% scholarship work?",
-      "Which universities offer zero tuition in Europe?",
-      "Top countries for study abroad under ₹15 Lakhs total budget?",
-      "Can education loans cover living costs and blocked accounts?",
-    ];
-  }
-
-  return [
-    "Which European countries have free or low tuition fees?",
-    "Best NMC-compliant MBBS universities under ₹25 Lakhs?",
-    "How does Germany Ausbildung dual training work?",
-    "Top 1-year Master's programs with post-study work visas?",
-  ];
+  const words = (text: string) =>
+    new Set(text.toLowerCase().match(/[a-z0-9]{3,}/g) ?? []);
+  const asked = words(
+    `${query} ${pageContext?.country ?? ""} ${pageContext?.program ?? ""}`,
+  );
+  return questions
+    .map((q, idx) => {
+      const candidate = words(`${q.category} ${q.question}`);
+      let overlap = 0;
+      asked.forEach((w) => candidate.has(w) && overlap++);
+      return { q: q.question, overlap, idx };
+    })
+    .filter((c) => c.q.toLowerCase() !== query.trim().toLowerCase())
+    .sort((a, b) => b.overlap - a.overlap || a.idx - b.idx)
+    .slice(0, limit)
+    .map((c) => c.q);
 }

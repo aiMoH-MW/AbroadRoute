@@ -44,6 +44,8 @@ export default function SignupPage() {
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // Set once registered: the account must confirm its email before signing in
+  const [verifyEmailSent, setVerifyEmailSent] = useState("");
 
   useEffect(() => {
     fetchLiveCountries().then((c) => {
@@ -113,7 +115,7 @@ export default function SignupPage() {
           u.name.toLowerCase() === val.toLowerCase() ||
           u.slug === val.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
       );
-      if (matched) {
+      if (matched?.countrySlug) {
         setSelectedCountrySlug(matched.countrySlug);
       } else {
         const lower = val.toLowerCase();
@@ -181,7 +183,7 @@ export default function SignupPage() {
     const fullName = `${firstName.trim()} ${lastName.trim()}`;
 
     try {
-      // 1. Call server API to register user directly into Supabase (auto-confirmed, no verification email)
+      // 1. Register; Supabase emails a confirmation link
       const matchedCountryObj = countriesList.find(
         (c) => c.slug === selectedCountrySlug,
       );
@@ -199,7 +201,7 @@ export default function SignupPage() {
           phone,
           organization: organization.trim(),
           countrySlug: selectedCountrySlug,
-          countryName: matchedCountryObj?.name || "Germany",
+          countryName: matchedCountryObj?.name || null,
           marketingOptIn,
           shortlists: [],
         }),
@@ -213,26 +215,42 @@ export default function SignupPage() {
         return;
       }
 
-      // 2. Establish user session
+      // 2. Sign in. Fails with "Email not confirmed" until the user opens
+      // the confirmation link, in which case we ask them to check their inbox.
+      const { data: signIn, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+      if (signInError || !signIn?.user) {
+        if (
+          data.emailConfirmed === false ||
+          signInError?.message?.toLowerCase().includes("not confirmed")
+        ) {
+          setVerifyEmailSent(email.trim());
+        } else {
+          setError(
+            signInError?.message || "Registration failed. Please try again.",
+          );
+        }
+        setLoading(false);
+        return;
+      }
+
+      // 3. Signed in: set up the app session
       login(
         email.trim(),
         role as UserRole,
         fullName,
-        data.user?.id,
+        signIn.user.id,
         organization.trim(),
-        matchedCountryObj?.name || "Germany",
+        matchedCountryObj?.name,
         {
           organization: organization.trim(),
-          country_name: matchedCountryObj?.name || "Germany",
+          country_name: matchedCountryObj?.name ?? null,
           country_slug: selectedCountrySlug,
         },
       );
-
-      // 3. Immediately sign in on the client side for persistent token
-      await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
 
       // 4. Redirect to respective dashboard per W10
       if (role === "buyer") {
@@ -394,6 +412,19 @@ export default function SignupPage() {
             </div>
           </div>
 
+          {/* Confirmation email sent */}
+          {verifyEmailSent && (
+            <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-medium text-emerald-800">
+              We&apos;ve sent a confirmation link to{" "}
+              <strong>{verifyEmailSent}</strong>. Open it to activate your
+              account, then{" "}
+              <Link href="/login" className="font-bold underline">
+                sign in
+              </Link>
+              .
+            </div>
+          )}
+
           {/* Error Alert */}
           {error && (
             <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 p-2.5 text-xs font-medium text-rose-700">
@@ -529,7 +560,7 @@ export default function SignupPage() {
                       <datalist id="university-options">
                         {universitiesList.map((u) => (
                           <option key={u.id} value={u.name}>
-                            {u.city}, {u.country}
+                            {[u.city, u.country].filter(Boolean).join(", ")}
                           </option>
                         ))}
                       </datalist>

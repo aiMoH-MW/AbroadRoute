@@ -7,6 +7,11 @@ import {
   AIPageContext,
   AIUserProfile,
 } from "@/lib/gemini/counsellorKnowledge";
+import { fetchLiveCountries } from "@/lib/supabase/dataFetchers";
+import {
+  fetchAiSuggestedQuestions,
+  fetchSiteSettings,
+} from "@/lib/siteContent";
 
 interface IncomingHistoryItem {
   role?: string;
@@ -101,8 +106,13 @@ export async function POST(req: NextRequest) {
 
     const apiKey = process.env.GEMINI_API_KEY;
 
-    // Build intelligent follow-up suggestions for the client
-    const suggestedNext = getSmartFollowUpQuestions(message, pageContext);
+    // Follow-up suggestions from the admin-managed starter questions
+    const starterQuestions = await fetchAiSuggestedQuestions();
+    const suggestedNext = getSmartFollowUpQuestions(
+      message,
+      starterQuestions,
+      pageContext,
+    );
 
     // Detect consultation / high-intent triggers (FR-AI-005 Level 3 trigger)
     const lower = message.toLowerCase();
@@ -123,36 +133,10 @@ export async function POST(req: NextRequest) {
 
     // If no API key configured, provide domain-aware fallback response
     if (!apiKey) {
-      let reply =
-        "Namaste! I am your Abroadroute AI Counsellor. I'm currently running in preview mode.";
-
-      if (lower.includes("germany") || lower.includes("free")) {
-        reply =
-          'Germany offers **€0 tuition fees** at almost all 300+ public universities for Bachelor\'s and Master\'s degrees! You only need a blocked account of approx. **€11,904/year (~₹10.5 Lakhs)** for living expenses, and you get an **18-month post-study work visa**.\n\n[[ACTION:CALCULATE_COST:{"country":"Germany"}]]';
-      } else if (
-        lower.includes("mbbs") ||
-        lower.includes("doctor") ||
-        lower.includes("medicine")
-      ) {
-        reply =
-          'For Indian medical aspirants, we recommend **NMC & WHO compliant** universities in Russia, Uzbekistan, Kazakhstan, Georgia, and the Philippines. Total 6-year packages range from **₹18 to ₹35 Lakhs** (including hostel and food) with 100% English medium curriculum.\n\n[[ACTION:SEARCH_UNIVERSITIES:{"query":"MBBS"}]]';
-      } else if (lower.includes("ausbildung")) {
-        reply =
-          'Germany\'s **Ausbildung** is a government-recognized 3-year dual vocational training program. There are **zero tuition fees**, and you receive a **monthly stipend of €1,000–€1,400 (~₹90k–₹1.25L)** while training in Healthcare, IT, or Engineering. German B1/B2 level is required.\n\n[[ACTION:CALCULATE_COST:{"country":"Germany"}]]';
-      } else if (
-        lower.includes("usa") ||
-        lower.includes("us") ||
-        lower.includes("stem")
-      ) {
-        reply =
-          'The USA is the world leader in STEM master\'s and MBA programs. STEM-designated degree graduates are eligible for up to **3 years of OPT** (Optional Practical Training) work authorization.\n\n[[ACTION:SEARCH_UNIVERSITIES:{"country":"USA","query":"STEM Masters"}]]';
-      } else if (lower.includes("uk") || lower.includes("england")) {
-        reply =
-          'The UK offers **1-year master\'s degrees** which significantly reduce living costs, followed by a **2-year post-study Graduate Route work visa**.\n\n[[ACTION:SEARCH_UNIVERSITIES:{"country":"UK","query":"Masters"}]]';
-      } else {
-        reply =
-          'I can help guide you across our global destinations (USA, UK, Germany, Canada, Australia, Ireland, etc.) and programs (Master\'s, MBA, MBBS, Ausbildung, Bachelor\'s). What degree level, budget, or destination do you have in mind?\n\n[[ACTION:BOOK_CALL:{"reason":"General Profile Evaluation"}]]';
-      }
+      // Without the AI model there is no verified answer to give, so point
+      // the student to a human counsellor instead of quoting canned facts.
+      const reply =
+        'The AI counsellor is not available right now. You can browse destinations, universities and tools on the site, or book a free call with a counsellor.\n\n[[ACTION:BOOK_CALL:{"reason":"General Profile Evaluation"}]]';
 
       if (stream) {
         const encoder = new TextEncoder();
@@ -183,10 +167,16 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Prepare base system instructions with dynamic session context & guardrails
+    const [countries, settings] = await Promise.all([
+      fetchLiveCountries(),
+      fetchSiteSettings(),
+    ]);
     const baseSystemPrompt = buildSystemPrompt(
       pageContext,
       userProfile,
       shortlist?.length,
+      countries.map((c) => c.name),
+      { name: settings.company_name, founder: settings.founder_name },
     );
 
     // 2. Perform vector search in Supabase ai_counsellor_kb to retrieve verified facts (RAG)
@@ -274,12 +264,9 @@ export async function POST(req: NextRequest) {
           process.env.NODE_ENV === "development" ? errMessage : undefined,
         fallback:
           "I experienced a temporary connection issue. You can ask again, explore our university catalog, or book a 1-on-1 advisor call.",
-        suggestedNext: [
-          "Which European countries have free tuition?",
-          "Top NMC-compliant MBBS universities?",
-          "How does Germany Ausbildung dual training work?",
-          "Compare UK vs Ireland for MS in Computer Science",
-        ],
+        suggestedNext: (await fetchAiSuggestedQuestions())
+          .slice(0, 4)
+          .map((q) => q.question),
       },
       { status: 500 },
     );
@@ -292,8 +279,7 @@ export async function GET() {
     service: "Abroadroute AI Counsellor API",
     model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
     configured: Boolean(process.env.GEMINI_API_KEY),
-    destinationsSupported: 19,
-    programsSupported: 6,
+
     features: [
       "FR-AI-001 Floating Trigger",
       "FR-AI-002 Context Aware Greeting",

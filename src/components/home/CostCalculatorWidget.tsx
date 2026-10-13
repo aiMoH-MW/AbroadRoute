@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   Banknote,
   Building,
@@ -32,6 +33,7 @@ import { CountryFlag } from "@/components/ui/CountryFlag";
 import { PeacockEye } from "@/components/ui/BrandSignatures";
 import { ExchangeRateCredit } from "@/components/ui/ExchangeRateCredit";
 import { formatINRRate } from "@/lib/exchangeRates";
+import { NotProvided, show } from "@/components/tools/NotProvided";
 
 interface CostCalculatorProps {
   defaultCountry?: string;
@@ -114,8 +116,8 @@ export function CostCalculatorWidget({
   const findCityOf = (u: University) =>
     countryCities.find(
       (c) =>
-        normalizeName(c.name) === normalizeName(u.city) ||
-        c.id === normalizeName(u.city).replace(/[^a-z0-9]+/g, "-"),
+        c.id === u.cityId ||
+        (u.city !== null && normalizeName(c.name) === normalizeName(u.city)),
     );
   const countryUniversities = universitiesList.filter(
     (u) =>
@@ -373,8 +375,10 @@ export function CostCalculatorWidget({
                     value={c.slug}
                     className="text-slate-900 bg-white"
                   >
-                    {c.name} ({c.currency} ≈ ₹
-                    {formatINRRate(c.exchangeRateToINR)}) · {c.tier}
+                    {c.name}
+                    {c.exchangeRateToINR !== null &&
+                      ` (${c.currency} ≈ ₹${formatINRRate(c.exchangeRateToINR)})`}
+                    {c.tier && ` · ${c.tier}`}
                   </option>
                 ))}
               </select>
@@ -424,7 +428,7 @@ export function CostCalculatorWidget({
               ) : (
                 programOptions.map((p) => (
                   <option key={p.id} value={p.slug}>
-                    {p.name} · {p.level}
+                    {p.name} · {show(p.level)}
                   </option>
                 ))
               )}
@@ -649,20 +653,31 @@ export function CostCalculatorWidget({
             )}
           </div>
 
-          <button
-            onClick={() =>
-              handleLead(
-                `${selectedUniversity ? `${selectedUniversity.name}, ` : ""}${selectedCountry?.name || countrySlug}${selectedCity ? ` (${selectedCity.name})` : ""} - ${selectedProgram?.name || programSlug.toUpperCase()} Budget${hasTotal ? ` (${formatCurrency(totalCostINR)})` : ""}`,
-              )
-            }
-            className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-md bg-[#D89A3E] py-3 px-6 text-xs sm:text-sm font-semibold text-[#103B47] shadow-sm transition hover:bg-[#c4872d] cursor-pointer shrink-0"
-          >
-            <Banknote className="h-4 w-4" />
-            <span>
-              Get Scholarship & Loan Evaluation for{" "}
-              {selectedCountry?.name || "Country"} →
-            </span>
-          </button>
+          <div className="w-full sm:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+            {/* Carries the total and course length into the loan calculator */}
+            {hasTotal && durationYears !== null && (
+              <Link
+                href={`/loan-calculator?cost=${Math.round(totalCostINR)}&course=${durationYears * 12}`}
+                className="flex items-center justify-center gap-2 rounded-md border border-[#D89A3E] py-3 px-5 text-xs sm:text-sm font-semibold text-[#EBC783] transition hover:bg-[#D89A3E]/10"
+              >
+                Plan a Loan for This Budget →
+              </Link>
+            )}
+            <button
+              onClick={() =>
+                handleLead(
+                  `${selectedUniversity ? `${selectedUniversity.name}, ` : ""}${selectedCountry?.name || countrySlug}${selectedCity ? ` (${selectedCity.name})` : ""} - ${selectedProgram?.name || programSlug.toUpperCase()} Budget${hasTotal ? ` (${formatCurrency(totalCostINR)})` : ""}`,
+                )
+              }
+              className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-md bg-[#D89A3E] py-3 px-6 text-xs sm:text-sm font-semibold text-[#103B47] shadow-sm transition hover:bg-[#c4872d] cursor-pointer"
+            >
+              <Banknote className="h-4 w-4" />
+              <span>
+                Get Scholarship & Loan Evaluation for{" "}
+                {selectedCountry?.name || "Country"} →
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

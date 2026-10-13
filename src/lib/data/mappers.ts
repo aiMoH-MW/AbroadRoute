@@ -5,29 +5,44 @@ import {
   UniversityProgram,
   ApplicationDeadline,
   DeadlineMilestone,
+  LoanLender,
+  Scholarship,
 } from "@/types";
 
 // ============================================================
-// Row mappers — shared by the fallback-tolerant fetchers in
-// lib/supabase/dataFetchers and the strict backend fetchers.
+// Row mappers — shared by lib/supabase/dataFetchers and the
+// strict backend fetchers. Values missing in the database stay
+// null (or an empty list) so the UI can show "Not provided";
+// nothing here invents a default.
 // ============================================================
 
-function safeArray<T extends string = string>(val: any, fallback: T[]): T[] {
-  if (Array.isArray(val)) return val as T[];
-  if (typeof val === "string") {
+function toArray<T extends string = string>(val: any): T[] {
+  if (Array.isArray(val)) return val.filter(Boolean) as T[];
+  if (typeof val === "string" && val.trim()) {
     try {
       const parsed = JSON.parse(val);
-      if (Array.isArray(parsed)) return parsed as T[];
+      if (Array.isArray(parsed)) return parsed.filter(Boolean) as T[];
     } catch {
-      const parts = val
+      return val
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean) as T[];
-      if (parts.length > 0) return parts;
     }
   }
-  return fallback;
+  return [];
 }
+
+const numberOrNull = (v: any): number | null => {
+  if (v === null || v === undefined || v === "") return null;
+  const num = Number(v);
+  return Number.isNaN(num) ? null : num;
+};
+
+const textOrNull = (v: any): string | null =>
+  typeof v === "string" && v.trim() !== "" ? v : null;
+
+const booleanOrNull = (v: any): boolean | null =>
+  typeof v === "boolean" ? v : null;
 
 export function mapSupabaseCountry(c: any): Country {
   return {
@@ -36,49 +51,28 @@ export function mapSupabaseCountry(c: any): Country {
     slug: c.slug,
     code: c.code,
     tier: c.tier,
-    flagEmoji: c.flag_emoji || "🌐",
+    flagEmoji: textOrNull(c.flag_emoji),
     currency: c.currency,
     currencySymbol: c.currency_symbol,
-    exchangeRateToINR: Number(c.exchange_rate_inr) || 85.0,
-    popularPrograms: safeArray<ProgramCategory>(c.popular_programs, [
-      "ms",
-      "mba",
-    ]),
-    avgTuitionINR: c.avg_tuition_inr || "₹15 - 30 Lakhs / yr",
-    avgLivingCostINR: c.avg_living_cost_inr || "₹8 - 12 Lakhs / yr",
-    postStudyWorkVisa: c.post_study_work_visa || "1 to 2 Years",
-    topIntakes: safeArray<string>(c.top_intakes, [
-      "Fall (Sep)",
-      "Spring (Jan)",
-    ]),
-    heroTagline: c.hero_tagline || `Study in ${c.name}`,
-    overview: c.overview || `Overview for ${c.name}`,
-    safetyRating: Number(c.safety_rating) || 4.5,
-  };
-}
-
-export function mapSanityCountry(sc: any): Country | null {
-  const slugStr = typeof sc.slug === "string" ? sc.slug : sc.slug?.current;
-  if (!slugStr) return null;
-
-  return {
-    id: sc._id,
-    name: sc.name,
-    slug: slugStr,
-    code: sc.code || "GLOBAL",
-    tier: sc.tier || "Tier 1",
-    flagEmoji: sc.flagEmoji || "🌐",
-    currency: sc.currency || "USD",
-    currencySymbol: sc.currencySymbol || "$",
-    exchangeRateToINR: Number(sc.exchangeRateToINR) || 85.0,
-    popularPrograms: ["ms", "mba"],
-    avgTuitionINR: sc.avgTuitionINR || "₹15 - 30 Lakhs / yr",
-    avgLivingCostINR: sc.avgLivingCostINR || "₹8 - 12 Lakhs / yr",
-    postStudyWorkVisa: sc.postStudyWorkVisa || "1 to 3 Years",
-    topIntakes: ["Fall (Sep)", "Spring (Jan)"],
-    heroTagline: sc.heroTagline || `Study in ${sc.name}`,
-    overview: sc.overview || `Overview for ${sc.name}`,
-    safetyRating: Number(sc.safetyRating) || 4.5,
+    exchangeRateToINR: numberOrNull(c.exchange_rate_inr),
+    popularPrograms: toArray<ProgramCategory>(c.popular_programs),
+    avgTuitionINR: textOrNull(c.avg_tuition_inr),
+    avgLivingCostINR: textOrNull(c.avg_living_cost_inr),
+    postStudyWorkVisa: textOrNull(c.post_study_work_visa),
+    topIntakes: toArray<string>(c.top_intakes),
+    heroTagline: textOrNull(c.hero_tagline),
+    overview: textOrNull(c.overview),
+    safetyRating: numberOrNull(c.safety_rating),
+    isAnchor: c.is_anchor === true,
+    heroSubtitle: textOrNull(c.hero_subtitle),
+    overviewHeading: textOrNull(c.overview_heading),
+    overviewBody: textOrNull(c.overview_body),
+    programsOfferedNotes: textOrNull(c.programs_offered_notes),
+    visaType: textOrNull(c.visa_type),
+    visaProcessingTime: textOrNull(c.visa_processing_time),
+    workHoursDuringTerm: textOrNull(c.work_hours_during_term),
+    financialProofRequired: textOrNull(c.financial_proof_required),
+    prPathwaySummary: textOrNull(c.pr_pathway_summary),
   };
 }
 
@@ -89,66 +83,75 @@ function mapUniversityPrograms(rows: any): UniversityProgram[] {
     .filter((r) => r && r.program_id && r.is_active !== false)
     .map((r) => ({
       programId: String(r.program_id),
-      yearlyTuitionINR:
-        r.yearly_tuition_inr === null || r.yearly_tuition_inr === undefined
-          ? null
-          : Number(r.yearly_tuition_inr),
+      yearlyTuitionINR: numberOrNull(r.yearly_tuition_inr),
       duration: r.duration || null,
     }));
 }
 
-export function mapSupabaseUniversity(u: any): University | null {
+function optionalNumber(value: any): number | undefined {
+  return numberOrNull(value) ?? undefined;
+}
+
+// Eligibility Checker columns from migration 0018; absent before it is applied
+export function mapEligibilityRequirements(u: any): Partial<University> {
+  return {
+    minPercentage: optionalNumber(u.min_percentage),
+    ieltsMinBand: optionalNumber(u.ielts_min_band),
+    toeflMinScore: optionalNumber(u.toefl_min_score),
+    pteMinScore: optionalNumber(u.pte_min_score),
+    duolingoMinScore: optionalNumber(u.duolingo_min_score),
+    apsRequired: u.aps_required === true,
+    fourYearDegreeRequired: u.four_year_degree_required === true,
+    maxBacklogs: optionalNumber(u.max_backlogs),
+    requirementsSourceUrl: u.requirements_source_url || undefined,
+    requirementsVerifiedOn: u.requirements_verified_on || undefined,
+  };
+}
+
+// Columns for a `universities` query: country name and assigned programs
+export const UNIVERSITY_SELECT =
+  "*, countries(name), university_programs(program_id, yearly_tuition_inr, duration, is_active)";
+
+/**
+ * `cityNames` maps cities.id → name; universities.city holds that id
+ * (e.g. 'stanford-ca'). Unknown ids are shown as stored.
+ */
+export function mapSupabaseUniversity(
+  u: any,
+  cityNames?: Map<string, string>,
+): University | null {
   if (!u.slug) return null;
   const programs = mapUniversityPrograms(u.university_programs);
+  const cityId = textOrNull(u.city);
 
   return {
     id: u.id || u.slug,
     name: u.name,
     slug: u.slug,
-    country: u.country_id?.toUpperCase() || "Global",
-    countrySlug: u.country_id || "global",
-    city: u.city,
-    rankingGlobal: u.ranking_global || 100,
-    rankingNational: u.ranking_national || 10,
+    country: textOrNull(u.countries?.name) ?? textOrNull(u.country_id),
+    countrySlug: textOrNull(u.country_id),
+    city: cityId ? (cityNames?.get(cityId) ?? cityId) : null,
+    cityId,
+    rankingGlobal: numberOrNull(u.ranking_global),
+    rankingNational: numberOrNull(u.ranking_national),
     // Assigned programs win; the legacy array covers universities not yet assigned
     programsOffered:
       programs.length > 0
         ? (programs.map((p) => p.programId) as ProgramCategory[])
-        : safeArray<ProgramCategory>(u.programs_offered, ["ms", "mba"]),
+        : toArray<ProgramCategory>(u.programs_offered),
     programs,
-    tuitionFeeRangeINR: u.tuition_fee_range_inr || "₹15 - 30 Lakhs / yr",
-    ieltsMinScore: Number(u.ielts_min_score) || 6.5,
-    greGmatRequired: u.gre_gmat_required || false,
-    intakes: safeArray<string>(u.intakes, ["Fall (Sep)", "Spring (Jan)"]),
-    acceptanceRate: u.acceptance_rate || 30,
-    nmcCompliant: u.nmc_compliant || false,
-    postStudyWorkMonths: u.post_study_work_months || 24,
-    featured: u.featured || true,
+    tuitionFeeRangeINR: textOrNull(u.tuition_fee_range_inr),
+    ieltsMinScore: numberOrNull(u.ielts_min_score),
+    greGmatRequired: booleanOrNull(u.gre_gmat_required),
+    intakes: toArray<string>(u.intakes),
+    acceptanceRate: numberOrNull(u.acceptance_rate),
+    nmcCompliant: u.nmc_compliant === true,
+    postStudyWorkMonths: numberOrNull(u.post_study_work_months),
+    ...mapEligibilityRequirements(u),
+    logoUrl: u.logo_url || undefined,
+    bannerUrl: u.banner_url || undefined,
+    featured: u.featured === true,
     claimed_status: u.claimed_status || "unclaimed",
-  };
-}
-
-export function mapSanityUniversity(su: any): University | null {
-  const slugStr = typeof su.slug === "string" ? su.slug : su.slug?.current;
-  if (!slugStr) return null;
-
-  return {
-    id: su._id,
-    name: su.name,
-    slug: slugStr,
-    country: su.country ? su.country.toUpperCase() : "Global",
-    countrySlug: su.country || "global",
-    city: su.city || "Campus City",
-    rankingGlobal: su.rankingGlobal || 100,
-    rankingNational: su.rankingNational || 1,
-    programsOffered: ["ms", "mba"],
-    tuitionFeeRangeINR: su.tuitionFeeRangeINR || "₹15 - 30 Lakhs / yr",
-    ieltsMinScore: Number(su.ieltsMinScore) || 6.5,
-    greGmatRequired: su.greGmatRequired || false,
-    intakes: ["Fall (Aug/Sep)", "Spring (Jan)"],
-    acceptanceRate: su.acceptanceRate || 30,
-    postStudyWorkMonths: su.postStudyWorkMonths || 24,
-    featured: su.featured ?? true,
   };
 }
 
@@ -192,5 +195,66 @@ export function mapSupabaseMilestone(m: any): DeadlineMilestone {
     description: m.description ?? null,
     actionLabel: m.action_label ?? null,
     isActive: m.is_active !== false,
+  };
+}
+
+export function mapSupabaseLoanLender(l: any): LoanLender {
+  return {
+    id: l.id,
+    name: l.name,
+    lenderType: l.lender_type,
+    currency: l.currency ?? "INR",
+    rateMin: numberOrNull(l.rate_min),
+    rateMax: numberOrNull(l.rate_max),
+    rateNote: l.rate_note ?? null,
+    maxAmountINR: numberOrNull(l.max_amount_inr),
+    maxUnsecuredINR: numberOrNull(l.max_unsecured_inr),
+    moratoriumNote: l.moratorium_note ?? null,
+    processingFeeNote: l.processing_fee_note ?? null,
+    websiteUrl: l.website_url ?? null,
+    lastVerifiedOn: l.last_verified_on ?? null,
+    notes: l.notes ?? null,
+    sortOrder: Number(l.sort_order) || 0,
+    isActive: l.is_active !== false,
+  };
+}
+
+export const SCHOLARSHIP_SELECT =
+  "*, countries(name, code), universities(name)";
+
+export function mapSupabaseScholarship(s: any): Scholarship {
+  return {
+    id: s.id,
+    name: s.name,
+    provider: s.provider ?? null,
+    countryId: s.country_id ?? null,
+    countryName: s.countries?.name ?? null,
+    countryCode: s.countries?.code ?? null,
+    destinationLabel: s.destination_label ?? null,
+    universityId: s.university_id ?? null,
+    universityName: s.universities?.name ?? null,
+    fundingType: s.funding_type,
+    coverage: s.coverage,
+    awardSummary: s.award_summary ?? null,
+    awardValue: numberOrNull(s.award_value),
+    awardCurrency: s.award_currency ?? null,
+    awardPeriod: s.award_period ?? null,
+    studyLevels: Array.isArray(s.study_levels) ? s.study_levels : [],
+    fields: s.fields ?? null,
+    minWorkExperienceMonths: numberOrNull(s.min_work_experience_months),
+    womenOnly: !!s.women_only,
+    socialCategories: Array.isArray(s.social_categories)
+      ? s.social_categories
+      : [],
+    needBased: !!s.need_based,
+    eligibilityNote: s.eligibility_note ?? null,
+    overview: s.overview ?? null,
+    opensOn: s.opens_on ?? null,
+    deadline: s.deadline ?? null,
+    deadlineNote: s.deadline_note ?? null,
+    websiteUrl: s.website_url ?? null,
+    lastVerifiedOn: s.last_verified_on ?? null,
+    sortOrder: Number(s.sort_order) || 0,
+    isActive: s.is_active !== false,
   };
 }

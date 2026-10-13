@@ -4,11 +4,20 @@ import { useState } from "react";
 import { CheckCircle2, ArrowRight, Loader2 } from "lucide-react";
 
 interface UniversityInquiryFormProps {
+  universityId: string; // links the lead to this university's portal
   universityName: string;
   countrySlug: string;
+  // Programs this university offers; the student picks one
+  programs: { id: string; name: string }[];
 }
 
-export function UniversityInquiryForm({ universityName, countrySlug }: UniversityInquiryFormProps) {
+export function UniversityInquiryForm({
+  universityId,
+  universityName,
+  countrySlug,
+  programs,
+}: UniversityInquiryFormProps) {
+  const [programTarget, setProgramTarget] = useState(programs[0]?.id ?? "");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -35,10 +44,9 @@ export function UniversityInquiryForm({ universityName, countrySlug }: Universit
           fullName: fullName.trim(),
           email: email.trim(),
           phone: phone.replace(/\D/g, ""),
-          countryTarget: countrySlug || "usa",
-          programTarget: "ms",
-          budgetRangeINR: "15-25Lakhs",
-          intakeYear: "Fall 2026",
+          countryTarget: countrySlug || undefined,
+          programTarget,
+          universityId,
         }),
       });
 
@@ -53,7 +61,7 @@ export function UniversityInquiryForm({ universityName, countrySlug }: Universit
           email,
           phone,
           countryTarget: countrySlug,
-          programTarget: "ms",
+          programTarget,
           createdAt: new Date().toISOString(),
         };
         const existing = JSON.parse(localStorage.getItem("vista_submitted_leads") || "[]");
@@ -135,9 +143,26 @@ export function UniversityInquiryForm({ universityName, countrySlug }: Universit
           />
         </div>
 
+        <div>
+          <label className="block text-[11px] font-bold text-slate-700 mb-1">Program</label>
+          <select
+            required
+            value={programTarget}
+            onChange={(e) => setProgramTarget(e.target.value)}
+            className="w-full min-h-[44px] rounded-xl border border-[#D9CFB8] px-3 py-2 text-xs sm:text-sm text-slate-800 focus:border-[#103B47] focus:ring-1 focus:ring-[#103B47] focus:outline-none bg-[#FDFCF7]/50"
+          >
+            {programs.length === 0 && <option value="">No programs listed</option>}
+            {programs.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !programTarget}
           className="w-full min-h-[44px] rounded-xl bg-[#103B47] py-2.5 px-4 text-xs sm:text-sm font-bold text-white transition hover:bg-[#1D5A6C] flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer active:scale-98"
         >
           {loading ? (

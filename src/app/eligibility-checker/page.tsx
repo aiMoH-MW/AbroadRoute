@@ -4,10 +4,9 @@ import { Footer } from "@/components/layout/Footer";
 import { EligibilityCheckerClient } from "@/components/tools/EligibilityCheckerClient";
 
 export const metadata: Metadata = {
-  title:
-    "Study Abroad Admission Eligibility & Probability Checker | Abroadroute",
+  title: "Study Abroad Admission Eligibility Checker | Abroadroute",
   description:
-    "Evaluate your GPA, IELTS, and GRE test scores to discover Safe, Target, and Reach universities with color-coded admission probabilities across 19 countries.",
+    "Check your eligibility for universities abroad using your percentage or CGPA, IELTS, TOEFL, PTE or Duolingo score, GRE, backlogs and NEET. See strong, possible and ambitious matches and what is missing.",
   alternates: {
     canonical: "/eligibility-checker",
   },

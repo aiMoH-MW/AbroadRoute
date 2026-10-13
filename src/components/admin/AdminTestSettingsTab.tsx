@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { PaperBlueprintGroup, TestModuleSettings } from "@/lib/testPrep/types";
 import { PaperBlueprintEditor } from "@/components/admin/PaperBlueprintEditor";
+import { adminFetch } from "@/lib/adminFetch";
 
 const inputClass =
   "w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:border-[#102C57] focus:outline-none focus:ring-1 focus:ring-[#102C57]";
@@ -59,7 +60,7 @@ export function AdminTestSettingsTab() {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/test-settings");
+      const res = await adminFetch("/api/admin/test-settings");
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       setItems(data.items);
@@ -98,7 +99,7 @@ export function AdminTestSettingsTab() {
     setSavingSlug(slug);
     setStatusMessage(null);
     try {
-      const res = await fetch("/api/admin/test-settings", {
+      const res = await adminFetch("/api/admin/test-settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

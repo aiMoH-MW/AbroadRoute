@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getAllTestSettings, getTestSettings, saveTestSettings } from "@/lib/testPrep/settings";
 import { DIFFICULTIES, QUESTION_TYPES } from "@/lib/studyMaterials/questionTypes";
+import { requireAdmin } from "@/lib/supabase/requestAuth";
 
 const MAX_PAPER_QUESTIONS = 200;
 
@@ -42,13 +43,19 @@ const settingsSchema = z.object({
 });
 
 /** GET /api/admin/test-settings: settings for every exam with a question bank. */
-export async function GET() {
+export async function GET(req: Request) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
+
   const items = await getAllTestSettings();
   return NextResponse.json({ success: true, items });
 }
 
 /** PUT /api/admin/test-settings: save one exam's settings and paper format. */
 export async function PUT(req: NextRequest) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
+
   try {
     const input = settingsSchema.parse(await req.json());
     const current = await getTestSettings(input.examSlug);

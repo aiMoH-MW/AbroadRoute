@@ -27,6 +27,7 @@ import {
   LeadTriggerButton,
   AICounsellorTriggerButton,
 } from "@/components/home/HomeClientContext";
+import { show } from "@/components/tools/NotProvided";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -50,7 +51,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "Exam Not Found | Abroadroute" };
   }
 
-  const rawDescription = `Complete guide to ${exam.name} (${exam.fullName}). Official fee ${exam.feeINR}, test format, score cutoffs for top universities, and free 8-week study blueprints.`;
+  const rawDescription = `Complete guide to ${exam.name} (${exam.fullName}). ${exam.feeINR ? `Official fee ${exam.feeINR}, ` : ""}test format, score cutoffs for top universities, and free study blueprints.`;
   const formattedDesc = fitMetaDescription(rawDescription);
 
   return {
@@ -154,7 +155,7 @@ export default async function TestPrepDetailPage({ params }: Props) {
                   {exam.category}
                 </span>
                 <span className="inline-flex items-center rounded-full bg-[#D89A3E]/20 px-3 py-1 text-xs font-bold text-[#D89A3E] border border-[#D89A3E]/30">
-                  Conducted by: {exam.conductingBody}
+                  Conducted by: {show(exam.conductingBody)}
                 </span>
               </div>
 
@@ -166,7 +167,7 @@ export default async function TestPrepDetailPage({ params }: Props) {
               </p>
 
               <p className="mt-4 font-sans text-sm sm:text-base text-slate-200 max-w-3xl leading-relaxed">
-                {exam.heroTagline}
+                {show(exam.heroTagline)}
               </p>
 
               {/* Quick Metrics Bar */}
@@ -176,7 +177,7 @@ export default async function TestPrepDetailPage({ params }: Props) {
                     Exam Fee (INR)
                   </span>
                   <p className="mt-1 text-base sm:text-lg font-black font-mono text-[#D89A3E]">
-                    {exam.feeINR}
+                    {show(exam.feeINR)}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-white/15 bg-white/10 p-3.5 backdrop-blur-xs">
@@ -184,7 +185,7 @@ export default async function TestPrepDetailPage({ params }: Props) {
                     Total Duration
                   </span>
                   <p className="mt-1 text-sm font-bold font-mono text-white">
-                    {exam.duration}
+                    {show(exam.duration)}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-white/15 bg-white/10 p-3.5 backdrop-blur-xs">
@@ -192,9 +193,7 @@ export default async function TestPrepDetailPage({ params }: Props) {
                     Score Validity
                   </span>
                   <p className="mt-1 text-sm font-bold font-mono text-white">
-                    {exam.validityYears === 99
-                      ? "Lifetime"
-                      : `${exam.validityYears} Years`}
+                    {show(exam.validityYears, (v) => (v === 99 ? "Lifetime" : `${v} Years`))}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-white/15 bg-white/10 p-3.5 backdrop-blur-xs">
@@ -202,7 +201,7 @@ export default async function TestPrepDetailPage({ params }: Props) {
                     Score Scale
                   </span>
                   <p className="mt-1 text-sm font-bold font-mono text-white">
-                    {exam.scoringScale}
+                    {show(exam.scoringScale)}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-white/15 bg-white/10 p-3.5 backdrop-blur-xs">
@@ -210,7 +209,7 @@ export default async function TestPrepDetailPage({ params }: Props) {
                     Indian Target Cutoff
                   </span>
                   <p className="mt-1 text-sm font-black font-mono text-emerald-300">
-                    {exam.targetCutoffIndianStudents}
+                    {show(exam.targetCutoffIndianStudents)}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-white/15 bg-white/10 p-3.5 backdrop-blur-xs">
@@ -219,9 +218,9 @@ export default async function TestPrepDetailPage({ params }: Props) {
                   </span>
                   <p
                     className="mt-1 text-xs font-bold text-white truncate"
-                    title={exam.formatMode}
+                    title={exam.formatMode ?? undefined}
                   >
-                    {exam.formatMode.split(" ")[0]}
+                    {show(exam.formatMode, (v) => v.split(" ")[0])}
                   </p>
                 </div>
               </div>
@@ -264,7 +263,7 @@ export default async function TestPrepDetailPage({ params }: Props) {
                     <span>About {exam.name}</span>
                   </h2>
                   <p className="mt-4 text-xs sm:text-sm leading-relaxed text-[#3A3A3A] font-sans font-normal">
-                    {exam.overview}
+                    {show(exam.overview)}
                   </p>
 
                   <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-[#D9CFB8]/40 pt-6">
@@ -288,9 +287,9 @@ export default async function TestPrepDetailPage({ params }: Props) {
                         Conducting Body & Frequency
                       </h3>
                       <p className="mt-2 text-xs font-bold text-slate-900 font-sans">
-                        {exam.conductingBody}
+                        {show(exam.conductingBody)}
                       </p>
-                      <p className="text-xs text-[#6B6B6B] font-sans">{exam.frequency}</p>
+                      <p className="text-xs text-[#6B6B6B] font-sans">{show(exam.frequency)}</p>
                     </div>
                   </div>
                 </section>
@@ -325,11 +324,11 @@ export default async function TestPrepDetailPage({ params }: Props) {
                           <div className="flex items-center gap-3 text-xs font-semibold text-slate-500">
                             <span className="flex items-center gap-1 font-mono">
                               <Clock className="h-3.5 w-3.5 text-slate-400" />
-                              {sec.duration}
+                              {show(sec.duration)}
                             </span>
                             <span>•</span>
                             <span className="font-mono">
-                              {sec.questionsCount}
+                              {show(sec.questionsCount)}
                             </span>
                           </div>
                         </div>
@@ -339,14 +338,14 @@ export default async function TestPrepDetailPage({ params }: Props) {
                             <strong className="text-slate-900">
                               Skills Tested:
                             </strong>{" "}
-                            {sec.skillsTested}
+                            {show(sec.skillsTested)}
                           </p>
                           <div className="mt-2.5 rounded-xl bg-amber-50 border border-amber-200/80 p-3 text-slate-800">
                             <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider mb-0.5 font-sans">
                               Strategy for Indian Students:
                             </p>
                             <p className="text-xs leading-relaxed text-[#3A3A3A] font-sans">
-                              {sec.tips}
+                              {show(sec.tips)}
                             </p>
                           </div>
                         </div>

@@ -11,6 +11,9 @@ import {
   ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
+import { fetchSiteStats, withCount } from "@/lib/siteStats";
+import { fetchSiteSettings } from "@/lib/siteContent";
+
 
 export const metadata: Metadata = {
   title: "About Us · Brand Essence & Mandate | Abroadroute",
@@ -18,7 +21,11 @@ export const metadata: Metadata = {
     "The clearest route for every ambition. Abroadroute is the authoritative discovery and admissions engine for Indian students pursuing degrees abroad.",
 };
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const [stats, settings] = await Promise.all([
+    fetchSiteStats(),
+    fetchSiteSettings(),
+  ]);
   return (
     <div className="min-h-screen bg-[#FDFCF7] flex flex-col justify-between selection:bg-[#D89A3E]/20 text-[#1A1A1A]">
       <Header />
@@ -100,7 +107,7 @@ export default function AboutPage() {
                   <Globe2 className="h-5 w-5" />
                 </div>
                 <h3 className="mt-4 font-display text-lg font-bold text-[#103B47]">
-                  19 Global Destinations
+                  {withCount(stats.countries, "Global Destinations")}
                 </h3>
                 <p className="mt-2 text-xs text-slate-600 leading-relaxed font-sans">
                   Comprehensive, verified admissions intelligence spanning the
@@ -518,10 +525,22 @@ export default function AboutPage() {
                 Corporate Mandate & Governance
               </h2>
               <p className="mt-4 text-sm leading-relaxed text-slate-600 font-sans">
-                Abroadroute is wholly owned and operated by{" "}
-                <strong>Dnyanal Educon Pvt. Ltd.</strong> (Founder Director:{" "}
-                <strong>Nikhita Pradeep Deshmukh</strong>), headquartered in
-                Maharashtra, India. Our mission is to protect Indian students
+                {settings.company_name && (
+                  <>
+                    Abroadroute is wholly owned and operated by{" "}
+                    <strong>{settings.company_name}</strong>
+                    {settings.founder_name && (
+                      <>
+                        {" "}
+                        (Founder Director: <strong>{settings.founder_name}</strong>)
+                      </>
+                    )}
+                    {settings.office_locations &&
+                      `, headquartered in ${settings.office_locations}`}
+                    .{" "}
+                  </>
+                )}
+                Our mission is to protect Indian students
                 and their families from misleading claims, unaccredited
                 universities, and undisclosed middleman fees.
               </p>

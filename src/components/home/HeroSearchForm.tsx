@@ -7,192 +7,38 @@ import {
   fetchLiveCountries,
   fetchLivePrograms,
 } from "@/lib/supabase/dataFetchers";
-import { Country, Program, TierCategory, ProgramCategory } from "@/types";
+import { Country, Program, TierCategory } from "@/types";
 import { CountryFlag } from "@/components/ui/CountryFlag";
 
-const ANCHOR_SLUGS = ["uk", "usa", "germany", "canada", "australia", "ireland"];
-
-interface FallbackCountry {
-  id: string;
-  name: string;
-  slug: string;
-  code: string;
-  tier: TierCategory;
-}
-
-const DEFAULT_COUNTRIES: FallbackCountry[] = [
-  {
-    id: "germany",
-    name: "Germany",
-    slug: "germany",
-    code: "DE",
-    tier: "Tier 1",
-  },
-  { id: "usa", name: "United States", slug: "usa", code: "US", tier: "Tier 1" },
-  { id: "uk", name: "United Kingdom", slug: "uk", code: "GB", tier: "Tier 1" },
-  { id: "canada", name: "Canada", slug: "canada", code: "CA", tier: "Tier 1" },
-  {
-    id: "australia",
-    name: "Australia",
-    slug: "australia",
-    code: "AU",
-    tier: "Tier 1",
-  },
-  {
-    id: "ireland",
-    name: "Ireland",
-    slug: "ireland",
-    code: "IE",
-    tier: "Tier 1",
-  },
-  { id: "france", name: "France", slug: "france", code: "FR", tier: "Tier 2" },
-  { id: "italy", name: "Italy", slug: "italy", code: "IT", tier: "Tier 2" },
-  {
-    id: "netherlands",
-    name: "Netherlands",
-    slug: "netherlands",
-    code: "NL",
-    tier: "Tier 2",
-  },
-  {
-    id: "singapore",
-    name: "Singapore",
-    slug: "singapore",
-    code: "SG",
-    tier: "Tier 2",
-  },
-  {
-    id: "new-zealand",
-    name: "New Zealand",
-    slug: "new-zealand",
-    code: "NZ",
-    tier: "Tier 2",
-  },
-  {
-    id: "uae",
-    name: "United Arab Emirates",
-    slug: "uae",
-    code: "AE",
-    tier: "Tier 2",
-  },
-  {
-    id: "malaysia",
-    name: "Malaysia",
-    slug: "malaysia",
-    code: "MY",
-    tier: "Tier 2",
-  },
-  { id: "russia", name: "Russia", slug: "russia", code: "RU", tier: "Tier 3" },
-  {
-    id: "uzbekistan",
-    name: "Uzbekistan",
-    slug: "uzbekistan",
-    code: "UZ",
-    tier: "Tier 3",
-  },
-  {
-    id: "kazakhstan",
-    name: "Kazakhstan",
-    slug: "kazakhstan",
-    code: "KZ",
-    tier: "Tier 3",
-  },
-  {
-    id: "kyrgyzstan",
-    name: "Kyrgyzstan",
-    slug: "kyrgyzstan",
-    code: "KG",
-    tier: "Tier 3",
-  },
-  {
-    id: "georgia",
-    name: "Georgia",
-    slug: "georgia",
-    code: "GE",
-    tier: "Tier 3",
-  },
-  {
-    id: "philippines",
-    name: "Philippines",
-    slug: "philippines",
-    code: "PH",
-    tier: "Tier 3",
-  },
-];
-
-interface FallbackProgram {
-  id: string;
-  name: string;
-  slug: ProgramCategory;
-}
-
-const DEFAULT_PROGRAMS: FallbackProgram[] = [
-  { id: "ms", name: "Master's (MS / MSc / MEng)", slug: "ms" },
-  { id: "mba", name: "MBA (Management)", slug: "mba" },
-  { id: "emba", name: "Executive MBA (EMBA)", slug: "emba" },
-  { id: "mbbs", name: "MBBS / Medicine (NMC)", slug: "mbbs" },
-  {
-    id: "ausbildung",
-    name: "Germany Ausbildung (Dual Vocational)",
-    slug: "ausbildung",
-  },
-  { id: "nursing", name: "Nursing & Healthcare", slug: "nursing" },
-  { id: "bachelors", name: "Bachelor's (BS / BA / BEng)", slug: "bachelors" },
-  { id: "phd", name: "PhD / Doctoral Research", slug: "phd" },
+// Destinations grouped by their tier in the database
+const TIER_GROUPS: { tier: TierCategory; label: string }[] = [
+  { tier: "Tier 1", label: "Tier 1" },
+  { tier: "Tier 2", label: "Tier 2" },
+  { tier: "Tier 3", label: "Tier 3" },
 ];
 
 export function HeroSearchForm() {
   const router = useRouter();
-  const [countries, setCountries] =
-    useState<(Country | FallbackCountry)[]>(DEFAULT_COUNTRIES);
-  const [programs, setPrograms] =
-    useState<(Program | FallbackProgram)[]>(DEFAULT_PROGRAMS);
-  const [selectedCountry, setSelectedCountry] = useState("germany");
-  const [selectedProgram, setSelectedProgram] = useState("ms");
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [programs, setPrograms] = useState<Program[]>([]);
+  const [selectedCountry, setSelectedCountry] = useState("");
+  const [selectedProgram, setSelectedProgram] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchLiveCountries().then((c) => {
-      if (c && c.length > 0) setCountries(c);
-    });
-    fetchLivePrograms().then((p) => {
-      if (p && p.length > 0) setPrograms(p);
-    });
+    fetchLiveCountries().then((c) => setCountries(c ?? []));
+    fetchLivePrograms().then((p) => setPrograms(p ?? []));
   }, []);
 
-  const anchorCountries = countries.filter(
-    (c) => ANCHOR_SLUGS.includes(c.slug) || c.tier === "Tier 1",
-  );
-  const tier2Countries = countries.filter(
-    (c) =>
-      !ANCHOR_SLUGS.includes(c.slug) &&
-      (c.tier === "Tier 2" ||
-        [
-          "france",
-          "italy",
-          "netherlands",
-          "singapore",
-          "new-zealand",
-          "uae",
-          "malaysia",
-        ].includes(c.slug)),
-  );
-  const tier3Countries = countries.filter(
-    (c) =>
-      c.tier === "Tier 3" ||
-      [
-        "russia",
-        "uzbekistan",
-        "kazakhstan",
-        "kyrgyzstan",
-        "georgia",
-        "philippines",
-      ].includes(c.slug),
+  const groupedCountries = TIER_GROUPS.map((g) => ({
+    ...g,
+    countries: countries.filter((c) => c.tier === g.tier),
+  }));
+  const ungroupedCountries = countries.filter(
+    (c) => !TIER_GROUPS.some((g) => g.tier === c.tier),
   );
 
-  const currentCountry =
-    countries.find((c) => c.slug === selectedCountry) ||
-    DEFAULT_COUNTRIES.find((c) => c.slug === selectedCountry);
+  const currentCountry = countries.find((c) => c.slug === selectedCountry);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -218,9 +64,7 @@ export function HeroSearchForm() {
       {/* Country Selector */}
       <div className="flex flex-1 min-h-[44px] items-center gap-2.5 rounded-xl bg-white/10 px-3.5 py-2.5 sm:bg-transparent">
         <CountryFlag
-          code={
-            currentCountry?.code || currentCountry?.slug?.toUpperCase() || "DE"
-          }
+          code={currentCountry?.code}
           name={currentCountry?.name}
           size="sm"
         />
@@ -238,31 +82,28 @@ export function HeroSearchForm() {
             onChange={(e) => setSelectedCountry(e.target.value)}
             className="w-full bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer [&>option]:text-slate-900 [&>optgroup]:text-slate-900"
           >
-            <optgroup label="Anchor Six (Tier 1)">
-              {anchorCountries.map((c) => (
-                <option key={c.id || c.slug} value={c.slug}>
-                  {c.name}
-                </option>
-              ))}
-            </optgroup>
-            {tier2Countries.length > 0 && (
-              <optgroup label="Europe & Asia (Tier 2)">
-                {tier2Countries.map((c) => (
-                  <option key={c.id || c.slug} value={c.slug}>
-                    {c.name}
-                  </option>
-                ))}
-              </optgroup>
+            <option value="">
+              {countries.length > 0
+                ? "Any destination"
+                : "Loading destinations..."}
+            </option>
+            {groupedCountries.map(
+              (g) =>
+                g.countries.length > 0 && (
+                  <optgroup key={g.tier} label={g.label}>
+                    {g.countries.map((c) => (
+                      <option key={c.id || c.slug} value={c.slug}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ),
             )}
-            {tier3Countries.length > 0 && (
-              <optgroup label="Medical & Value (Tier 3)">
-                {tier3Countries.map((c) => (
-                  <option key={c.id || c.slug} value={c.slug}>
-                    {c.name}
-                  </option>
-                ))}
-              </optgroup>
-            )}
+            {ungroupedCountries.map((c) => (
+              <option key={c.id || c.slug} value={c.slug}>
+                {c.name}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -286,6 +127,9 @@ export function HeroSearchForm() {
             onChange={(e) => setSelectedProgram(e.target.value)}
             className="w-full bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer [&>option]:text-slate-900"
           >
+            <option value="">
+              {programs.length > 0 ? "Any program" : "Loading programs..."}
+            </option>
             {programs.map((p) => (
               <option key={p.id || p.slug} value={p.slug}>
                 {p.name}

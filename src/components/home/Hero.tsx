@@ -1,11 +1,28 @@
 import { Sparkles, ArrowRight } from "lucide-react";
 import { HeroSearchForm } from "./HeroSearchForm";
 import {
+  fetchSiteStats,
+  fetchPreviewUniversities,
+  tuitionRangeLabel,
+} from "@/lib/siteStats";
+import { fetchLiveDeadlines } from "@/lib/supabase/dataFetchers";
+import { formatDateOnly } from "@/lib/deadlines";
+import {
   LeadTriggerButton,
   AICounsellorTriggerButton,
 } from "@/components/home/HomeClientContext";
 
-export function Hero() {
+export async function Hero() {
+  const [stats, previewUnis, deadlines] = await Promise.all([
+    fetchSiteStats(),
+    fetchPreviewUniversities(),
+    fetchLiveDeadlines(),
+  ]);
+  const tuitionRange = tuitionRangeLabel(stats);
+  const today = new Date().toISOString().slice(0, 10);
+  const nextDeadline = deadlines.find(
+    (d) => d.deadlineType === "application" && d.deadlineDate >= today,
+  );
   return (
     <div className="relative overflow-hidden bg-gradient-to-b from-[#103B47] via-[#154654] to-[#1D5A6C] text-white py-16 sm:py-24">
       {/* Ambient Saffron & Peacock Glows */}
@@ -58,25 +75,27 @@ export function Hero() {
             {/* Micro Stats per Brand Guidelines v5.1 */}
             <div className="mt-10 grid grid-cols-3 gap-4 border-t border-white/10 pt-6 max-w-lg">
               <div>
-                <p className="font-mono text-2xl font-bold text-white">19</p>
+                <p className="font-mono text-2xl font-bold text-white">
+                  {stats.countries || "—"}
+                </p>
                 <p className="text-[11px] font-medium text-slate-300">
                   Global Destinations
                 </p>
               </div>
               <div>
                 <p className="font-mono text-2xl font-bold text-[#D89A3E]">
-                  500+
+                  {stats.universities || "—"}
                 </p>
                 <p className="text-[11px] font-medium text-slate-300">
-                  Verified Universities
+                  Universities
                 </p>
               </div>
               <div>
                 <p className="font-mono text-2xl font-bold text-[#A8CDBD]">
-                  ₹0 – 38L
+                  {tuitionRange ?? "—"}
                 </p>
                 <p className="text-[11px] font-medium text-slate-300">
-                  Tuition in ₹ Lakhs / yr
+                  {tuitionRange ? "Tuition / yr" : "Tuition not provided"}
                 </p>
               </div>
             </div>
@@ -111,41 +130,56 @@ export function Hero() {
                 {/* User Bubble */}
                 <div className="flex justify-end">
                   <div className="max-w-[88%] rounded-2xl rounded-tr-none bg-[#1D5A6C] border border-[#A8CDBD]/30 px-3.5 py-2 text-white font-medium shadow-sm">
-                    I want MS in Data Science. Budget around ₹35L total.
+                    Which universities should I shortlist?
                   </div>
                 </div>
 
                 {/* AI Bubble 1 */}
                 <div className="flex justify-start">
                   <div className="max-w-[95%] rounded-2xl rounded-tl-none bg-[#0D2F39]/90 border border-[#1D5A6C]/50 p-3.5 text-[#FDFCF7]">
-                    <p className="font-semibold text-[#EBC783] mb-1.5">
-                      Three strong fits within budget:
-                    </p>
-                    <ul className="space-y-1 font-mono text-[11px] text-slate-200">
-                      <li>
-                        • <strong>TU Munich</strong> · ₹0 tuition (18mo PSW)
-                      </li>
-                      <li>
-                        • <strong>TU Delft</strong> · ₹14-22L/yr (High AI
-                        Placement)
-                      </li>
-                      <li>
-                        • <strong>Trinity Dublin</strong> · ₹18-26L/yr (24mo
-                        PSW)
-                      </li>
-                    </ul>
+                    {previewUnis.length > 0 ? (
+                      <>
+                        <p className="font-semibold text-[#EBC783] mb-1.5">
+                          Top-ranked options to start with:
+                        </p>
+                        <ul className="space-y-1 font-mono text-[11px] text-slate-200">
+                          {previewUnis.map((u) => (
+                            <li key={u.id}>
+                              • <strong>{u.name}</strong> ·{" "}
+                              {u.tuitionFeeRangeINR}
+                              {u.postStudyWorkMonths !== null &&
+                                ` (${u.postStudyWorkMonths}mo PSW)`}
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    ) : (
+                      <p className="text-[11px] text-slate-300">
+                        Tell me your course, budget and destination and
+                        I&apos;ll build your shortlist.
+                      </p>
+                    )}
                     <p className="mt-2 text-[11px] text-slate-300 italic">
                       Which one should I open first?
                     </p>
                   </div>
                 </div>
 
-                {/* AI Response Preview Action */}
-                <div className="flex justify-start pl-2">
-                  <span className="rounded-full bg-[#D89A3E]/20 border border-[#D89A3E]/50 px-3 py-1 text-[11px] font-bold text-[#EBC783]">
-                    ✦ Opening TUM MS Data Engineering · Fall 2027 closes 15 Jan
-                  </span>
-                </div>
+                {/* Next real application deadline from the tracker */}
+                {nextDeadline && (
+                  <div className="flex justify-start pl-2">
+                    <span className="rounded-full bg-[#D89A3E]/20 border border-[#D89A3E]/50 px-3 py-1 text-[11px] font-bold text-[#EBC783]">
+                      ✦ Next deadline:{" "}
+                      {nextDeadline.universityName ??
+                        nextDeadline.countryName ??
+                        nextDeadline.countryId}{" "}
+                      · {nextDeadline.intakeTerm} {nextDeadline.intakeYear}{" "}
+                      {nextDeadline.isRolling
+                        ? "(rolling)"
+                        : `closes ${formatDateOnly(nextDeadline.deadlineDate)}`}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Trust Pills under chat */}

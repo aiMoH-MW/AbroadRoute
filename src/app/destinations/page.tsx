@@ -15,27 +15,25 @@ import { Footer } from "@/components/layout/Footer";
 import { CountryFlag } from "@/components/ui/CountryFlag";
 import { CountryGridTabs } from "@/components/home/CountryGridTabs";
 import { PeacockEye } from "@/components/ui/BrandSignatures";
+import { NotProvided, show } from "@/components/tools/NotProvided";
+import { fetchSiteStats, withCount, tuitionRangeLabel } from "@/lib/siteStats";
 
 export const metadata: Metadata = {
-  title: "All 19 Study Destinations | Compare Tuition, Visas & Rankings",
+  title: "All Study Destinations | Compare Tuition, Visas & Rankings",
   description:
-    "Explore 19 verified global study destinations for Indian students. Compare tuition in ₹ Lakhs, post-study work visas, and acceptance criteria across Tier 1, Tier 2, and MBBS hubs.",
+    "Explore global study destinations for Indian students. Compare tuition in ₹ Lakhs, post-study work visas, and acceptance criteria across Tier 1, Tier 2, and MBBS hubs.",
   alternates: {
     canonical: "/destinations",
   },
 };
 
-const ANCHOR_SIX_SLUGS = [
-  "usa",
-  "uk",
-  "canada",
-  "australia",
-  "germany",
-  "ireland",
-];
 
 export default async function DestinationsIndexPage() {
-  const countries = await fetchLiveCountries();
+  const [countries, stats] = await Promise.all([
+    fetchLiveCountries(),
+    fetchSiteStats(),
+  ]);
+  const tuitionRange = tuitionRangeLabel(stats);
 
   return (
     <div className="min-h-screen bg-[#FDFCF7] flex flex-col justify-between">
@@ -65,7 +63,7 @@ export default async function DestinationsIndexPage() {
             </div>
 
             <h1 className="mt-4 font-display text-3xl sm:text-5xl lg:text-6xl font-semibold tracking-tight text-[#FDFCF7] leading-tight">
-              19 Global Destinations,{" "}
+              {withCount(countries.length, "Global Destinations")},{" "}
               <span className="text-[#D89A3E] italic font-serif">
                 One Honest Place.
               </span>
@@ -81,7 +79,7 @@ export default async function DestinationsIndexPage() {
             <div className="mt-8 grid grid-cols-3 gap-3 sm:gap-6 max-w-md border-t border-white/15 pt-6 text-left">
               <div>
                 <span className="font-mono text-xl sm:text-2xl font-bold text-white">
-                  19
+                  {countries.length || "—"}
                 </span>
                 <p className="text-[11px] text-slate-300 font-sans">
                   Countries
@@ -89,7 +87,7 @@ export default async function DestinationsIndexPage() {
               </div>
               <div>
                 <span className="font-mono text-xl sm:text-2xl font-bold text-[#D89A3E]">
-                  500+
+                  {stats.universities || "—"}
                 </span>
                 <p className="text-[11px] text-slate-300 font-sans">
                   Universities
@@ -97,10 +95,10 @@ export default async function DestinationsIndexPage() {
               </div>
               <div>
                 <span className="font-mono text-xl sm:text-2xl font-bold text-[#A8CDBD]">
-                  ₹0 – 38L
+                  {tuitionRange ?? "—"}
                 </span>
                 <p className="text-[11px] text-slate-300 font-sans">
-                  Tuition / yr
+                  {tuitionRange ? "Tuition / yr" : "Tuition not provided"}
                 </p>
               </div>
             </div>
@@ -119,13 +117,19 @@ export default async function DestinationsIndexPage() {
                 compliance.
               </p>
             </div>
-            <CountryGridTabs />
+            <CountryGridTabs
+              allCount={countries.length}
+              anchorCount={
+                countries.filter((c) => c.isAnchor)
+                  .length
+              }
+            />
           </div>
 
           {/* Cards Grid */}
           <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {countries.map((country) => {
-              const isAnchor = ANCHOR_SIX_SLUGS.includes(country.slug);
+              const isAnchor = country.isAnchor;
               return (
                 <div
                   key={country.id}
@@ -153,12 +157,12 @@ export default async function DestinationsIndexPage() {
                         </div>
                       </div>
                       <span className="rounded-full bg-[#1D5A6C]/10 px-2.5 py-1 text-[10px] font-bold text-[#1D5A6C]">
-                        {country.safetyRating} ★ Safety
+                        {show(country.safetyRating, (v) => `${v} ★ Safety`)}
                       </span>
                     </div>
 
                     <p className="mt-3.5 text-xs leading-relaxed text-slate-600 line-clamp-2 font-sans">
-                      {country.heroTagline}
+                      {show(country.heroTagline)}
                     </p>
 
                     {/* Key Metrics */}
@@ -169,7 +173,7 @@ export default async function DestinationsIndexPage() {
                           Avg. Tuition:
                         </span>
                         <span className="font-mono font-bold text-[#103B47]">
-                          {country.avgTuitionINR}
+                          {show(country.avgTuitionINR)}
                         </span>
                       </div>
 
@@ -179,7 +183,7 @@ export default async function DestinationsIndexPage() {
                           Post-Study Visa:
                         </span>
                         <span className="font-mono font-bold text-[#D89A3E]">
-                          {country.postStudyWorkVisa}
+                          {show(country.postStudyWorkVisa)}
                         </span>
                       </div>
 
@@ -189,7 +193,7 @@ export default async function DestinationsIndexPage() {
                           Cost of Living:
                         </span>
                         <span className="font-mono font-medium text-slate-700">
-                          {country.avgLivingCostINR}
+                          {show(country.avgLivingCostINR)}
                         </span>
                       </div>
                     </div>

@@ -3,6 +3,7 @@ import { z } from "zod";
 import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { STUDY_MATERIALS_BUCKET, materialFileKind, materialPaths } from "@/lib/studyMaterials/processing";
+import { requireAdmin } from "@/lib/supabase/requestAuth";
 
 const MAX_FILE_BYTES = 100 * 1024 * 1024;
 
@@ -46,6 +47,9 @@ const createMaterialSchema = z.object({
  * Lists uploaded materials, newest first.
  */
 export async function GET(req: NextRequest) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
+
   const { searchParams } = new URL(req.url);
 
   let query = supabaseAdmin
@@ -78,6 +82,9 @@ export async function GET(req: NextRequest) {
  * the PDF/TXT file straight to Supabase Storage (avoids request body size limits).
  */
 export async function POST(req: NextRequest) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
+
   try {
     const input = createMaterialSchema.parse(await req.json());
     const id = crypto.randomUUID();

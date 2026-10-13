@@ -20,6 +20,13 @@ import {
   Scale,
 } from "lucide-react";
 import { FeaturedUniversities } from "@/components/home/FeaturedUniversities";
+import { getLatestArticles } from "@/lib/sanity/fetchers";
+import {
+  fetchPreviewUniversities,
+  fetchTopUniversityCountry,
+} from "@/lib/siteStats";
+import { fetchTestimonials } from "@/lib/siteContent";
+import { show } from "@/components/tools/NotProvided";
 import {
   LeadTriggerButton,
   AICounsellorTriggerButton,
@@ -31,70 +38,24 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title:
-    "Abroadroute | Authoritative International Education Discovery Portal",
+  title: "Abroadroute | Authoritative International Education Discovery Portal",
   description:
-    "Compare 19 global destinations and 8 career disciplines for Indian students. Discover tuition in INR, post-study visas, and verified university rankings.",
+    "Compare global study destinations and career disciplines for Indian students. Discover tuition in INR, post-study visas, and verified university rankings.",
 };
 
-interface ArticlePreview {
-  _id: string;
-  title: string;
-  slug: string;
-  tag: string;
-  excerpt: string;
-  date: string;
-  readTime: string;
-}
-
-const FALLBACK_ARTICLES: ArticlePreview[] = [
-  {
-    _id: "fb-1",
-    title:
-      "Germany Ausbildung 2027: Complete Dual Vocational Guide for Indian Students",
-    slug: "germany-ausbildung-2027-guide",
-    tag: "Germany • Vocational",
-    readTime: "6 min read",
-    excerpt:
-      "How to secure €1,100/month monthly stipend with 0 tuition in German hospitals and tech firms.",
-    date: "Sep 2026",
-  },
-  {
-    _id: "fb-2",
-    title:
-      "NMC Foreign Medical Graduate Regulations: Essential Checklist for MBBS Abroad",
-    slug: "nmc-fmgl-regulations-mbbs-abroad-checklist",
-    tag: "Medical • NMC Guidelines",
-    readTime: "8 min read",
-    excerpt:
-      "54-month course duration, 12-month internship, and CRMI clinical guidelines you must know before applying.",
-    date: "Sep 2026",
-  },
-  {
-    _id: "fb-3",
-    title:
-      "UK Graduate Route vs Canada PGWP: Work Visa Rights Comparison in 2026-2027",
-    slug: "uk-graduate-route-vs-canada-pgwp-comparison",
-    tag: "Visa • Immigration",
-    readTime: "5 min read",
-    excerpt:
-      "An in-depth breakdown of current visa tenure, PR eligibility, and post-study employment trends.",
-    date: "Aug 2026",
-  },
-  {
-    _id: "fb-4",
-    title:
-      "How to Build a High-Probability SOP for Top US & German Universities",
-    slug: "how-to-write-winning-sop-us-germany",
-    tag: "Admissions • Prep",
-    readTime: "7 min read",
-    excerpt:
-      "The 5 critical elements admissions committees evaluate in Indian engineering and MBA applicants.",
-    date: "Aug 2026",
-  },
-];
-
-export default function Home() {
+export default async function Home() {
+  const [latestArticles, previewCountry, testimonials] = await Promise.all([
+    getLatestArticles(),
+    fetchTopUniversityCountry(),
+    fetchTestimonials(),
+  ]);
+  const testimonial = testimonials[0] ?? null;
+  const previewUnis = previewCountry
+    ? await fetchPreviewUniversities(previewCountry.slug)
+    : [];
+  const previewQuestion = previewCountry
+    ? `What are the best universities in ${previewCountry.name}?`
+    : "Which universities should I shortlist?";
   return (
     <div className="min-h-screen bg-white text-slate-900">
       {/* Top Header */}
@@ -104,12 +65,12 @@ export default function Home() {
         {/* Hero Section */}
         <Hero />
 
-        {/* 19 Destinations Grid (Server Rendered) */}
+        {/* Destinations Grid (Server Rendered) */}
         <div id="destinations-grid">
           <CountryGrid />
         </div>
 
-        {/* 8 Programs Disciplines Grid (Server Rendered) */}
+        {/* Programs Disciplines Grid (Server Rendered) */}
         <div id="programs-grid">
           <ProgramStreamGrid />
         </div>
@@ -137,7 +98,9 @@ export default function Home() {
                   Ask anything. Get instant, personalized answers.
                 </h2>
                 <p className="mt-3 text-sm leading-relaxed text-slate-300 font-sans">
-                  24/7 admissions guidance, context-aware, zero sales bias. Trained on verified university data, official visa rules, and current fee structures.
+                  24/7 admissions guidance, context-aware, zero sales bias.
+                  Trained on verified university data, official visa rules, and
+                  current fee structures.
                 </p>
 
                 <div className="mt-6 flex flex-wrap gap-4 text-xs font-semibold text-slate-200 font-sans">
@@ -193,41 +156,44 @@ export default function Home() {
                     {/* User Question */}
                     <div className="flex justify-end">
                       <div className="max-w-[85%] rounded-2xl rounded-tr-none bg-[#1D5A6C] px-4 py-2.5 text-white shadow-sm font-medium">
-                        What are the best UK universities for MSc Data Science?
+                        {previewQuestion}
                       </div>
                     </div>
 
                     {/* AI Answer */}
                     <div className="flex justify-start">
                       <div className="max-w-[90%] rounded-2xl rounded-tl-none border border-white/15 bg-[#103B47]/90 px-4 py-3 text-slate-100">
-                        <p className="font-semibold text-[#D89A3E]">
-                          Top UK Universities for MSc Data Science (2026-2027):
-                        </p>
-                        <ul className="mt-2 space-y-1 text-[11px] text-slate-300">
-                          <li>
-                            • <strong>University of Oxford:</strong> £33,970/yr
-                            | 2-Yr Graduate Work Visa
-                          </li>
-                          <li>
-                            • <strong>Imperial College London:</strong>{" "}
-                            £39,800/yr | High AI Placement
-                          </li>
-                          <li>
-                            • <strong>University of Edinburgh:</strong>{" "}
-                            £35,900/yr | Strong Research Focus
-                          </li>
-                        </ul>
+                        {previewUnis.length > 0 && previewCountry ? (
+                          <>
+                            <p className="font-semibold text-[#D89A3E]">
+                              Top-ranked universities in {previewCountry.name}:
+                            </p>
+                            <ul className="mt-2 space-y-1 text-[11px] text-slate-300">
+                              {previewUnis.map((u) => (
+                                <li key={u.id}>
+                                  • <strong>{u.name}:</strong>{" "}
+                                  {u.tuitionFeeRangeINR}
+                                  {u.postStudyWorkMonths !== null &&
+                                    ` | ${u.postStudyWorkMonths}-month post-study work`}
+                                </li>
+                              ))}
+                            </ul>
+                          </>
+                        ) : (
+                          <p className="text-[11px] text-slate-300">
+                            Ask about any destination, course or budget.
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
 
                   <AICounsellorTriggerButton
-                    initialQuery="What are the best UK universities for MSc Data Science?"
+                    initialQuery={previewQuestion}
                     className="mt-5 flex w-full items-center justify-between rounded-xl border border-white/20 bg-white/5 px-4 py-2.5 text-left text-xs text-slate-300 hover:bg-white/10 transition"
                   >
                     <span>
-                      Ask sample question: &apos;What are the best UK
-                      universities for MSc Data Science?&apos;
+                      Ask sample question: &apos;{previewQuestion}&apos;
                     </span>
                     <Sparkles className="h-4 w-4 text-[#D89A3E]" />
                   </AICounsellorTriggerButton>
@@ -303,7 +269,7 @@ export default function Home() {
                     Compare Universities
                   </h3>
                   <p className="mt-2 text-xs text-slate-500 leading-relaxed">
-                    Save up to 4 global institutions and compare tuition fees,
+                    Save up to 5 global institutions and compare tuition fees,
                     IELTS cutoffs, QS rankings, and post-study work visas side
                     by side.
                   </p>
@@ -423,41 +389,47 @@ export default function Home() {
               </Link>
             </div>
 
-            <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {FALLBACK_ARTICLES.map((article) => (
-                <div
-                  key={article._id}
-                  className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50/50 p-5 transition hover:bg-white hover:shadow-lg hover:border-slate-300"
-                >
-                  <div>
-                    <div className="flex items-center justify-between text-[11px] text-slate-500">
-                      <span className="font-bold text-[#D89A3E]">
-                        {article.tag}
-                      </span>
-                      <span>{article.readTime}</span>
+            {latestArticles.length === 0 ? (
+              <p className="mt-10 rounded-2xl border border-dashed border-slate-200 p-8 text-center text-xs text-slate-500">
+                No guides published yet.
+              </p>
+            ) : (
+              <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                {latestArticles.slice(0, 4).map((article) => (
+                  <div
+                    key={article._id}
+                    className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50/50 p-5 transition hover:bg-white hover:shadow-lg hover:border-slate-300"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between text-[11px] text-slate-500">
+                        <span className="font-bold text-[#D89A3E]">
+                          {article.tag}
+                        </span>
+                        <span>{show(article.readTime)}</span>
+                      </div>
+                      <Link href={`/articles/${article.slug}`}>
+                        <h3 className="mt-3 text-sm font-bold leading-snug text-[#103B47] hover:text-[#D89A3E] cursor-pointer">
+                          {article.title}
+                        </h3>
+                      </Link>
+                      <p className="mt-2 text-xs leading-relaxed text-slate-600">
+                        {article.excerpt}
+                      </p>
                     </div>
-                    <Link href={`/articles/${article.slug}`}>
-                      <h3 className="mt-3 text-sm font-bold leading-snug text-[#103B47] hover:text-[#D89A3E] cursor-pointer">
-                        {article.title}
-                      </h3>
-                    </Link>
-                    <p className="mt-2 text-xs leading-relaxed text-slate-600">
-                      {article.excerpt}
-                    </p>
-                  </div>
 
-                  <div className="mt-5 flex items-center justify-between border-t border-slate-200/60 pt-3 text-[11px] text-slate-500">
-                    <span>{article.date}</span>
-                    <Link
-                      href={`/articles/${article.slug}`}
-                      className="font-bold text-[#103B47] hover:text-[#D89A3E] flex items-center gap-1"
-                    >
-                      Read Guide <ArrowRight className="h-3 w-3" />
-                    </Link>
+                    <div className="mt-5 flex items-center justify-between border-t border-slate-200/60 pt-3 text-[11px] text-slate-500">
+                      <span>{show(article.date)}</span>
+                      <Link
+                        href={`/articles/${article.slug}`}
+                        className="font-bold text-[#103B47] hover:text-[#D89A3E] flex items-center gap-1"
+                      >
+                        Read Guide <ArrowRight className="h-3 w-3" />
+                      </Link>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
@@ -504,33 +476,51 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Student Story Testimonial (Per HTML Template: Dark Navy with Gold eyebrow) */}
-        <section className="cv-auto bg-white py-16">
-          <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-            <div className="rounded-3xl bg-[#103B47] border border-[#1D5A6C]/40 p-8 sm:p-12 text-white shadow-xl relative overflow-hidden">
-              <div className="pointer-events-none absolute right-0 top-0 -mt-10 -mr-10 h-60 w-60 rounded-full bg-[#D89A3E]/10 blur-2xl" />
-              <span className="text-xs font-extrabold uppercase tracking-widest text-[#D89A3E]">
-                Student Story · Authenticated Guidance
-              </span>
-              <p className="mt-4 font-serif text-xl sm:text-2xl leading-relaxed text-slate-100">
-                “The shortlist and cost comparison helped our family understand
-                the realistic total expenses in ₹ Lakhs before we ever committed
-                to speaking with a counsellor.”
-              </p>
-              <div className="mt-6 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#D89A3E] text-xs font-bold text-[#103B47]">
-                  RV
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-white">Rohan Verma</p>
-                  <p className="text-[11px] text-slate-300">
-                    MS in Computer Science · Admitted to TU Munich
-                  </p>
+        {/* Student story (admin: Site Content → Testimonials) */}
+        {testimonial && (
+          <section className="cv-auto bg-white py-16">
+            <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+              <div className="rounded-3xl bg-[#103B47] border border-[#1D5A6C]/40 p-8 sm:p-12 text-white shadow-xl relative overflow-hidden">
+                <div className="pointer-events-none absolute right-0 top-0 -mt-10 -mr-10 h-60 w-60 rounded-full bg-[#D89A3E]/10 blur-2xl" />
+                <span className="text-xs font-extrabold uppercase tracking-widest text-[#D89A3E]">
+                  Student Story
+                </span>
+                <p className="mt-4 font-serif text-xl sm:text-2xl leading-relaxed text-slate-100">
+                  “{testimonial.quote}”
+                </p>
+                <div className="mt-6 flex items-center gap-3">
+                  {testimonial.photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={testimonial.photoUrl}
+                      alt={testimonial.studentName}
+                      className="h-10 w-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#D89A3E] text-xs font-bold text-[#103B47]">
+                      {testimonial.studentName
+                        .split(/\s+/)
+                        .map((w) => w.charAt(0))
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase()}
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-xs font-bold text-white">
+                      {testimonial.studentName}
+                    </p>
+                    {testimonial.headline && (
+                      <p className="text-[11px] text-slate-300">
+                        {testimonial.headline}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
       </main>
 
       {/* Global Footer */}

@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 
-export function CountryGridTabs() {
+// Counts come from the rendered country list; omitted = label only
+export function CountryGridTabs({
+  allCount,
+  anchorCount,
+}: {
+  allCount?: number;
+  anchorCount?: number;
+}) {
   const [activeTab, setActiveTab] = useState<string>("Anchor Six");
 
   const handleTab = (tab: string) => {
@@ -34,10 +41,10 @@ export function CountryGridTabs() {
                 : "text-[#103B47] hover:text-[#D89A3E]"
             }`}
           >
-            {tab === "Anchor Six"
-              ? "Anchor Six (6)"
-              : tab === "All"
-                ? "All (19)"
+            {tab === "Anchor Six" && anchorCount
+              ? `Anchor Six (${anchorCount})`
+              : tab === "All" && allCount
+                ? `All (${allCount})`
                 : tab}
           </button>
         ),

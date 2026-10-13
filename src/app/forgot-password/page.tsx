@@ -11,7 +11,6 @@ import {
   ArrowLeft,
   Loader2,
   AlertCircle,
-  KeyRound,
   ExternalLink,
 } from "lucide-react";
 import { BrandLogo } from "@/components/ui/BrandSignatures";
@@ -22,9 +21,6 @@ export default function ForgotPasswordPage() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
-  const [actionLink, setActionLink] = useState("");
-  const [emailOtp, setEmailOtp] = useState("");
-  const [directResetUrl, setDirectResetUrl] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,20 +43,11 @@ export default function ForgotPasswordPage() {
       const data = await res.json();
 
       if (!res.ok || data.error) {
-        setError(
-          data.error ||
-            "No account found with this email. Please check spelling or create an account.",
-        );
+        setError(data.error || "Something went wrong. Please try again.");
         setLoading(false);
         return;
       }
 
-      setActionLink(data.actionLink || "");
-      setEmailOtp(data.emailOtp || "");
-      setDirectResetUrl(
-        data.directResetUrl ||
-          `/reset-password?email=${encodeURIComponent(email.trim())}`,
-      );
       setSubmitted(true);
       setLoading(false);
       setResendCooldown(60);
@@ -174,39 +161,17 @@ export default function ForgotPasswordPage() {
                 Reset Link Verified!
               </h2>
               <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
-                A secure password reset link was generated for:
+                If an account exists for this email, we&apos;ve sent a password
+                reset link to:
               </p>
               <p className="mt-1 text-xs font-bold text-[#102C57] bg-slate-100 py-1.5 px-3 rounded-lg font-mono">
                 {email}
               </p>
-
-              {/* Instant Reset Action Button */}
-              <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3.5 text-left">
-                <div className="flex items-center gap-2 text-xs font-bold text-emerald-900">
-                  <KeyRound className="h-4 w-4 text-emerald-700" />
-                  <span>Direct Password Reset Available</span>
-                </div>
-                <p className="mt-1 text-[11px] text-emerald-800">
-                  Click below to set your new password immediately.
-                </p>
-                <Link
-                  href={directResetUrl}
-                  className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#EA5C2B] py-2 text-xs font-bold text-white shadow-sm hover:bg-[#d94f20] transition"
-                >
-                  <span>Set New Password Now →</span>
-                </Link>
-              </div>
-
-              {emailOtp && (
-                <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-xs text-slate-600">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                    Verification OTP Code
-                  </span>
-                  <span className="font-mono font-bold text-slate-800 text-sm tracking-widest">
-                    {emailOtp}
-                  </span>
-                </div>
-              )}
+              <p className="mt-3 text-[11px] text-slate-500 leading-relaxed">
+                Open the link in that email to choose a new password. It can
+                only be used once and expires after a short time. Check your
+                spam folder if you don&apos;t see it.
+              </p>
 
               <div className="mt-5 flex flex-col gap-2">
                 <button

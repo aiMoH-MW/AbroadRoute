@@ -1,42 +1,26 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { getRequestUser } from "@/lib/supabase/requestAuth";
 
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/shortlist?userId=... or ?email=...
+ * GET /api/shortlist (signed-in user from the bearer token)
  * Returns the list of shortlisted university slugs for a user from Supabase backend.
  */
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
-    const email = searchParams.get("email");
-
-    if (!userId && !email) {
+    // The shortlist owner is the signed-in user (bearer token); ids or emails
+    // sent by the browser are ignored
+    const user = await getRequestUser(request);
+    if (!user) {
       return NextResponse.json(
-        { success: false, error: "userId or email is required" },
-        { status: 400 },
+        { success: false, error: "Please sign in" },
+        { status: 401 },
       );
     }
 
-    let user: any = null;
-    if (userId) {
-      const { data, error } =
-        await supabaseAdmin.auth.admin.getUserById(userId);
-      if (error) throw error;
-      user = data.user;
-    } else if (email) {
-      const { data } = await supabaseAdmin.auth.admin.listUsers({
-        page: 1,
-        perPage: 100,
-      });
-      user = data.users.find(
-        (u) => u.email?.toLowerCase() === email.toLowerCase(),
-      );
-    }
-
-    const targetEmail = (user?.email || email || "").toLowerCase();
+    const targetEmail = (user.email || "").toLowerCase();
 
     // 1. Try reading from student_shortlists table first
     if (targetEmail) {
@@ -77,41 +61,28 @@ export async function GET(request: Request) {
 
 /**
  * POST /api/shortlist
- * Body: { userId, email, slug }
+ * Body: { slug } (signed-in user from the bearer token)
  * Adds a university slug to the user's shortlist in the Supabase backend.
  */
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { userId, email, slug } = body;
+    const { slug } = body;
 
-    if (!slug || (!userId && !email)) {
+    if (typeof slug !== "string" || !slug) {
       return NextResponse.json(
-        { success: false, error: "slug and userId/email are required" },
+        { success: false, error: "slug is required" },
         { status: 400 },
       );
     }
 
-    let targetUser: any = null;
-    if (userId) {
-      const { data, error } =
-        await supabaseAdmin.auth.admin.getUserById(userId);
-      if (error) throw error;
-      targetUser = data.user;
-    } else if (email) {
-      const { data } = await supabaseAdmin.auth.admin.listUsers({
-        page: 1,
-        perPage: 100,
-      });
-      targetUser = data.users.find(
-        (u) => u.email?.toLowerCase() === email.toLowerCase(),
-      );
-    }
-
+    // The shortlist owner is the signed-in user (bearer token); ids or emails
+    // sent by the browser are ignored
+    const targetUser = await getRequestUser(request);
     if (!targetUser) {
       return NextResponse.json(
-        { success: false, error: "User not found" },
-        { status: 404 },
+        { success: false, error: "Please sign in" },
+        { status: 401 },
       );
     }
 
@@ -160,54 +131,37 @@ export async function POST(request: Request) {
 
 /**
  * DELETE /api/shortlist
- * Body or query: { userId, email, slug }
+ * Body or query: { slug } (signed-in user from the bearer token)
  * Removes a university slug from the user's shortlist in the Supabase backend.
  */
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    let userId = searchParams.get("userId");
-    let email = searchParams.get("email");
     let slug = searchParams.get("slug");
 
     if (!slug) {
       try {
         const body = await request.json();
-        userId = userId || body.userId;
-        email = email || body.email;
         slug = body.slug;
       } catch {
         // ignore
       }
     }
 
-    if (!slug || (!userId && !email)) {
+    if (typeof slug !== "string" || !slug) {
       return NextResponse.json(
-        { success: false, error: "slug and userId/email are required" },
+        { success: false, error: "slug is required" },
         { status: 400 },
       );
     }
 
-    let targetUser: any = null;
-    if (userId) {
-      const { data, error } =
-        await supabaseAdmin.auth.admin.getUserById(userId);
-      if (error) throw error;
-      targetUser = data.user;
-    } else if (email) {
-      const { data } = await supabaseAdmin.auth.admin.listUsers({
-        page: 1,
-        perPage: 100,
-      });
-      targetUser = data.users.find(
-        (u) => u.email?.toLowerCase() === email.toLowerCase(),
-      );
-    }
-
+    // The shortlist owner is the signed-in user (bearer token); ids or emails
+    // sent by the browser are ignored
+    const targetUser = await getRequestUser(request);
     if (!targetUser) {
       return NextResponse.json(
-        { success: false, error: "User not found" },
-        { status: 404 },
+        { success: false, error: "Please sign in" },
+        { status: 401 },
       );
     }
 

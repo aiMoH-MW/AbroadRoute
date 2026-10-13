@@ -10,6 +10,7 @@ import {
   Compass,
   ShieldCheck,
 } from "lucide-react";
+import { show } from "@/components/tools/NotProvided";
 
 export const metadata = {
   title: "Study Abroad Blog & Admissions News | Abroadroute",
@@ -84,7 +85,7 @@ export default async function BlogDirectoryPage() {
                     </span>
                     <span className="flex items-center gap-1 text-[11px] font-mono text-[#6B6B6B]">
                       <Clock className="h-3 w-3 text-[#D89A3E]" />
-                      {article.readTime}
+                      {show(article.readTime)}
                     </span>
                   </div>
 
@@ -102,7 +103,7 @@ export default async function BlogDirectoryPage() {
                 <div className="mt-6 flex items-center justify-between border-t border-[#D9CFB8]/60 pt-4 text-xs text-[#6B6B6B]">
                   <span className="text-[11px] font-mono flex items-center gap-1">
                     <Calendar className="h-3 w-3 text-[#1D5A6C]" />
-                    {article.date}
+                    {show(article.date)}
                   </span>
 
                   <Link

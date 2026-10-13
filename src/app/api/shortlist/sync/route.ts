@@ -1,49 +1,30 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { getRequestUser } from "@/lib/supabase/requestAuth";
 
 export const dynamic = "force-dynamic";
 
 /**
  * POST /api/shortlist/sync
- * Body: { userId, email, slugs: string[] }
+ * Body: { slugs: string[] } (signed-in user from the bearer token)
  * Merges cookie shortlist items with any existing shortlists in the Supabase backend.
  */
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { userId, email, slugs } = body;
-
-    if (!userId && !email) {
-      return NextResponse.json(
-        { success: false, error: "userId or email is required" },
-        { status: 400 },
-      );
-    }
+    const { slugs } = body;
 
     const incomingSlugs: string[] = Array.isArray(slugs)
-      ? slugs.filter(Boolean)
+      ? slugs.filter((s: unknown) => typeof s === "string" && s).slice(0, 200)
       : [];
 
-    let targetUser: any = null;
-    if (userId) {
-      const { data, error } =
-        await supabaseAdmin.auth.admin.getUserById(userId);
-      if (error) throw error;
-      targetUser = data.user;
-    } else if (email) {
-      const { data } = await supabaseAdmin.auth.admin.listUsers({
-        page: 1,
-        perPage: 100,
-      });
-      targetUser = data.users.find(
-        (u) => u.email?.toLowerCase() === email.toLowerCase(),
-      );
-    }
-
+    // The shortlist owner is the signed-in user (bearer token); ids or emails
+    // sent by the browser are ignored
+    const targetUser = await getRequestUser(request);
     if (!targetUser) {
       return NextResponse.json(
-        { success: false, error: "User not found" },
-        { status: 404 },
+        { success: false, error: "Please sign in" },
+        { status: 401 },
       );
     }
 

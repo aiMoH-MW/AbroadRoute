@@ -10,15 +10,9 @@ import { SectionEmpty } from "@/components/ui/SectionEmpty";
 import { fetchCountriesFromBackend } from "@/lib/data/liveContent";
 import { formatINRRate } from "@/lib/exchangeRates";
 import { ExchangeRateCredit } from "@/components/ui/ExchangeRateCredit";
+import { NotProvided, show } from "@/components/tools/NotProvided";
+import { fetchSiteStats, withCount } from "@/lib/siteStats";
 
-const ANCHOR_SIX_SLUGS = [
-  "usa",
-  "uk",
-  "canada",
-  "australia",
-  "germany",
-  "ireland",
-];
 
 /**
  * Async cards. Suspended by the shell below, so the section heading
@@ -59,7 +53,7 @@ async function CountryCards() {
     <>
       <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {countries.map((country) => {
-          const isAnchor = ANCHOR_SIX_SLUGS.includes(country.slug);
+          const isAnchor = country.isAnchor;
           return (
             <div
               key={country.id}
@@ -94,13 +88,13 @@ async function CountryCards() {
                     </div>
                   </Link>
                   <span className="rounded-full bg-[#1D5A6C]/10 px-2.5 py-1 text-[10px] font-bold text-[#1D5A6C]">
-                    {country.safetyRating} ★ Safety
+                    {show(country.safetyRating, (v) => `${v} ★ Safety`)}
                   </span>
                 </div>
 
                 <Link href={`/study-in-${country.slug}`} className="block">
                   <p className="mt-3.5 text-xs leading-relaxed text-slate-600 hover:text-[#1D5A6C] transition">
-                    {country.heroTagline}
+                    {show(country.heroTagline)}
                   </p>
                 </Link>
 
@@ -112,7 +106,7 @@ async function CountryCards() {
                       Avg. Tuition:
                     </span>
                     <span className="font-mono font-bold text-[#1D5A6C]">
-                      {country.avgTuitionINR}
+                      {show(country.avgTuitionINR)}
                     </span>
                   </div>
 
@@ -122,7 +116,7 @@ async function CountryCards() {
                       Work Visa (PSW):
                     </span>
                     <span className="font-semibold text-emerald-700">
-                      {country.postStudyWorkVisa}
+                      {show(country.postStudyWorkVisa)}
                     </span>
                   </div>
 
@@ -141,8 +135,9 @@ async function CountryCards() {
               {/* Action Button */}
               <div className="mt-6 flex items-center justify-between border-t border-[#D9CFB8]/40 pt-4">
                 <span className="text-[11px] font-mono text-slate-500">
-                  {country.currency} ({country.currencySymbol}) ≈ ₹
-                  {formatINRRate(country.exchangeRateToINR)}
+                  {country.exchangeRateToINR !== null
+                    ? `${country.currency} (${country.currencySymbol}) ≈ ₹${formatINRRate(country.exchangeRateToINR)}`
+                    : "Exchange rate not provided"}
                 </span>
                 <LeadTriggerButton
                   country={country.name}
@@ -164,7 +159,8 @@ async function CountryCards() {
   );
 }
 
-export function CountryGrid() {
+export async function CountryGrid() {
+  const stats = await fetchSiteStats();
   return (
     <section className="cv-auto py-16 sm:py-24 bg-[#FDFCF7]">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -174,7 +170,7 @@ export function CountryGrid() {
               ✦ Global Destinations
             </div>
             <h2 className="mt-2.5 font-display text-3xl font-bold tracking-tight text-[#103B47] sm:text-4xl">
-              Anchor Destinations & 19 Global Countries
+              Anchor Destinations & {withCount(stats.countries, "Global Countries")}
             </h2>
             <p className="mt-2 text-sm text-slate-600 max-w-2xl">
               Explore the Anchor Six premier study destinations alongside
@@ -183,7 +179,7 @@ export function CountryGrid() {
           </div>
 
           {/* Tier / Anchor Filter Tabs Client Component */}
-          <CountryGridTabs />
+          <CountryGridTabs allCount={stats.countries} />
         </div>
 
         {/* Countries Grid */}

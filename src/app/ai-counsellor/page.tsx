@@ -34,42 +34,31 @@ import {
   parseMessageActions,
 } from "@/components/ai/AIChatActionCard";
 import { LeadModal } from "@/components/lead/LeadModal";
-
-const CATEGORIZED_QUESTIONS = [
-  {
-    category: "Tuition-Free & Low Budget",
-    questions: [
-      "Which European countries offer €0 or free tuition?",
-      "How does Germany's €11,904 blocked account work?",
-      "What is Italy's DSU 100% scholarship eligibility?",
-      "How does Germany Ausbildung dual training with monthly stipend work?",
-    ],
-  },
-  {
-    category: "NMC-Compliant MBBS Abroad",
-    questions: [
-      "Which MBBS countries are 100% NMC FMGL compliant?",
-      "What is the total 6-year MBBS cost in Russia vs Georgia?",
-      "Is NEET qualification mandatory to study MBBS abroad?",
-      "How does NEXT licensing exam work for foreign medical graduates?",
-    ],
-  },
-  {
-    category: "USA, UK & High-ROI STEM",
-    questions: [
-      "Which US master's degrees offer 3-year STEM OPT extensions?",
-      "Top UK universities for MS Computer Science under ₹20 Lakhs?",
-      "What are the Post-Study Work Visa rules in Ireland and Australia?",
-      "What are the average GRE and IELTS score requirements?",
-    ],
-  },
-];
+import { useSiteStats } from "@/lib/useSiteStats";
+import { withCount } from "@/lib/siteStatsFormat";
+import { useSiteContent } from "@/lib/useSiteContent";
+import type { AiSuggestedQuestion } from "@/lib/siteContent";
+import { getAuthHeaders } from "@/lib/supabase/client";
 
 export default function AICounsellorFullPage() {
+  const siteStats = useSiteStats();
+  // Starter questions (admin: Site Content → AI Counsellor Questions)
+  const starterQuestions = useSiteContent<AiSuggestedQuestion[]>(
+    "ai-questions",
+    [],
+  );
+  const categorizedQuestions = Array.from(
+    starterQuestions
+      .reduce((map, q) => {
+        map.set(q.category, [...(map.get(q.category) ?? []), q.question]);
+        return map;
+      }, new Map<string, string[]>())
+      .entries(),
+  ).map(([category, questions]) => ({ category, questions }));
   const { user, isLoggedIn, logout } = useAuth();
   const [sessionId, setSessionId] = useState<string>("");
   const [leadModalOpen, setLeadModalOpen] = useState(false);
-  const [selectedCountry, setSelectedCountry] = useState("Germany");
+  const [selectedCountry, setSelectedCountry] = useState("");
 
   // Initialize session ID
   useEffect(() => {
@@ -77,7 +66,7 @@ export default function AICounsellorFullPage() {
     if (existing) {
       setSessionId(existing);
     } else {
-      const newId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      const newId = `session_${crypto.randomUUID()}`;
       sessionStorage.setItem("vista_counsellor_session_id", newId);
       setSessionId(newId);
     }
@@ -118,14 +107,17 @@ export default function AICounsellorFullPage() {
   ) => {
     if (!sessionId || currentMessages.length <= 1) return;
     try {
+      // The account comes from the login token; lead details are kept as context
       await fetch("/api/ai/chats", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(await getAuthHeaders()),
+        },
         body: JSON.stringify({
           sessionId,
-          userEmail: user?.email || (leadEmail ? leadEmail : null),
-          userName: user?.name || (leadName ? leadName : null),
-          userId: user?.id,
+          leadEmail: leadEmail || null,
+          leadName: leadName || null,
           pageContext: { url: "/ai-counsellor" },
           messages: currentMessages,
           leadLevel,
@@ -137,7 +129,7 @@ export default function AICounsellorFullPage() {
   };
 
   const handleClearChat = () => {
-    const freshId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const freshId = `session_${crypto.randomUUID()}`;
     sessionStorage.setItem("vista_counsellor_session_id", freshId);
     setSessionId(freshId);
 
@@ -293,7 +285,9 @@ export default function AICounsellorFullPage() {
                 Counsellor
               </span>
               <span className="text-xs text-[#103B47]/70 font-medium">
-                Context-Aware • 19 Destinations
+                Context-Aware
+                {siteStats.countries > 0 &&
+                  ` • ${withCount(siteStats.countries, "Destinations")}`}
               </span>
             </div>
           </div>
@@ -401,7 +395,7 @@ export default function AICounsellorFullPage() {
                             key={aIdx}
                             action={act}
                             onOpenLeadModal={(cntry) => {
-                              setSelectedCountry(cntry || "Germany");
+                              setSelectedCountry(cntry || "");
                               setLeadModalOpen(true);
                             }}
                           />
@@ -622,7 +616,7 @@ export default function AICounsellorFullPage() {
               Questions
             </h3>
 
-            {CATEGORIZED_QUESTIONS.map((cat, idx) => (
+            {categorizedQuestions.map((cat, idx) => (
               <div key={idx} className="space-y-2">
                 <h4 className="text-[11px] font-bold text-[#103B47]/80 uppercase tracking-wider">
                   {cat.category}

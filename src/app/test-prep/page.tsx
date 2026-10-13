@@ -24,6 +24,10 @@ import {
   AICounsellorTriggerButton,
 } from "@/components/home/HomeClientContext";
 import { TestPrepFilter } from "@/components/test-prep/TestPrepFilter";
+import { fetchSiteStats, withCount } from "@/lib/siteStats";
+import { fetchFaqs } from "@/lib/siteContent";
+import { show } from "@/components/tools/NotProvided";
+
 
 export const metadata: Metadata = {
   title:
@@ -39,48 +43,29 @@ export const metadata: Metadata = {
   },
 };
 
-const TEST_PREP_FAQS = [
-  {
-    question:
-      "Which English proficiency test is easiest for Indian students: IELTS, TOEFL, or PTE?",
-    answer:
-      "PTE Academic is widely considered the most objective because it is 100% computer-graded with automated speech algorithms, eliminating subjective human examiner bias. IELTS Academic remains the gold standard for UK, Canadian, and Australian university admissions and visa processing. TOEFL iBT is ideal for US universities and has a condensed 2-hour format.",
-  },
-  {
-    question:
-      "Do German public universities require the GRE for MS in STEM programs?",
-    answer:
-      "Many top German TU9 universities (such as TU Munich, RWTH Aachen, and University of Stuttgart) either mandate or highly recommend the GRE Quantitative score (usually 160+) for Indian engineering and computer science applicants to bypass stringent applicant screening.",
-  },
-  {
-    question:
-      "What is the difference between NCLEX-RN and OET for Indian Nurses migrating abroad?",
-    answer:
-      "NCLEX-RN is the clinical nursing licensing examination required by US and Canadian State Boards of Nursing to practice as a Registered Nurse. OET (Occupational English Test) is a healthcare-specific English language proficiency test required by UK, Irish, and Australian Nursing Midwifery Councils (NMC/AHPRA) to prove clinical communication skills.",
-  },
-  {
-    question: "Is PLAB replaced by the UKMLA for Indian MBBS doctors?",
-    answer:
-      "Yes, starting in 2024–2026, the General Medical Council (GMC UK) is transitioning the Professional and Linguistic Assessments Board (PLAB) into the United Kingdom Medical Licensing Assessment (UKMLA). The format remains two parts: the Applied Knowledge Test (AKT) and Clinical Assessment (CPSA).",
-  },
-  {
-    question:
-      "Can I use Duolingo English Test (DET) for Canada and Australia student visas?",
-    answer:
-      "While over 4,500 universities globally accept DET for academic admission, student visa regulations differ. Canada's SDS stream requires IELTS Academic or PTE Academic. Australia primarily mandates PTE Academic or IELTS for visa compliance. However, DET is widely accepted for US universities and European institutions.",
-  },
-];
 
 // Exams come from Supabase; refresh at most every 5 minutes.
 export const revalidate = 300;
 
 export default async function TestPrepHubPage() {
-  const exams = await fetchTestPrepExams();
+  const [exams, stats, faqs] = await Promise.all([
+    fetchTestPrepExams(),
+    fetchSiteStats(),
+    fetchFaqs("test_prep"),
+  ]);
+  // Decision guide: exam name plus its target cut-off from the database
+  const examLabel = (slug: string) => {
+    const exam = exams.find((e) => e.slug === slug);
+    if (!exam) return "Not provided";
+    return exam.targetCutoffIndianStudents
+      ? `${exam.shortName} (${exam.targetCutoffIndianStudents})`
+      : exam.shortName;
+  };
 
   const faqJsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    mainEntity: TEST_PREP_FAQS.map((faq) => ({
+    mainEntity: faqs.map((faq) => ({
       "@type": "Question",
       name: faq.question,
       acceptedAnswer: {
@@ -130,15 +115,16 @@ export default async function TestPrepHubPage() {
               <p className="mt-4 font-sans text-sm sm:text-base text-slate-200 max-w-3xl leading-relaxed font-normal">
                 Clear all admissions cutoffs with zero guesswork. Compare
                 official examination fees converted to INR, test durations,
-                scoring benchmarks for 19 countries, and access tailored 8-week
-                study blueprints.
+                scoring benchmarks{" "}
+                {stats.countries > 0 ? `for ${stats.countries} countries` : "by country"},
+                and access tailored study blueprints.
               </p>
 
               {/* Quick Stat Badges */}
               <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4 max-w-4xl">
                 <div className="rounded-2xl border border-white/15 bg-white/10 p-3.5 backdrop-blur-xs">
                   <p className="text-2xl font-black font-mono text-[#D89A3E]">
-                    9 Tests
+                    {withCount(exams.length, "Tests")}
                   </p>
                   <p className="text-xs text-slate-300 font-sans">
                     English, Graduate & Medical
@@ -160,7 +146,7 @@ export default async function TestPrepHubPage() {
                 </div>
                 <div className="rounded-2xl border border-white/15 bg-white/10 p-3.5 backdrop-blur-xs">
                   <p className="text-2xl font-black font-mono text-sky-200">
-                    19 Nations
+                    {withCount(stats.countries, "Nations")}
                   </p>
                   <p className="text-xs text-slate-300 font-sans">Global Score Cutoffs</p>
                 </div>
@@ -212,7 +198,7 @@ export default async function TestPrepHubPage() {
                           href="/test-prep/gre"
                           className="text-[#D89A3E] hover:underline font-bold"
                         >
-                          GRE General (315+)
+                          {examLabel("gre")}
                         </Link>
                       </div>
                       <div className="flex flex-wrap items-center justify-between gap-1 rounded-xl bg-white p-2.5 border border-[#D9CFB8]/60 font-semibold text-slate-800">
@@ -221,7 +207,7 @@ export default async function TestPrepHubPage() {
                           href="/test-prep/ielts"
                           className="text-[#103B47] hover:underline font-bold"
                         >
-                          IELTS (6.5+) / TOEFL
+                          {examLabel("ielts")}
                         </Link>
                       </div>
                     </div>
@@ -250,7 +236,7 @@ export default async function TestPrepHubPage() {
                           href="/test-prep/gmat"
                           className="text-[#D89A3E] hover:underline font-bold"
                         >
-                          GMAT Focus (645+)
+                          {examLabel("gmat")}
                         </Link>
                       </div>
                       <div className="flex flex-wrap items-center justify-between gap-1 rounded-xl bg-white p-2.5 border border-[#D9CFB8]/60 font-semibold text-slate-800">
@@ -259,7 +245,7 @@ export default async function TestPrepHubPage() {
                           href="/test-prep/toefl"
                           className="text-[#103B47] hover:underline font-bold"
                         >
-                          TOEFL (100+) / IELTS
+                          {examLabel("toefl")}
                         </Link>
                       </div>
                     </div>
@@ -288,7 +274,7 @@ export default async function TestPrepHubPage() {
                           href="/test-prep/nclex"
                           className="text-[#D89A3E] hover:underline font-bold"
                         >
-                          NCLEX-RN (Pass)
+                          {examLabel("nclex")}
                         </Link>
                       </div>
                       <div className="flex flex-wrap items-center justify-between gap-1 rounded-xl bg-white p-2.5 border border-[#D9CFB8]/60 font-semibold text-slate-800">
@@ -299,7 +285,7 @@ export default async function TestPrepHubPage() {
                           href="/test-prep/oet"
                           className="text-[#103B47] hover:underline font-bold"
                         >
-                          OET (Grade B) / IELTS
+                          {examLabel("oet")}
                         </Link>
                       </div>
                     </div>
@@ -328,7 +314,7 @@ export default async function TestPrepHubPage() {
                           href="/test-prep/plab"
                           className="text-[#D89A3E] hover:underline font-bold"
                         >
-                          PLAB / UKMLA
+                          {examLabel("plab")}
                         </Link>
                       </div>
                       <div className="flex flex-wrap items-center justify-between gap-1 rounded-xl bg-white p-2.5 border border-[#D9CFB8]/60 font-semibold text-slate-800">
@@ -337,7 +323,7 @@ export default async function TestPrepHubPage() {
                           href="/test-prep/oet"
                           className="text-[#103B47] hover:underline font-bold"
                         >
-                          OET (Grade B) / IELTS 7.5
+                          {examLabel("oet")}
                         </Link>
                       </div>
                     </div>
@@ -368,7 +354,7 @@ export default async function TestPrepHubPage() {
                           href="/test-prep/pte"
                           className="text-[#D89A3E] hover:underline font-bold"
                         >
-                          PTE Academic (65+)
+                          {examLabel("pte")}
                         </Link>
                       </div>
                       <div className="flex flex-wrap items-center justify-between gap-1 rounded-xl bg-white p-2.5 border border-[#D9CFB8]/60 font-semibold text-slate-800">
@@ -457,7 +443,7 @@ export default async function TestPrepHubPage() {
                             {exam.name}
                           </Link>
                           <span className="block text-[10px] font-normal text-[#6B6B6B]">
-                            {exam.conductingBody}
+                            {show(exam.conductingBody)}
                           </span>
                         </td>
                         <td className="p-3.5">
@@ -466,12 +452,12 @@ export default async function TestPrepHubPage() {
                           </span>
                         </td>
                         <td className="p-3.5 font-bold font-mono text-slate-900">
-                          {exam.feeINR}
+                          {show(exam.feeINR)}
                         </td>
-                        <td className="p-3.5 font-mono">{exam.duration}</td>
-                        <td className="p-3.5 font-mono">{exam.scoringScale}</td>
+                        <td className="p-3.5 font-mono">{show(exam.duration)}</td>
+                        <td className="p-3.5 font-mono">{show(exam.scoringScale)}</td>
                         <td className="p-3.5 font-bold font-mono text-emerald-700">
-                          {exam.targetCutoffIndianStudents}
+                          {show(exam.targetCutoffIndianStudents)}
                         </td>
                         <td className="p-3.5">
                           <Link
@@ -503,7 +489,7 @@ export default async function TestPrepHubPage() {
               </div>
 
               <div className="mt-8 space-y-4">
-                {TEST_PREP_FAQS.map((faq, idx) => (
+                {faqs.map((faq, idx) => (
                   <div
                     key={idx}
                     className="rounded-2xl border border-[#D9CFB8]/70 bg-[#FDFCF7]/60 p-5"

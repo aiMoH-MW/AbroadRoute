@@ -14,6 +14,7 @@ import {
   fetchLivePrograms,
 } from "@/lib/supabase/dataFetchers";
 import { Country, Program } from "@/types";
+import { useSiteStats } from "@/lib/useSiteStats";
 
 interface LeadModalProps {
   isOpen: boolean;
@@ -42,18 +43,39 @@ function safeJsonStringify(obj: Record<string, any>): string {
   }
 }
 
+// Next few Fall / Spring intakes, worked out from today's date
+function upcomingIntakes(count = 4): string[] {
+  const now = new Date();
+  let year = now.getFullYear();
+  // After June the next open intake is Spring of the following year
+  let term: "Spring" | "Fall" = now.getMonth() < 6 ? "Fall" : "Spring";
+  if (term === "Spring") year += 1;
+  const list: string[] = [];
+  while (list.length < count) {
+    list.push(`${term} ${year}`);
+    if (term === "Fall") {
+      term = "Spring";
+      year += 1;
+    } else {
+      term = "Fall";
+    }
+  }
+  return list;
+}
+
 export function LeadModal({ isOpen, onClose, defaultCountry }: LeadModalProps) {
-  const initialCountry =
-    typeof defaultCountry === "string" ? defaultCountry : "germany";
+  const siteStats = useSiteStats();
+  const initialCountry = typeof defaultCountry === "string" ? defaultCountry : "";
   const [countriesList, setCountriesList] = useState<Country[]>([]);
   const [programsList, setProgramsList] = useState<Program[]>([]);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [countryTarget, setCountryTarget] = useState(initialCountry);
-  const [programTarget, setProgramTarget] = useState("ms");
-  const [budgetRangeINR, setBudgetRangeINR] = useState("15-25Lakhs");
-  const [intakeYear, setIntakeYear] = useState("2026 / 2027");
+  // Nothing pre-selected: the student's own answers only
+  const [programTarget, setProgramTarget] = useState("");
+  const [budgetRangeINR, setBudgetRangeINR] = useState("");
+  const [intakeYear, setIntakeYear] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -98,18 +120,10 @@ export function LeadModal({ isOpen, onClose, defaultCountry }: LeadModalProps) {
         fullName: String(fullName || ""),
         email: String(email || ""),
         phone: String(phone || ""),
-        countryTarget: String(
-          typeof countryTarget === "string" ? countryTarget : "germany",
-        ),
-        programTarget: String(
-          typeof programTarget === "string" ? programTarget : "ms",
-        ),
-        budgetRangeINR: String(
-          typeof budgetRangeINR === "string" ? budgetRangeINR : "15-25Lakhs",
-        ),
-        intakeYear: String(
-          typeof intakeYear === "string" ? intakeYear : "2026 / 2027",
-        ),
+        countryTarget: countryTarget || undefined,
+        programTarget,
+        budgetRangeINR: budgetRangeINR || undefined,
+        intakeYear: intakeYear || undefined,
       };
 
       const res = await fetch("/api/leads/submit", {
@@ -245,8 +259,11 @@ export function LeadModal({ isOpen, onClose, defaultCountry }: LeadModalProps) {
               Get Matched with Top Global Universities
             </h3>
             <p className="mt-1 text-xs text-slate-500">
-              Zero fee. Verified eligibility check across 19 destinations & 6
-              study streams.
+              Zero fee. Eligibility check across{" "}
+              {siteStats.countries > 0 && siteStats.programs > 0
+                ? `${siteStats.countries} destinations & ${siteStats.programs} study streams`
+                : "our destinations & study streams"}
+              .
             </p>
 
             {errorMsg && (
@@ -319,9 +336,10 @@ export function LeadModal({ isOpen, onClose, defaultCountry }: LeadModalProps) {
                     onChange={(e) => setCountryTarget(e.target.value)}
                     className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-800 focus:border-[#102C57] focus:outline-none"
                   >
+                    <option value="">Select country</option>
                     {countriesList.map((c) => (
                       <option key={c.id} value={c.slug}>
-                        {c.flagEmoji} {c.name}
+                        {[c.flagEmoji, c.name].filter(Boolean).join(" ")}
                       </option>
                     ))}
                   </select>
@@ -332,10 +350,12 @@ export function LeadModal({ isOpen, onClose, defaultCountry }: LeadModalProps) {
                     Program / Degree
                   </label>
                   <select
+                    required
                     value={programTarget}
                     onChange={(e) => setProgramTarget(e.target.value)}
                     className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-800 focus:border-[#102C57] focus:outline-none"
                   >
+                    <option value="">Select program</option>
                     {programsList.map((p) => (
                       <option key={p.id} value={p.slug}>
                         {p.name}
@@ -356,6 +376,7 @@ export function LeadModal({ isOpen, onClose, defaultCountry }: LeadModalProps) {
                     onChange={(e) => setBudgetRangeINR(e.target.value)}
                     className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-800 focus:border-[#102C57] focus:outline-none"
                   >
+                    <option value="">Select budget</option>
                     <option value="under-15Lakhs">Under ₹15 Lakhs</option>
                     <option value="15-25Lakhs">₹15 - 25 Lakhs</option>
                     <option value="25-40Lakhs">₹25 - 40 Lakhs</option>
@@ -372,9 +393,12 @@ export function LeadModal({ isOpen, onClose, defaultCountry }: LeadModalProps) {
                     onChange={(e) => setIntakeYear(e.target.value)}
                     className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-800 focus:border-[#102C57] focus:outline-none"
                   >
-                    <option value="Fall 2026">Fall 2026 (Aug / Sep)</option>
-                    <option value="Spring 2027">Spring 2027 (Jan / Feb)</option>
-                    <option value="Fall 2027">Fall 2027</option>
+                    <option value="">Select intake</option>
+                    {upcomingIntakes().map((intake) => (
+                      <option key={intake} value={intake}>
+                        {intake}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>

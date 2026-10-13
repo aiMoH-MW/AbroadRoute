@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -27,11 +27,20 @@ import {
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { getAuthHeaders } from "@/lib/supabase/client";
 import { CountryFlag } from "@/components/ui/CountryFlag";
+import {
+  fetchLiveCountries,
+  fetchLivePrograms,
+} from "@/lib/supabase/dataFetchers";
+import type { Country, Program } from "@/types";
+import type { WalletPack } from "@/lib/siteContent";
+import { useSiteContent, useSiteSettings } from "@/lib/useSiteContent";
+import { formatCurrency } from "@/lib/utils";
 
 export default function PartnerWithUsPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { user } = useAuth();
 
   // Wizard state: 1: Identity & GST, 2: Agency Scope, 3: Agreement, 4: Wallet & Targeting
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -43,34 +52,37 @@ export default function PartnerWithUsPage() {
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
-  const [city, setCity] = useState("Mumbai");
-  const [stateName, setStateName] = useState("Maharashtra");
+  const [city, setCity] = useState("");
+  const [stateName, setStateName] = useState("");
 
-  // Step 2: Agency Scope
-  const [yearsInBusiness, setYearsInBusiness] = useState("5-10 Years");
-  const [annualStudentVolume, setAnnualStudentVolume] =
-    useState("100-300 Students");
-  const [selectedCountries, setSelectedCountries] = useState<string[]>([
-    "germany",
-    "usa",
-    "uk",
-    "canada",
-  ]);
-  const [selectedPrograms, setSelectedPrograms] = useState<string[]>([
-    "ms",
-    "mba",
-    "bachelors",
-  ]);
+  // Step 2: Agency Scope (nothing pre-selected)
+  const [yearsInBusiness, setYearsInBusiness] = useState("");
+  const [annualStudentVolume, setAnnualStudentVolume] = useState("");
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
+  const [selectedPrograms, setSelectedPrograms] = useState<string[]>([]);
+  // Destinations and programs offered on the site (from the database)
+  const [countryOptions, setCountryOptions] = useState<Country[]>([]);
+  const [programOptions, setProgramOptions] = useState<Program[]>([]);
+
+  useEffect(() => {
+    fetchLiveCountries().then((c) => setCountryOptions(c ?? []));
+    fetchLivePrograms().then((p) => setProgramOptions(p ?? []));
+  }, []);
 
   // Step 3: Agreement
   const [acceptedMsa, setAcceptedMsa] = useState(false);
   const [acceptedSla, setAcceptedSla] = useState(false);
 
   // Step 4: Wallet Deposit & Targeting
-  const [initialDeposit, setInitialDeposit] = useState<number>(25000);
+  // Wallet packs and cost per lead (admin: Site Content)
+  const walletPacks = useSiteContent<WalletPack[]>("wallet-packs", []);
+  const siteSettings = useSiteSettings();
+  const costPerLeadINR = Number(siteSettings.b2b_cost_per_lead_inr) || null;
+  const [initialDeposit, setInitialDeposit] = useState<number>(0);
   const [dailyLeadCap, setDailyLeadCap] = useState<number>(10);
   const [minLeadScore, setMinLeadScore] = useState<number>(75);
-  const [autoUnlock, setAutoUnlock] = useState(true);
+  const [autoUnlock, setAutoUnlock] = useState(false);
+  const [paymentReference, setPaymentReference] = useState("");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -89,7 +101,11 @@ export default function PartnerWithUsPage() {
 
   const handleStep1Submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!companyName.trim() || !contactEmail.trim() || !contactPhone.trim()) {
+    if (
+      !companyName.trim() ||
+      !(user?.email || contactEmail.trim()) ||
+      !contactPhone.trim()
+    ) {
       setErrorMsg("Please fill all required business and contact details.");
       return;
     }
@@ -119,63 +135,48 @@ export default function PartnerWithUsPage() {
     setStep(4);
   };
 
+  // Creates the buyer profile for the signed-in account (real Supabase
+  // session required). The deposit becomes a top-up request that an admin
+  // credits once the payment is received.
   const handleFinalOnboarding = async () => {
     setIsSubmitting(true);
     setErrorMsg("");
 
     try {
-      // 1. Save targeting rules to localStorage for persistence
-      const targetingRules = {
-        countries: selectedCountries,
-        programs: selectedPrograms,
-        minLeadScore,
-        dailyLeadCap,
-        autoUnlock,
-        operatingHours: "09:00 - 19:00 IST",
-        companyName,
-        gstin: gstin || "27AABCU9603R1ZM",
-        pan: panNumber || "AABCU9603R",
-      };
-      localStorage.setItem(
-        "vista_buyer_targeting",
-        JSON.stringify(targetingRules),
-      );
+      const authHeaders = await getAuthHeaders();
+      if (!authHeaders.Authorization) {
+        throw new Error(
+          "Please sign in (or create a buyer account) before completing onboarding.",
+        );
+      }
 
-      // 2. Save initial wallet state
-      const initialWallet = {
-        balance: initialDeposit,
-        transactions: [
-          {
-            id: `tx-init-${Date.now()}`,
-            type: "credit",
-            description: "Initial Onboarding Wallet Deposit (Online Transfer)",
-            amount: initialDeposit,
-            date: new Date().toISOString(),
-            status: "Completed",
-            invoiceNumber: `INV-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-          },
-        ],
-      };
-      localStorage.setItem("vista_buyer_wallet", JSON.stringify(initialWallet));
+      const res = await fetch("/api/buyer/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({
+          companyName,
+          contactPerson: contactName,
+          phone: contactPhone.replace(/\D/g, "").slice(-10),
+          gstin: gstin || null,
+          pan: panNumber || null,
+          city: city || null,
+          state: stateName || null,
+          yearsInBusiness: yearsInBusiness || null,
+          annualStudentVolume: annualStudentVolume || null,
+          targetCountries: selectedCountries,
+          targetPrograms: selectedPrograms,
+          minLeadScore,
+          dailyLeadCap,
+          autoUnlock,
+          initialDepositINR: initialDeposit,
+          paymentReference: paymentReference || null,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Failed to complete onboarding.");
+      }
 
-      // 3. Log in as B2B Buyer
-      login(
-        contactEmail,
-        "buyer",
-        contactName || `${companyName} Representative`,
-        undefined,
-        companyName,
-        "India",
-        {
-          gstin,
-          pan: panNumber,
-          city,
-          state: stateName,
-          deposit: initialDeposit,
-        },
-      );
-
-      // 4. Redirect to B2B portal
       router.push("/portal/buyer");
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to complete onboarding.");
@@ -242,6 +243,21 @@ export default function PartnerWithUsPage() {
               ))}
             </div>
           </div>
+
+          {/* Onboarding needs a real account: the profile is tied to it */}
+          {!user && (
+            <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs font-semibold text-amber-800">
+              Please{" "}
+              <Link href="/login" className="underline font-bold">
+                sign in
+              </Link>{" "}
+              or{" "}
+              <Link href="/signup" className="underline font-bold">
+                create a buyer account
+              </Link>{" "}
+              first; your partner profile is linked to that account.
+            </div>
+          )}
 
           {/* Error message */}
           {errorMsg && (
@@ -334,7 +350,8 @@ export default function PartnerWithUsPage() {
                       type="email"
                       required
                       placeholder="consultant@apexoverseas.com"
-                      value={contactEmail}
+                      value={user?.email ?? contactEmail}
+                      readOnly={Boolean(user?.email)}
                       onChange={(e) => setContactEmail(e.target.value)}
                       className="w-full rounded-xl border border-slate-200 bg-slate-50/60 py-2.5 px-3.5 font-semibold text-slate-900 focus:border-[#102C57] focus:bg-white focus:outline-none"
                     />
@@ -412,6 +429,7 @@ export default function PartnerWithUsPage() {
                       onChange={(e) => setYearsInBusiness(e.target.value)}
                       className="w-full rounded-xl border border-slate-200 bg-slate-50/60 py-2.5 px-3.5 font-semibold text-slate-900 focus:border-[#102C57] focus:bg-white focus:outline-none"
                     >
+                      <option value="">Select</option>
                       <option value="1-3 Years">1 - 3 Years</option>
                       <option value="3-5 Years">3 - 5 Years</option>
                       <option value="5-10 Years">5 - 10 Years</option>
@@ -430,6 +448,7 @@ export default function PartnerWithUsPage() {
                       onChange={(e) => setAnnualStudentVolume(e.target.value)}
                       className="w-full rounded-xl border border-slate-200 bg-slate-50/60 py-2.5 px-3.5 font-semibold text-slate-900 focus:border-[#102C57] focus:bg-white focus:outline-none"
                     >
+                      <option value="">Select</option>
                       <option value="50-100 Students">
                         50 - 100 Students / year
                       </option>
@@ -452,20 +471,7 @@ export default function PartnerWithUsPage() {
                     Primary Target Countries (Select all that apply) *
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                    {[
-                      { slug: "germany", name: "Germany" },
-                      { slug: "usa", name: "United States" },
-                      { slug: "uk", name: "United Kingdom" },
-                      { slug: "canada", name: "Canada" },
-                      { slug: "australia", name: "Australia" },
-                      { slug: "ireland", name: "Ireland" },
-                      { slug: "france", name: "France" },
-                      { slug: "italy", name: "Italy" },
-                      { slug: "netherlands", name: "Netherlands" },
-                      { slug: "new-zealand", name: "New Zealand" },
-                      { slug: "uzbekistan", name: "Uzbekistan (MBBS)" },
-                      { slug: "georgia", name: "Georgia (MBBS)" },
-                    ].map((c) => {
+                    {countryOptions.map((c) => {
                       const isSelected = selectedCountries.includes(c.slug);
                       return (
                         <button
@@ -478,7 +484,7 @@ export default function PartnerWithUsPage() {
                               : "border-slate-200 bg-slate-50/60 text-slate-700 hover:bg-slate-100"
                           }`}
                         >
-                          <CountryFlag code={c.slug} size="sm" />
+                          <CountryFlag code={c.code} name={c.name} size="sm" />
                           <span className="truncate">{c.name}</span>
                         </button>
                       );
@@ -492,34 +498,26 @@ export default function PartnerWithUsPage() {
                     Degree Disciplines Offered
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {[
-                      { key: "ms", label: "Master's (MS/MSc)" },
-                      { key: "mba", label: "MBA & Executive MBA" },
-                      { key: "bachelors", label: "Bachelor's Degrees" },
-                      { key: "mbbs", label: "Medical (MBBS / MD)" },
-                      {
-                        key: "ausbildung",
-                        label: "Ausbildung (Vocational DE)",
-                      },
-                      { key: "nursing", label: "Nursing & Healthcare" },
-                    ].map((p) => {
-                      const isSelected = selectedPrograms.includes(p.key);
-                      return (
-                        <button
-                          key={p.key}
-                          type="button"
-                          onClick={() => toggleProgram(p.key)}
-                          className={`flex items-center justify-between rounded-xl p-2.5 text-xs font-bold transition border ${
-                            isSelected
-                              ? "border-[#EA5C2B] bg-[#EA5C2B] text-white shadow-xs"
-                              : "border-slate-200 bg-slate-50/60 text-slate-700 hover:bg-slate-100"
-                          }`}
-                        >
-                          <span>{p.label}</span>
-                          {isSelected && <Check className="h-3.5 w-3.5" />}
-                        </button>
-                      );
-                    })}
+                    {programOptions
+                      .map((prog) => ({ key: prog.slug, label: prog.name }))
+                      .map((p) => {
+                        const isSelected = selectedPrograms.includes(p.key);
+                        return (
+                          <button
+                            key={p.key}
+                            type="button"
+                            onClick={() => toggleProgram(p.key)}
+                            className={`flex items-center justify-between rounded-xl p-2.5 text-xs font-bold transition border ${
+                              isSelected
+                                ? "border-[#EA5C2B] bg-[#EA5C2B] text-white shadow-xs"
+                                : "border-slate-200 bg-slate-50/60 text-slate-700 hover:bg-slate-100"
+                            }`}
+                          >
+                            <span>{p.label}</span>
+                            {isSelected && <Check className="h-3.5 w-3.5" />}
+                          </button>
+                        );
+                      })}
                   </div>
                 </div>
 
@@ -562,8 +560,8 @@ export default function PartnerWithUsPage() {
                   </h4>
                   <p>
                     <strong>1. 100% OTP Verification Guarantee:</strong>{" "}
-                    Abroadroute guarantees that all leads dispatched to
-                    the Buyer have completed mandatory SMS/WhatsApp OTP mobile
+                    Abroadroute guarantees that all leads dispatched to the
+                    Buyer have completed mandatory SMS/WhatsApp OTP mobile
                     verification at the point of inquiry submission.
                   </p>
                   <p>
@@ -601,9 +599,7 @@ export default function PartnerWithUsPage() {
                     />
                     <span>
                       I have read and accept the{" "}
-                      <strong>
-                        Abroadroute B2B Master Service Agreement
-                      </strong>{" "}
+                      <strong>Abroadroute B2B Master Service Agreement</strong>{" "}
                       and commercial terms.
                     </span>
                   </label>
@@ -660,49 +656,61 @@ export default function PartnerWithUsPage() {
                     Choose Initial Wallet Deposit
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {[
-                      {
-                        amount: 10000,
-                        label: "Starter Pack",
-                        bonus: "Standard CPL (₹1,500/lead)",
-                      },
-                      {
-                        amount: 25000,
-                        label: "Growth Pack (Popular)",
-                        bonus: "Includes 15% Bonus Credits",
-                      },
-                      {
-                        amount: 50000,
-                        label: "Enterprise Scale",
-                        bonus: "Dedicated Account Manager + Priority Leads",
-                      },
-                    ].map((w) => (
-                      <button
-                        key={w.amount}
-                        type="button"
-                        onClick={() => setInitialDeposit(w.amount)}
-                        className={`rounded-2xl p-4 text-left transition border ${
-                          initialDeposit === w.amount
-                            ? "border-[#102C57] bg-[#102C57] text-white shadow-md ring-2 ring-[#EA5C2B]"
-                            : "border-slate-200 bg-slate-50/70 text-slate-800 hover:bg-slate-100"
-                        }`}
-                      >
-                        <div className="text-lg font-black tracking-tight">
-                          ₹{w.amount.toLocaleString("en-IN")}
-                        </div>
-                        <p
-                          className={`text-xs font-bold mt-1 ${initialDeposit === w.amount ? "text-orange-300" : "text-[#102C57]"}`}
+                    {walletPacks.length === 0 && (
+                      <p className="text-xs text-slate-500 sm:col-span-3">
+                        Wallet packs not provided.
+                      </p>
+                    )}
+                    {walletPacks
+                      .map((pack) => ({
+                        amount: pack.amountINR,
+                        label: pack.label,
+                        bonus: pack.perk ?? "",
+                      }))
+                      .map((w) => (
+                        <button
+                          key={w.amount}
+                          type="button"
+                          onClick={() => setInitialDeposit(w.amount)}
+                          className={`rounded-2xl p-4 text-left transition border ${
+                            initialDeposit === w.amount
+                              ? "border-[#102C57] bg-[#102C57] text-white shadow-md ring-2 ring-[#EA5C2B]"
+                              : "border-slate-200 bg-slate-50/70 text-slate-800 hover:bg-slate-100"
+                          }`}
                         >
-                          {w.label}
-                        </p>
-                        <p
-                          className={`text-[10px] mt-1 ${initialDeposit === w.amount ? "text-slate-300" : "text-slate-500"}`}
-                        >
-                          {w.bonus}
-                        </p>
-                      </button>
-                    ))}
+                          <div className="text-lg font-black tracking-tight">
+                            ₹{w.amount.toLocaleString("en-IN")}
+                          </div>
+                          <p
+                            className={`text-xs font-bold mt-1 ${initialDeposit === w.amount ? "text-orange-300" : "text-[#102C57]"}`}
+                          >
+                            {w.label}
+                          </p>
+                          <p
+                            className={`text-[10px] mt-1 ${initialDeposit === w.amount ? "text-slate-300" : "text-slate-500"}`}
+                          >
+                            {w.bonus}
+                          </p>
+                        </button>
+                      ))}
                   </div>
+                </div>
+
+                {/* Payment reference for the deposit (admin confirms it) */}
+                <div className="text-xs">
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
+                    Payment Reference (bank transfer / UPI)
+                  </label>
+                  <input
+                    type="text"
+                    value={paymentReference}
+                    onChange={(e) => setPaymentReference(e.target.value)}
+                    placeholder="Transaction ID of your deposit"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 py-2.5 px-3.5 font-semibold text-slate-900 focus:border-[#102C57] focus:bg-white focus:outline-none"
+                  />
+                  <p className="mt-1 text-[10px] text-slate-500">
+                    Your wallet is credited once our team confirms the payment.
+                  </p>
                 </div>
 
                 {/* Delivery Guardrails */}
@@ -716,10 +724,14 @@ export default function PartnerWithUsPage() {
                       onChange={(e) => setDailyLeadCap(Number(e.target.value))}
                       className="w-full rounded-xl border border-slate-200 bg-slate-50/60 py-2.5 px-3.5 font-semibold text-slate-900 focus:border-[#102C57] focus:bg-white focus:outline-none"
                     >
-                      <option value={5}>5 Leads / Day (~₹7,500/day)</option>
-                      <option value={10}>10 Leads / Day (~₹15,000/day)</option>
-                      <option value={20}>20 Leads / Day (~₹30,000/day)</option>
-                      <option value={50}>50 Leads / Day (High Volume)</option>
+                      {[5, 10, 20, 50].map((cap) => (
+                        <option key={cap} value={cap}>
+                          {cap} Leads / Day
+                          {costPerLeadINR
+                            ? ` (~${formatCurrency(cap * costPerLeadINR)}/day)`
+                            : ""}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -774,7 +786,7 @@ export default function PartnerWithUsPage() {
                   <button
                     type="button"
                     onClick={handleFinalOnboarding}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || initialDeposit <= 0}
                     className="flex items-center gap-2 rounded-xl bg-[#EA5C2B] py-3.5 px-8 text-xs font-bold text-white hover:bg-[#d94f20] transition shadow-lg active:scale-98 disabled:opacity-50 cursor-pointer"
                   >
                     {isSubmitting ? (

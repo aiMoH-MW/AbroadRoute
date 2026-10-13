@@ -20,6 +20,10 @@ import {
   Library,
   SlidersHorizontal,
   CalendarClock,
+  Banknote,
+  Award,
+  FileText,
+  Briefcase,
 } from "lucide-react";
 import { Country, University, Program } from "@/types";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -38,7 +42,11 @@ import { AdminUniversitiesTab } from "@/components/admin/AdminUniversitiesTab";
 import { AdminCountriesTab } from "@/components/admin/AdminCountriesTab";
 import { AdminProgramsTab } from "@/components/admin/AdminProgramsTab";
 import { AdminDeadlinesTab } from "@/components/admin/AdminDeadlinesTab";
+import { AdminLoanLendersTab } from "@/components/admin/AdminLoanLendersTab";
+import { AdminScholarshipsTab } from "@/components/admin/AdminScholarshipsTab";
 import { AdminLeadsTab } from "@/components/admin/AdminLeadsTab";
+import { AdminSiteContentTab } from "@/components/admin/AdminSiteContentTab";
+import { AdminBuyersTab } from "@/components/admin/AdminBuyersTab";
 import { AdminAICounsellorKBTab } from "@/components/admin/AdminAICounsellorKBTab";
 import { AdminStudyDataTab } from "@/components/admin/AdminStudyDataTab";
 import { AdminTestModuleTab, type TestModuleSection } from "@/components/admin/AdminTestModuleTab";
@@ -50,6 +58,10 @@ type AdminTab =
   | "countries"
   | "programs"
   | "deadlines"
+  | "loan-lenders"
+  | "scholarships"
+  | "site-content"
+  | "buyers"
   | "leads"
   | "kb"
   | "study-data"
@@ -115,6 +127,10 @@ function AdminPortalContent() {
         "countries",
         "programs",
         "deadlines",
+        "loan-lenders",
+        "scholarships",
+        "site-content",
+        "buyers",
         "leads",
         "kb",
         "study-data",
@@ -342,6 +358,30 @@ function AdminPortalContent() {
       badge: null,
     },
     {
+      id: "loan-lenders" as AdminTab,
+      label: "Loan Lenders",
+      icon: Banknote,
+      badge: null,
+    },
+    {
+      id: "scholarships" as AdminTab,
+      label: "Scholarships",
+      icon: Award,
+      badge: null,
+    },
+    {
+      id: "site-content" as AdminTab,
+      label: "Site Content",
+      icon: FileText,
+      badge: null,
+    },
+    {
+      id: "buyers" as AdminTab,
+      label: "B2B Buyers & Wallets",
+      icon: Briefcase,
+      badge: null,
+    },
+    {
       id: "leads" as AdminTab,
       label: "Lead Engine (LDE)",
       icon: Users,
@@ -505,6 +545,24 @@ function AdminPortalContent() {
               programsList={programsList}
             />
           )}
+
+          {activeTab === "loan-lenders" && <AdminLoanLendersTab />}
+
+          {activeTab === "scholarships" && (
+            <AdminScholarshipsTab
+              countriesList={countriesList}
+              universitiesList={universitiesList}
+            />
+          )}
+
+          {activeTab === "site-content" && (
+            <AdminSiteContentTab
+              countriesList={countriesList}
+              programsList={programsList}
+            />
+          )}
+
+          {activeTab === "buyers" && <AdminBuyersTab />}
 
           {activeTab === "leads" && <AdminLeadsTab programsList={programsList} />}
 

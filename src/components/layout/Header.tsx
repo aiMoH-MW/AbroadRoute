@@ -48,8 +48,8 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { useHomeModals } from "@/components/home/HomeClientContext";
 import { CountryFlag } from "@/components/ui/CountryFlag";
 import { BrandLogo } from "@/components/ui/BrandSignatures";
+import { NotProvided, show } from "@/components/tools/NotProvided";
 
-const ANCHOR_SLUGS = ["usa", "uk", "canada", "australia", "germany", "ireland"];
 
 interface HeaderProps {
   onOpenSearch?: () => void;
@@ -192,7 +192,7 @@ export function Header({
   }, [handleSearch]);
 
   const anchorCountries = countriesList.filter((c) =>
-    ANCHOR_SLUGS.includes(c.slug),
+    c.isAnchor,
   );
   const tier1Countries = countriesList.filter((c) => c.tier === "Tier 1");
   const tier2Countries = countriesList.filter((c) => c.tier === "Tier 2");
@@ -227,9 +227,11 @@ export function Header({
               className="group flex items-center gap-1 py-1.5 text-[13px] font-semibold text-[#103B47] hover:text-[#1D5A6C] transition whitespace-nowrap"
             >
               <span>Destinations</span>
-              <span className="text-[10px] text-slate-400 font-normal">
-                (19)
-              </span>
+              {countriesList.length > 0 && (
+                <span className="text-[10px] text-slate-400 font-normal">
+                  ({countriesList.length})
+                </span>
+              )}
               <ChevronDown className="h-3.5 w-3.5 text-slate-400 group-hover:text-[#1D5A6C] transition duration-150" />
             </button>
 
@@ -339,9 +341,6 @@ export function Header({
                     <span className="text-[10px] font-bold uppercase tracking-wider text-[#103B47]">
                       Featured Institutions
                     </span>
-                    <span className="text-[10px] font-medium text-slate-400">
-                      QS Verified
-                    </span>
                   </div>
                   <ul className="space-y-1 max-h-80 overflow-y-auto">
                     {universitiesList.map((u) => (
@@ -354,7 +353,7 @@ export function Header({
                             {u.name}
                           </p>
                           <p className="text-[11px] text-slate-400 mt-0.5">
-                            #{u.rankingGlobal} Global • {u.country}
+                            {show(u.rankingGlobal, (v) => `#${v}`)} Global • {show(u.country)}
                           </p>
                         </Link>
                       </li>
@@ -378,9 +377,11 @@ export function Header({
               className="group flex items-center gap-1 py-1.5 text-[13px] font-semibold text-[#103B47] hover:text-[#1D5A6C] transition whitespace-nowrap"
             >
               <span>Programs</span>
-              <span className="text-[10px] text-slate-400 font-normal">
-                (8)
-              </span>
+              {programsList.length > 0 && (
+                <span className="text-[10px] text-slate-400 font-normal">
+                  ({programsList.length})
+                </span>
+              )}
               <ChevronDown
                 className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-150 ${programsOpen ? "rotate-180 text-[#1D5A6C]" : ""}`}
               />
@@ -400,7 +401,7 @@ export function Header({
                             {p.name}
                           </p>
                           <p className="text-[11px] text-slate-500">
-                            {p.duration} • Top:{" "}
+                            {show(p.duration)} • Top:{" "}
                             {p.topDestinations.slice(0, 3).join(", ")}
                           </p>
                         </Link>
@@ -496,9 +497,6 @@ export function Header({
               className="group flex items-center gap-1 py-1.5 text-[13px] font-semibold text-[#103B47] hover:text-[#1D5A6C] transition whitespace-nowrap"
             >
               <span>Tools</span>
-              <span className="text-[10px] text-slate-400 font-normal">
-                (8)
-              </span>
               <ChevronDown
                 className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-150 ${toolsOpen ? "rotate-180 text-[#1D5A6C]" : ""}`}
               />
@@ -509,7 +507,7 @@ export function Header({
                 <div className="w-[480px] rounded-2xl border border-[#D9CFB8]/60 bg-white p-3 shadow-2xl ring-1 ring-slate-900/5">
                   <div className="border-b border-slate-100 bg-[#FDFCF7] p-3 rounded-xl mb-2">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-[#103B47]">
-                      Discovery & Decision Engines (8 Tools)
+                      Discovery & Decision Engines
                     </span>
                   </div>
                   <ul className="grid grid-cols-2 gap-1 p-2">
@@ -616,7 +614,7 @@ export function Header({
                             Scholarship Finder
                           </p>
                           <p className="text-[10px] text-slate-400">
-                            DAAD, Chevening, STEM
+                            Match grants to your profile
                           </p>
                         </div>
                       </Link>
@@ -652,7 +650,7 @@ export function Header({
                             Loan EMI Calculator
                           </p>
                           <p className="text-[10px] text-slate-400">
-                            SBI, HDFC & Prodigy
+                            Compare lender rates & EMI
                           </p>
                         </div>
                       </Link>
@@ -945,7 +943,9 @@ export function Header({
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-[#103B47]">
-                    Primary Destinations (19 Countries)
+                    Primary Destinations
+                    {countriesList.length > 0 &&
+                      ` (${countriesList.length} Countries)`}
                   </h3>
                   <Link
                     href="/#destinations-grid"
@@ -971,7 +971,7 @@ export function Header({
                           {c.name}
                         </p>
                         <p className="text-[10px] text-[#5C6E67] truncate">
-                          {c.avgTuitionINR}
+                          {show(c.avgTuitionINR)}
                         </p>
                       </div>
                     </Link>
@@ -1000,7 +1000,9 @@ export function Header({
               {/* 3. Study Programs & Disciplines */}
               <div className="space-y-2.5 pt-2 border-t border-[#D9CFB8]/60">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-[#103B47]">
-                  Study Streams (8 Disciplines)
+                  Study Streams
+                  {programsList.length > 0 &&
+                    ` (${programsList.length} Disciplines)`}
                 </h3>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   {programsList.map((p) => (
@@ -1128,7 +1130,7 @@ export function Header({
                         Scholarship Finder
                       </p>
                       <p className="text-[10px] text-[#5C6E67]">
-                        DAAD, Chevening, Fulbright & STEM grants
+                        Match scholarships and grants to your profile
                       </p>
                     </div>
                   </Link>
@@ -1164,7 +1166,7 @@ export function Header({
                         Education Loan & EMI Calculator
                       </p>
                       <p className="text-[10px] text-[#5C6E67]">
-                        SBI, HDFC Credila & Prodigy Finance rates
+                        Compare lender interest rates and EMIs
                       </p>
                     </div>
                   </Link>

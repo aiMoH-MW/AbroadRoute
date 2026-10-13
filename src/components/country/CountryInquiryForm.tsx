@@ -24,7 +24,7 @@ export function CountryInquiryForm({
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [targetProgram, setTargetProgram] = useState(
-    availablePrograms[0]?.slug || "ms",
+    availablePrograms[0]?.slug ?? "",
   );
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -52,10 +52,8 @@ export function CountryInquiryForm({
           fullName: fullName.trim(),
           email: email.trim(),
           phone: cleanPhone,
-          countryTarget: countrySlug || "usa",
+          countryTarget: countrySlug || undefined,
           programTarget: targetProgram,
-          budgetRangeINR: "15-25Lakhs",
-          intakeYear: "Fall 2026",
         }),
       });
 

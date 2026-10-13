@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type { TestPrepExam } from "@/types";
 import { LeadTriggerButton } from "@/components/home/HomeClientContext";
+import { show } from "@/components/tools/NotProvided";
 
 type CategoryFilter =
   | "ALL"
@@ -243,7 +244,7 @@ export function TestPrepFilter({ exams }: { exams: TestPrepExam[] }) {
             }}
             className="mt-4 min-h-[44px] rounded-xl bg-[#103B47] px-5 py-2 text-xs font-bold text-white shadow-2xs hover:bg-[#1D5A6C] transition cursor-pointer"
           >
-            Show All 9 Exams
+            Show All {exams.length} Exams
           </button>
         </div>
       ) : (
@@ -277,9 +278,9 @@ function ExamCard({ exam }: { exam: TestPrepExam }) {
           </span>
           <span
             className="text-[11px] font-medium text-slate-500 truncate"
-            title={exam.conductingBody}
+            title={exam.conductingBody ?? undefined}
           >
-            {exam.conductingBody}
+            {show(exam.conductingBody)}
           </span>
         </div>
 
@@ -295,7 +296,7 @@ function ExamCard({ exam }: { exam: TestPrepExam }) {
 
         {/* Tagline */}
         <p className="mt-3 text-xs leading-relaxed text-slate-600 line-clamp-2">
-          {exam.heroTagline}
+          {show(exam.heroTagline)}
         </p>
 
         {/* Key Metrics Box */}
@@ -308,7 +309,7 @@ function ExamCard({ exam }: { exam: TestPrepExam }) {
                   Fee (INR)
                 </p>
                 <p className="font-bold font-mono text-slate-900">
-                  {exam.feeINR}
+                  {show(exam.feeINR)}
                 </p>
               </div>
             </div>
@@ -320,7 +321,7 @@ function ExamCard({ exam }: { exam: TestPrepExam }) {
                   Duration
                 </p>
                 <p className="font-bold font-mono text-slate-900">
-                  {exam.duration}
+                  {show(exam.duration)}
                 </p>
               </div>
             </div>
@@ -334,7 +335,7 @@ function ExamCard({ exam }: { exam: TestPrepExam }) {
                   Target Score
                 </p>
                 <p className="font-bold font-mono text-emerald-700 leading-tight">
-                  {exam.targetCutoffIndianStudents}
+                  {show(exam.targetCutoffIndianStudents)}
                 </p>
               </div>
             </div>
@@ -346,9 +347,7 @@ function ExamCard({ exam }: { exam: TestPrepExam }) {
                   Validity
                 </p>
                 <p className="font-bold font-mono text-slate-900">
-                  {exam.validityYears === 99
-                    ? "Lifetime"
-                    : `${exam.validityYears} Years`}
+                  {show(exam.validityYears, (v) => (v === 99 ? "Lifetime" : `${v} Years`))}
                 </p>
               </div>
             </div>

@@ -52,7 +52,7 @@ export const metadata: Metadata = {
     template: "%s | Abroadroute",
   },
   description:
-    "Compare 19 global destinations and 8 career disciplines for Indian students. Discover tuition in INR, post-study visas, and verified university rankings.",
+    "Compare global study destinations and career disciplines for Indian students. Discover tuition in INR, post-study visas, and verified university rankings.",
   icons: {
     icon: "/brand/logo-symbol-light.png",
     shortcut: "/brand/logo-symbol-light.png",

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { extractQuestions, questionHash } from "@/lib/studyMaterials/questionExtraction";
 import { EXTRACTION_PAGES_PER_CHUNK } from "@/lib/studyMaterials/questionTypes";
+import { requireAdmin } from "@/lib/supabase/requestAuth";
 
 export const maxDuration = 60;
 
@@ -14,7 +15,10 @@ interface Params {
  * Sends the next chunk of material pages to the LLM and stores the questions it
  * returns as drafts. The admin UI calls this repeatedly until `done`.
  */
-export async function POST(_req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, { params }: Params) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
+
   const { id } = await params;
 
   const { data: run, error } = await supabaseAdmin

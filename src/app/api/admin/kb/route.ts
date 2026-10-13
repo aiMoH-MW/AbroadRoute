@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { generateEmbedding } from "@/lib/gemini/client";
 import crypto from "crypto";
+import { requireAdmin } from "@/lib/supabase/requestAuth";
 
 export interface AICounsellorKBItem {
   id: string;
@@ -18,6 +19,9 @@ export interface AICounsellorKBItem {
  * Fetch all knowledge base entries from Supabase ai_counsellor_kb using server admin client
  */
 export async function GET(req: NextRequest) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
+
   try {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("q");
@@ -73,6 +77,9 @@ export async function GET(req: NextRequest) {
  * Convert title + content to vector embedding and insert into ai_counsellor_kb via supabaseAdmin
  */
 export async function POST(req: NextRequest) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
+
   try {
     const body = await req.json();
     const { title, content, comment } = body;
@@ -153,6 +160,9 @@ export async function POST(req: NextRequest) {
  * Update an existing entry and regenerate vector embedding
  */
 export async function PUT(req: NextRequest) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
+
   try {
     const body = await req.json();
     const { id, title, content, comment } = body;
@@ -218,6 +228,9 @@ export async function PUT(req: NextRequest) {
  * Delete a knowledge base entry by ID
  */
 export async function DELETE(req: NextRequest) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
+
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");

@@ -12,10 +12,12 @@ import {
   GraduationCap
 } from "lucide-react";
 import { fetchTestPrepExams } from "@/lib/supabase/dataFetchers";
+import { show } from "@/components/tools/NotProvided";
 
 export async function TestPrepShowcase() {
   const exams = await fetchTestPrepExams();
-  const englishExams = exams.filter((e) => e.category === "English Proficiency").slice(0, 3);
+  const allEnglishExams = exams.filter((e) => e.category === "English Proficiency");
+  const englishExams = allEnglishExams.slice(0, 3);
   const graduateExams = exams.filter((e) => e.category === "Graduate Admissions");
   const healthcareExams = exams.filter((e) => e.category === "Medical & Healthcare Licensing");
 
@@ -33,14 +35,16 @@ export async function TestPrepShowcase() {
               Test Prep & Global Licensing Hub
             </h2>
             <p className="mt-2 text-sm text-slate-600 max-w-2xl leading-relaxed">
-              Official fees converted to INR, minimum score cutoffs for 19 countries, and free 8-week structured study roadmaps for Indian applicants.
+              Official fees converted to INR, minimum score cutoffs, and free structured study roadmaps for Indian applicants.
             </p>
           </div>
           <Link
             href="/test-prep"
             className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-[#103B47] px-5 py-2.5 text-xs font-bold text-white shadow-2xs hover:bg-[#1D5A6C] transition shrink-0 cursor-pointer"
           >
-            <span>Explore All 9 Exams Hub</span>
+            <span>
+              Explore All {exams.length > 0 ? `${exams.length} ` : ""}Exams Hub
+            </span>
             <ArrowRight className="h-4 w-4 text-[#D89A3E]" />
           </Link>
         </div>
@@ -55,12 +59,14 @@ export async function TestPrepShowcase() {
                   <Globe2 className="h-5 w-5" />
                 </div>
                 <span className="rounded-full bg-sky-50 border border-sky-200 px-2.5 py-0.5 text-[10px] font-bold text-sky-800 font-mono">
-                  4 Exams Available
+                  {allEnglishExams.length} Exams Available
                 </span>
               </div>
 
               <h3 className="mt-4 text-lg font-serif font-bold text-[#103B47]">English Language Proficiency</h3>
-              <p className="mt-1 text-xs text-slate-500">IELTS Academic, TOEFL iBT, PTE Academic & Duolingo DET.</p>
+              <p className="mt-1 text-xs text-slate-500">
+                {allEnglishExams.map((e) => e.name).join(", ") || "Not provided"}
+              </p>
 
               <div className="mt-5 space-y-2.5">
                 {englishExams.map((exam) => (
@@ -71,7 +77,7 @@ export async function TestPrepShowcase() {
                   >
                     <div>
                       <p className="text-xs font-bold text-slate-900 group-hover:text-[#103B47] transition">{exam.name}</p>
-                      <p className="text-[10px] text-slate-400 font-mono">Target: {exam.targetCutoffIndianStudents} • {exam.feeINR}</p>
+                      <p className="text-[10px] text-slate-400 font-mono">Target: {show(exam.targetCutoffIndianStudents)} • {show(exam.feeINR)}</p>
                     </div>
                     <ArrowRight className="h-3.5 w-3.5 text-slate-400 group-hover:translate-x-1 group-hover:text-[#D89A3E] transition-transform" />
                   </Link>
@@ -111,7 +117,7 @@ export async function TestPrepShowcase() {
                   >
                     <div>
                       <p className="text-xs font-bold text-slate-900 group-hover:text-[#103B47] transition">{exam.name}</p>
-                      <p className="text-[10px] text-slate-400 font-mono">Target: {exam.targetCutoffIndianStudents} • {exam.feeINR}</p>
+                      <p className="text-[10px] text-slate-400 font-mono">Target: {show(exam.targetCutoffIndianStudents)} • {show(exam.feeINR)}</p>
                     </div>
                     <ArrowRight className="h-3.5 w-3.5 text-slate-400 group-hover:translate-x-1 group-hover:text-[#D89A3E] transition-transform" />
                   </Link>
@@ -151,7 +157,7 @@ export async function TestPrepShowcase() {
                   >
                     <div>
                       <p className="text-xs font-bold text-slate-900 group-hover:text-[#103B47] transition">{exam.name}</p>
-                      <p className="text-[10px] text-slate-400 font-mono">Target: {exam.targetCutoffIndianStudents} • {exam.feeINR}</p>
+                      <p className="text-[10px] text-slate-400 font-mono">Target: {show(exam.targetCutoffIndianStudents)} • {show(exam.feeINR)}</p>
                     </div>
                     <ArrowRight className="h-3.5 w-3.5 text-slate-400 group-hover:translate-x-1 group-hover:text-[#D89A3E] transition-transform" />
                   </Link>

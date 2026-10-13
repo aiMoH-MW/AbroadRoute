@@ -28,8 +28,8 @@ export async function GET(request: Request) {
       universities = universities.filter(
         (u) =>
           u.name.toLowerCase().includes(query) ||
-          u.city.toLowerCase().includes(query) ||
-          u.country.toLowerCase().includes(query),
+          u.city?.toLowerCase().includes(query) ||
+          u.country?.toLowerCase().includes(query),
       );
     }
 
@@ -68,6 +68,39 @@ const NUMERIC_FIELDS = new Set([
   "acceptance_rate",
   "post_study_work_months",
 ]);
+
+// Eligibility requirements: a number sets it, null clears it ("not stated")
+const NULLABLE_NUMERIC_FIELDS = {
+  min_percentage: [0, 100],
+  ielts_min_band: [0, 9],
+  toefl_min_score: [0, 120],
+  pte_min_score: [10, 90],
+  duolingo_min_score: [10, 160],
+  max_backlogs: [0, 99],
+} as const;
+const BOOLEAN_FIELDS = [
+  "gre_gmat_required",
+  "nmc_compliant",
+  "aps_required",
+  "four_year_degree_required",
+] as const;
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+// Accepts a cities.id ("atlanta-ga") or a city name ("Atlanta, GA"),
+// optionally limited to one country. Returns the cities.id or null.
+async function resolveCityId(
+  input: string,
+  countryId?: string,
+): Promise<string | null> {
+  let query = supabaseAdmin.from("cities").select("id, name, country_id");
+  if (countryId) query = query.eq("country_id", countryId);
+  const { data } = await query;
+  const value = input.trim().toLowerCase();
+  const match = (data ?? []).find(
+    (c: any) => c.id.toLowerCase() === value || c.name?.toLowerCase() === value,
+  );
+  return match?.id ?? null;
+}
 
 // Accepts a country id ("uk"), slug or display name ("United Kingdom").
 async function resolveCountryId(input: string): Promise<string | null> {
@@ -121,6 +154,52 @@ export async function POST(request: Request) {
       }
     }
 
+    for (const [field, [min, max]] of Object.entries(NULLABLE_NUMERIC_FIELDS)) {
+      const value = body[field];
+      if (value === undefined) continue;
+      if (value === null || value === "") {
+        updates[field] = null;
+        continue;
+      }
+      const num = Number(value);
+      if (Number.isNaN(num) || num < min || num > max) {
+        return NextResponse.json(
+          { success: false, error: `${field} must be a number from ${min} to ${max}` },
+          { status: 400 },
+        );
+      }
+      updates[field] = num;
+    }
+
+    for (const field of BOOLEAN_FIELDS) {
+      if (typeof body[field] === "boolean") updates[field] = body[field];
+    }
+
+    if (body.requirements_source_url !== undefined) {
+      const value = String(body.requirements_source_url ?? "").trim();
+      if (value && !/^https?:\/\//i.test(value)) {
+        return NextResponse.json(
+          { success: false, error: "requirements_source_url must start with http(s)://" },
+          { status: 400 },
+        );
+      }
+      updates.requirements_source_url = value || null;
+    }
+
+    if (body.requirements_verified_on !== undefined) {
+      const value = body.requirements_verified_on;
+      if (value === null || value === "") {
+        updates.requirements_verified_on = null;
+      } else if (typeof value === "string" && DATE_PATTERN.test(value)) {
+        updates.requirements_verified_on = value;
+      } else {
+        return NextResponse.json(
+          { success: false, error: "requirements_verified_on must be YYYY-MM-DD" },
+          { status: 400 },
+        );
+      }
+    }
+
     if (body.country) {
       const countryId = await resolveCountryId(String(body.country));
       if (!countryId) {
@@ -130,6 +209,18 @@ export async function POST(request: Request) {
         );
       }
       updates.country_id = countryId;
+    }
+
+    // universities.city stores a cities.id; accept an id or an exact city name
+    if (updates.city) {
+      const cityId = await resolveCityId(updates.city, updates.country_id);
+      if (!cityId) {
+        return NextResponse.json(
+          { success: false, error: `Unknown city: ${updates.city}. Add it under Cities first.` },
+          { status: 400 },
+        );
+      }
+      updates.city = cityId;
     }
 
     // Admins target a university by slug; partners can only edit the one they own

@@ -3,7 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
-import { getArticleBySlug, FALLBACK_ARTICLES } from "@/lib/sanity/fetchers";
+import { getArticleBySlug, getAllArticles } from "@/lib/sanity/fetchers";
+import { show } from "@/components/tools/NotProvided";
 import { fitMetaDescription } from "@/lib/seo/metaUtils";
 import {
   Clock,
@@ -18,7 +19,8 @@ import {
 import { PortableText } from "@portabletext/react";
 
 export async function generateStaticParams() {
-  return FALLBACK_ARTICLES.map((article) => ({
+  const articles = await getAllArticles();
+  return articles.map((article) => ({
     slug: article.slug,
   }));
 }
@@ -105,12 +107,12 @@ export default async function ArticlePage({ params }: PageProps) {
           <div className="mt-6 flex flex-wrap items-center gap-4 text-xs text-slate-500">
             <div className="flex items-center gap-1.5">
               <Calendar className="h-4 w-4 text-slate-400" />
-              <span>{article.date}</span>
+              <span>{show(article.date)}</span>
             </div>
             <span>•</span>
             <div className="flex items-center gap-1.5">
               <Clock className="h-4 w-4 text-slate-400" />
-              <span>{article.readTime}</span>
+              <span>{show(article.readTime)}</span>
             </div>
             <span>•</span>
             <div className="flex items-center gap-1.5 text-emerald-700 font-semibold">
@@ -145,20 +147,7 @@ export default async function ArticlePage({ params }: PageProps) {
               <PortableText value={article.body as any} />
             </div>
           ) : (
-            <div className="space-y-6 text-sm leading-relaxed text-slate-700">
-              <p>
-                When planning an international educational journey,
-                understanding the exact eligibility criteria, living expense
-                structures, and immigration regulations is paramount for Indian
-                students and families.
-              </p>
-              <p>
-                Tuition costs, currency fluctuations, and embassy processing
-                timelines require advance preparation. We advise students to
-                start the verification process at least 6 to 9 months prior to
-                university application deadlines.
-              </p>
-            </div>
+            <p className="text-sm text-slate-500">{show(null)}</p>
           )}
 
           {/* Author Card if present */}
@@ -175,7 +164,7 @@ export default async function ArticlePage({ params }: PageProps) {
                   {article.author.name}
                 </h4>
                 <p className="text-xs text-slate-500">
-                  {article.author.role || "Admissions Strategist"}
+                  {show(article.author.role)}
                 </p>
                 {article.author.bio && (
                   <p className="mt-1 text-xs text-slate-600 leading-relaxed">

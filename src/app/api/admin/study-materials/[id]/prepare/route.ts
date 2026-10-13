@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { STUDY_MATERIALS_BUCKET, materialPaths, splitPdf, splitTextIntoPages } from "@/lib/studyMaterials/processing";
+import { requireAdmin } from "@/lib/supabase/requestAuth";
 
 export const maxDuration = 60;
 
@@ -14,7 +15,10 @@ interface Params {
  * that /process OCRs one at a time; TXT files need no OCR, so their text is
  * split into pages and stored directly (the material is completed here).
  */
-export async function POST(_req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, { params }: Params) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
+
   const { id } = await params;
 
   const { data: material, error } = await supabaseAdmin

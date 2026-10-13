@@ -5,27 +5,10 @@ import {
   fetchLiveUniversities,
   fetchTestPrepExams,
 } from "@/lib/supabase/dataFetchers";
+import { fetchCountryProgramPages } from "@/lib/siteContent";
+import { fetchProgramsByCountry } from "@/lib/siteStats";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://abroadroute.com";
-
-const PHASE_1_L3_COMBINATIONS: {
-  slug: string;
-  program: string;
-  priority: number;
-}[] = [
-  { slug: "uk", program: "masters", priority: 0.9 },
-  { slug: "uk", program: "mba", priority: 0.85 },
-  { slug: "uk", program: "executive-mba", priority: 0.8 },
-  { slug: "uk", program: "nursing", priority: 0.85 },
-  { slug: "usa", program: "masters", priority: 0.9 },
-  { slug: "usa", program: "mba", priority: 0.85 },
-  { slug: "usa", program: "executive-mba", priority: 0.8 },
-  { slug: "germany", program: "masters", priority: 0.9 },
-  { slug: "germany", program: "ausbildung", priority: 0.85 },
-  { slug: "canada", program: "masters", priority: 0.85 },
-  { slug: "russia", program: "mbbs", priority: 0.9 },
-  { slug: "georgia", program: "mbbs", priority: 0.9 },
-];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
@@ -175,18 +158,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.9,
   }));
 
-  // Country + Program Conversion Layer Pages (L3 - Canonical 76 Combinations)
+  // Country + Program Conversion Layer Pages (L3)
   const l3Map = new Map<string, { url: string; priority: number }>();
 
-  // 1. Phase 1 Launch Combinations with designated SEO priority
-  for (const item of PHASE_1_L3_COMBINATIONS) {
-    const url = `${BASE_URL}/study-in-${item.slug}/${item.program}`;
-    l3Map.set(url, { url, priority: item.priority });
+  // 1. Pages set up in admin (country_programs) with their SEO priority
+  const countrySlugById = new Map(countries.map((c) => [c.id, c.slug]));
+  for (const page of await fetchCountryProgramPages()) {
+    const slug = countrySlugById.get(page.countryId);
+    if (!slug) continue;
+    const url = `${BASE_URL}/study-in-${slug}/${page.urlAlias ?? page.programId}`;
+    l3Map.set(url, { url, priority: page.seoPriority ?? 0.8 });
   }
 
   // 2. All active country destination popular programs
   for (const c of countries) {
-    for (const p of c.popularPrograms || []) {
+    for (const p of (await fetchProgramsByCountry()).get(c.id) ?? []) {
       const progSlug =
         p === "ms" ? "masters" : p === "emba" ? "executive-mba" : p;
       const url = `${BASE_URL}/study-in-${c.slug}/${progSlug}`;

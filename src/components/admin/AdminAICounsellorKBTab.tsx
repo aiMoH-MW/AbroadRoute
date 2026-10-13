@@ -18,6 +18,7 @@ import {
   Clock,
   HelpCircle,
 } from "lucide-react";
+import { adminFetch } from "@/lib/adminFetch";
 
 export interface KBEntry {
   id: number | string;
@@ -52,7 +53,7 @@ export function AdminAICounsellorKBTab() {
   const fetchEntries = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/kb");
+      const res = await adminFetch("/api/admin/kb");
       const data = await res.json();
       if (data.success) {
         setEntries(data.items || []);
@@ -106,7 +107,7 @@ export function AdminAICounsellorKBTab() {
         comment: comment.trim() || null,
       };
 
-      const res = await fetch(endpoint, {
+      const res = await adminFetch(endpoint, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -153,7 +154,7 @@ export function AdminAICounsellorKBTab() {
     }
 
     try {
-      const res = await fetch(`/api/admin/kb?id=${id}`, {
+      const res = await adminFetch(`/api/admin/kb?id=${id}`, {
         method: "DELETE",
       });
       const data = await res.json();
