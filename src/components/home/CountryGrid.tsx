@@ -173,13 +173,16 @@ export async function CountryGrid() {
               Anchor Destinations & {withCount(stats.countries, "Global Countries")}
             </h2>
             <p className="mt-2 text-sm text-slate-600 max-w-2xl">
-              Explore the Anchor Six premier study destinations alongside
-              high-ROI European and accredited medical countries.
+              Explore our anchor study destinations alongside high-ROI
+              European and accredited medical countries.
             </p>
           </div>
 
           {/* Tier / Anchor Filter Tabs Client Component */}
-          <CountryGridTabs allCount={stats.countries} />
+          <CountryGridTabs
+            allCount={stats.countries}
+            anchorCount={stats.anchorCountries}
+          />
         </div>
 
         {/* Countries Grid */}

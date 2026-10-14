@@ -177,8 +177,22 @@ function LoginForm() {
         // ignore
       }
 
-      // 4. Guaranteed routing per selected role and redirect param
-      if (redirectParam && redirectParam.startsWith("/")) {
+      // 4. Guaranteed routing per selected role and redirect param. A
+      // redirect into another role's area (e.g. a buyer bounced from
+      // /admin) is ignored so the user lands in their own workspace.
+      const roleAreas: [string, UserRole][] = [
+        ["/admin", "admin"],
+        ["/portal/buyer", "buyer"],
+        ["/portal/university", "university"],
+      ];
+      const redirectAllowed =
+        redirectParam.startsWith("/") &&
+        !redirectParam.startsWith("//") &&
+        roleAreas.every(
+          ([prefix, role]) =>
+            !redirectParam.startsWith(prefix) || role === userRole,
+        );
+      if (redirectAllowed) {
         window.location.href = redirectParam;
       } else if (userRole === "university") {
         window.location.href = "/portal/university";

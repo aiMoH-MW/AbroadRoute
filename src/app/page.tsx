@@ -25,12 +25,9 @@ import {
   fetchPreviewUniversities,
   fetchTopUniversityCountry,
 } from "@/lib/siteStats";
-import { fetchTestimonials } from "@/lib/siteContent";
+import { fetchTestimonials, fetchSiteSettings } from "@/lib/siteContent";
 import { show } from "@/components/tools/NotProvided";
-import {
-  LeadTriggerButton,
-  AICounsellorTriggerButton,
-} from "@/components/home/HomeClientContext";
+import { AICounsellorTriggerButton } from "@/components/home/HomeClientContext";
 
 // Destinations and partner universities are read from Supabase on every
 // request. Without this the homepage is prerendered at build time and the
@@ -44,11 +41,13 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
-  const [latestArticles, previewCountry, testimonials] = await Promise.all([
-    getLatestArticles(),
-    fetchTopUniversityCountry(),
-    fetchTestimonials(),
-  ]);
+  const [latestArticles, previewCountry, testimonials, settings] =
+    await Promise.all([
+      getLatestArticles(),
+      fetchTopUniversityCountry(),
+      fetchTestimonials(),
+      fetchSiteSettings(),
+    ]);
   const testimonial = testimonials[0] ?? null;
   const previewUnis = previewCountry
     ? await fetchPreviewUniversities(previewCountry.slug)
@@ -297,9 +296,12 @@ export default async function Home() {
                     Tier 1 countries.
                   </p>
                 </div>
-                <LeadTriggerButton className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-[#D89A3E] group-hover:translate-x-0.5 transition text-left">
+                <Link
+                  href="/roi-calculator"
+                  className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-[#D89A3E] group-hover:translate-x-0.5 transition text-left"
+                >
                   Model 5-Year ROI →
-                </LeadTriggerButton>
+                </Link>
               </div>
 
               {/* Tool 4 */}
@@ -317,9 +319,12 @@ export default async function Home() {
                     university brackets.
                   </p>
                 </div>
-                <LeadTriggerButton className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-[#D89A3E] group-hover:translate-x-0.5 transition text-left">
+                <Link
+                  href="/eligibility-checker"
+                  className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-[#D89A3E] group-hover:translate-x-0.5 transition text-left"
+                >
                   Check Admission Readiness →
-                </LeadTriggerButton>
+                </Link>
               </div>
 
               {/* Tool 5 */}
@@ -337,9 +342,12 @@ export default async function Home() {
                     Indian banking partners.
                   </p>
                 </div>
-                <LeadTriggerButton className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-[#D89A3E] group-hover:translate-x-0.5 transition text-left">
+                <Link
+                  href="/loan-calculator"
+                  className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-[#D89A3E] group-hover:translate-x-0.5 transition text-left"
+                >
                   Explore Education Loans →
-                </LeadTriggerButton>
+                </Link>
               </div>
 
               {/* Tool 6 - Deadline Tracker per W10 T-01 */}
@@ -352,14 +360,17 @@ export default async function Home() {
                     Deadline Tracker
                   </h3>
                   <p className="mt-2 text-xs text-slate-500 leading-relaxed">
-                    Track critical 2027 intake cutoffs, scholarship deadlines,
+                    Track upcoming intake cutoffs, scholarship deadlines,
                     and visa processing windows personalized to your target
                     destinations.
                   </p>
                 </div>
-                <LeadTriggerButton className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-[#D89A3E] group-hover:translate-x-0.5 transition text-left">
+                <Link
+                  href="/deadline-tracker"
+                  className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-[#D89A3E] group-hover:translate-x-0.5 transition text-left"
+                >
                   Track Application Deadlines →
-                </LeadTriggerButton>
+                </Link>
               </div>
             </div>
           </div>
@@ -378,7 +389,8 @@ export default async function Home() {
                 </h2>
                 <p className="mt-2 text-sm text-slate-600">
                   Authoritative, constantly updated research compiled by
-                  admissions strategists at Dnyanal Educon.
+                  admissions strategists
+                  {settings.company_name ? ` at ${settings.company_name}` : ""}.
                 </p>
               </div>
               <Link

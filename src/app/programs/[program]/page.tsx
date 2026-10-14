@@ -119,21 +119,13 @@ export default async function ProgramHubPage({ params }: Props) {
             </p>
 
             {/* Quick Specs Grid */}
-            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 max-w-3xl">
+            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 max-w-3xl">
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-md">
                 <span className="block text-[10px] uppercase font-bold text-slate-300 font-mono">
                   Typical Duration
                 </span>
                 <span className="mt-1 block text-sm sm:text-base font-bold text-white">
                   {show(prog.duration)}
-                </span>
-              </div>
-              <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-md">
-                <span className="block text-[10px] uppercase font-bold text-slate-300 font-mono">
-                  Career ROI Score
-                </span>
-                <span className="mt-1 block text-sm sm:text-base font-mono font-bold text-[#D89A3E]">
-                  {show(prog.roiScore, (v) => `${v}/100`)}
                 </span>
               </div>
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-md">

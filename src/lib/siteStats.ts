@@ -30,6 +30,7 @@ export const fetchSiteStats = cache(async (): Promise<SiteStats> => {
 
   return {
     countries: countries.length,
+    anchorCountries: countries.filter((c) => c.isAnchor).length,
     programs: programs.length,
     universities: universities.length,
     exams: exams.length,

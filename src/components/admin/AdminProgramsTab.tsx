@@ -4,7 +4,6 @@ import { useState, useMemo } from "react";
 import {
   BookOpen,
   Search,
-  TrendingUp,
   Globe,
   Sparkles,
 } from "lucide-react";
@@ -133,10 +132,6 @@ export function AdminProgramsTab({ programsList }: AdminProgramsTabProps) {
                     {p.name}
                   </h3>
                 </div>
-                <span className="rounded-xl bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-xs font-black text-emerald-800 flex items-center gap-1 shrink-0">
-                  <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-                  ROI {show(p.roiScore, (v) => `${v}/100`)}
-                </span>
               </div>
 
               <p className="mt-3 text-xs text-slate-600 line-clamp-2">

@@ -7,6 +7,7 @@ import {
 } from "@/lib/siteStats";
 import { fetchLiveDeadlines } from "@/lib/supabase/dataFetchers";
 import { formatDateOnly } from "@/lib/deadlines";
+import { NotProvided } from "@/components/tools/NotProvided";
 import {
   LeadTriggerButton,
   AICounsellorTriggerButton,
@@ -76,7 +77,7 @@ export async function Hero() {
             <div className="mt-10 grid grid-cols-3 gap-4 border-t border-white/10 pt-6 max-w-lg">
               <div>
                 <p className="font-mono text-2xl font-bold text-white">
-                  {stats.countries || "—"}
+                  {stats.countries || <NotProvided />}
                 </p>
                 <p className="text-[11px] font-medium text-slate-300">
                   Global Destinations
@@ -84,7 +85,7 @@ export async function Hero() {
               </div>
               <div>
                 <p className="font-mono text-2xl font-bold text-[#D89A3E]">
-                  {stats.universities || "—"}
+                  {stats.universities || <NotProvided />}
                 </p>
                 <p className="text-[11px] font-medium text-slate-300">
                   Universities
@@ -92,10 +93,10 @@ export async function Hero() {
               </div>
               <div>
                 <p className="font-mono text-2xl font-bold text-[#A8CDBD]">
-                  {tuitionRange ?? "—"}
+                  {tuitionRange ?? <NotProvided />}
                 </p>
                 <p className="text-[11px] font-medium text-slate-300">
-                  {tuitionRange ? "Tuition / yr" : "Tuition not provided"}
+                  Tuition / yr
                 </p>
               </div>
             </div>

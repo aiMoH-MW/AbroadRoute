@@ -10,7 +10,7 @@ export function CountryGridTabs({
   allCount?: number;
   anchorCount?: number;
 }) {
-  const [activeTab, setActiveTab] = useState<string>("Anchor Six");
+  const [activeTab, setActiveTab] = useState<string>("Anchor");
 
   const handleTab = (tab: string) => {
     setActiveTab(tab);
@@ -20,7 +20,7 @@ export function CountryGridTabs({
       const isAnchor = item.getAttribute("data-is-anchor") === "true";
       if (tab === "All") {
         item.style.display = "";
-      } else if (tab === "Anchor Six") {
+      } else if (tab === "Anchor") {
         item.style.display = isAnchor ? "" : "none";
       } else {
         item.style.display = tier === tab ? "" : "none";
@@ -30,7 +30,7 @@ export function CountryGridTabs({
 
   return (
     <div className="flex flex-wrap gap-1.5 rounded-full bg-[#D9CFB8]/40 p-1.5 border border-[#D9CFB8]/60">
-      {(["Anchor Six", "All", "Tier 1", "Tier 2", "Tier 3"] as const).map(
+      {(["Anchor", "All", "Tier 1", "Tier 2", "Tier 3"] as const).map(
         (tab) => (
           <button
             key={tab}
@@ -41,8 +41,8 @@ export function CountryGridTabs({
                 : "text-[#103B47] hover:text-[#D89A3E]"
             }`}
           >
-            {tab === "Anchor Six" && anchorCount
-              ? `Anchor Six (${anchorCount})`
+            {tab === "Anchor" && anchorCount
+              ? `Anchor (${anchorCount})`
               : tab === "All" && allCount
                 ? `All (${allCount})`
                 : tab}

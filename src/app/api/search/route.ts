@@ -413,7 +413,6 @@ export async function GET(request: Request) {
               .join(" • "),
             category: "programs",
             categoryLabel: "Program / Discipline",
-            badge: p.roiScore !== null ? `ROI ${p.roiScore}/100` : undefined,
             url: `/programs/${p.slug}`,
             iconType: "program",
             score,

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Metadata } from "next";
 import {
   GraduationCap,
-  Award,
   ArrowRight,
   Compass,
   ChevronRight,
@@ -98,10 +97,6 @@ export default async function ProgramsIndexPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#FDFCF7] text-[#1D5A6C] border border-[#D9CFB8]/60">
                       <GraduationCap className="h-6 w-6 text-[#D89A3E]" />
-                    </div>
-                    <div className="flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-mono font-bold text-emerald-700">
-                      <Award className="h-3 w-3" />
-                      ROI: {show(program.roiScore, (v) => `${v}/100`)}
                     </div>
                   </div>
 

@@ -4,7 +4,6 @@ import { Metadata } from "next";
 import {
   ChevronRight,
   CheckCircle2,
-  Award,
   Calendar,
   DollarSign,
   Briefcase,
@@ -242,7 +241,7 @@ export default async function CountryProgramPage({ params }: Props) {
             </p>
 
             {/* Program Quick Specs */}
-            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 max-w-4xl">
+            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 max-w-4xl">
               <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-md">
                 <span className="text-[10px] uppercase font-bold text-slate-300 font-mono">
                   Typical Duration
@@ -265,14 +264,6 @@ export default async function CountryProgramPage({ params }: Props) {
                 </span>
                 <span className="mt-1 block text-sm font-bold text-[#D89A3E] font-mono">
                   {show(country.postStudyWorkVisa)}
-                </span>
-              </div>
-              <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-md">
-                <span className="text-[10px] uppercase font-bold text-slate-300 font-mono">
-                  ROI Score
-                </span>
-                <span className="mt-1 block text-sm font-bold text-emerald-400 font-mono">
-                  {show(prog.roiScore, (v) => `${v}/100`)}
                 </span>
               </div>
             </div>

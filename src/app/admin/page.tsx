@@ -295,6 +295,22 @@ function AdminPortalContent() {
           </p>
 
           <div className="mt-6 flex flex-col gap-3">
+            <Link
+              href={
+                user.role === "buyer"
+                  ? "/portal/buyer"
+                  : user.role === "university"
+                    ? "/portal/university"
+                    : "/dashboard/student"
+              }
+              className="flex items-center justify-center gap-2 rounded-xl bg-amber-500 py-2.5 text-xs font-bold text-slate-950 hover:bg-amber-400"
+            >
+              {user.role === "buyer"
+                ? "Go to Buyer Portal"
+                : user.role === "university"
+                  ? "Go to University Portal"
+                  : "Go to My Dashboard"}
+            </Link>
 
             <button
               onClick={() => {

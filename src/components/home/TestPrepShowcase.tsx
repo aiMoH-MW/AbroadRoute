@@ -29,7 +29,7 @@ export async function TestPrepShowcase() {
           <div>
             <div className="inline-flex items-center gap-1.5 rounded-full bg-[#D89A3E]/15 border border-[#D89A3E]/30 px-3 py-1 text-xs font-bold text-[#103B47]">
               <Sparkles className="h-3.5 w-3.5 text-[#D89A3E]" />
-              Phase 1 Standardized Exam Intelligence
+              Standardized Exam Intelligence
             </div>
             <h2 className="mt-2.5 font-serif text-3xl font-black tracking-tight text-[#103B47] sm:text-4xl">
               Test Prep & Global Licensing Hub

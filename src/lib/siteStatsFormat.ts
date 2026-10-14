@@ -4,6 +4,7 @@ import { formatCurrency } from "@/lib/utils";
 // from the database so copy never states a stale number.
 export interface SiteStats {
   countries: number;
+  anchorCountries: number;
   programs: number;
   universities: number;
   exams: number;
@@ -15,6 +16,7 @@ export interface SiteStats {
 
 export const EMPTY_SITE_STATS: SiteStats = {
   countries: 0,
+  anchorCountries: 0,
   programs: 0,
   universities: 0,
   exams: 0,

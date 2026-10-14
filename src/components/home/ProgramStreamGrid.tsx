@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { fetchLivePrograms } from "@/lib/supabase/dataFetchers";
 import { Program } from "@/types";
-import { GraduationCap, Award, Compass, ArrowRight } from "lucide-react";
+import { GraduationCap, Compass, ArrowRight } from "lucide-react";
 import { LeadTriggerButton } from "@/components/home/HomeClientContext";
 import { NotProvided, show } from "@/components/tools/NotProvided";
 
@@ -51,10 +51,6 @@ export async function ProgramStreamGrid({
                   >
                     <GraduationCap className="h-6 w-6 text-[#D89A3E]" />
                   </Link>
-                  <div className="flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
-                    <Award className="h-3 w-3" />
-                    ROI: {show(program.roiScore, (v) => `${v}/100`)}
-                  </div>
                 </div>
 
                 <Link

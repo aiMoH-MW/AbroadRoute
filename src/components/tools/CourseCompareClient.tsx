@@ -9,7 +9,6 @@ import {
   Plus,
   Trash2,
   DollarSign,
-  Award,
   BookOpen,
   ShieldCheck,
   ArrowRight,
@@ -599,31 +598,7 @@ export function CourseCompareClient() {
                     ))}
                   </tr>
 
-                  {/* Row 8: ROI Score */}
-                  <tr>
-                    <td className="bg-[#FDFCF7]/60 p-4 font-bold text-[#103B47]">
-                      <div className="flex items-center gap-1.5">
-                        <Award className="h-4 w-4 text-[#D89A3E]" />
-                        <span>ROI Score</span>
-                      </div>
-                    </td>
-                    {activeCourses.map((c) => (
-                      <td
-                        key={c.id}
-                        className="p-4 font-extrabold text-[#103B47]"
-                      >
-                        {c.roiScore !== null ? (
-                          <span className="rounded-lg bg-[#D89A3E]/15 border border-[#D89A3E]/30 px-2.5 py-1 text-[#103B47] font-mono font-black">
-                            {c.roiScore} / 100
-                          </span>
-                        ) : (
-                          <NotProvided />
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-
-                  {/* Row 9: Key Fields of Study */}
+                  {/* Row 8: Key Fields of Study */}
                   <tr>
                     <td className="bg-[#FDFCF7]/60 p-4 font-bold text-[#103B47]">
                       <span>Key Fields of Study</span>
@@ -648,7 +623,7 @@ export function CourseCompareClient() {
                     ))}
                   </tr>
 
-                  {/* Row 10: Action CTAs */}
+                  {/* Row 9: Action CTAs */}
                   <tr className="bg-[#FDFCF7]/40">
                     <td className="bg-[#FDFCF7]/60 p-4 font-bold text-[#103B47]">
                       <span>Course Action</span>
