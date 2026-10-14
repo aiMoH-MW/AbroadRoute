@@ -110,7 +110,7 @@ export function UniversityActions({
           onClick={() => openLeadModal(countrySlug)}
           className="flex min-h-[44px] items-center gap-2 rounded-xl bg-[#D89A3E] px-5 py-2 text-xs font-bold text-slate-950 shadow-sm transition hover:bg-[#c4872f] active:scale-98 cursor-pointer"
         >
-          <span>Apply via Vista</span>
+          <span>Apply via AbroadRoute</span>
           <ArrowRight className="h-4 w-4" />
         </button>
       </div>

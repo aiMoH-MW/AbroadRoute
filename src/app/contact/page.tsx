@@ -6,9 +6,9 @@ import { fetchSiteSettings } from '@/lib/siteContent';
 import { show } from '@/components/tools/NotProvided';
 
 export const metadata: Metadata = {
-  title: "Contact Admissions Desk | Abroadroute",
+  title: "Contact Admissions Desk | AbroadRoute",
   description:
-    "Contact Abroadroute admissions desk. Connect with international education strategists for university shortlists, intake guidance, and visa support.",
+    "Contact AbroadRoute admissions desk. Connect with international education strategists for university shortlists, intake guidance, and visa support.",
 };
 
 export default async function ContactPage() {

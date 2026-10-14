@@ -661,7 +661,7 @@ export default function UniversityClaimPage() {
                     I declare and confirm that I am an authorized representative
                     of <strong>{activeUniName}</strong> empowered to manage
                     course listings, student admissions inquiries, and
-                    partnership terms on Abroadroute.
+                    partnership terms on AbroadRoute.
                   </span>
                 </label>
               </div>
@@ -774,7 +774,7 @@ export default function UniversityClaimPage() {
                 <Clock className="h-4 w-4 text-indigo-600 shrink-0 mt-0.5" />
                 <p className="text-[11px] text-slate-500 leading-relaxed">
                   Upon OTP verification, your claim is submitted to the{" "}
-                  <strong>Vista Institutional Partnerships Team</strong> with a
+                  <strong>AbroadRoute Institutional Partnerships Team</strong> with a
                   guaranteed <strong>3-Business-Day Review SLA</strong>.
                 </p>
               </div>

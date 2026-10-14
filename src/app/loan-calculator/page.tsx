@@ -4,7 +4,7 @@ import { Footer } from "@/components/layout/Footer";
 import { LoanCalculatorClient } from "@/components/tools/LoanCalculatorClient";
 
 export const metadata: Metadata = {
-  title: "Study Abroad Education Loan & EMI Calculator | Abroadroute",
+  title: "Study Abroad Education Loan & EMI Calculator | AbroadRoute",
   description:
     "Calculate your study abroad education loan EMI in INR, including interest during the course and grace period, and compare education loan lenders.",
   alternates: {

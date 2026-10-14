@@ -35,7 +35,7 @@ import { AICounsellorTriggerButton } from "@/components/home/HomeClientContext";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Abroadroute | Authoritative International Education Discovery Portal",
+  title: "AbroadRoute | Authoritative International Education Discovery Portal",
   description:
     "Compare global study destinations and career disciplines for Indian students. Discover tuition in INR, post-study visas, and verified university rankings.",
 };
@@ -449,7 +449,7 @@ export default async function Home() {
         <section className="cv-auto bg-slate-50 py-16 text-center border-t border-slate-200">
           <div className="mx-auto max-w-4xl px-4">
             <h2 className="font-serif text-2xl font-black text-[#103B47] sm:text-3xl">
-              Why Indian Students & Families Choose Abroadroute
+              Why Indian Students & Families Choose AbroadRoute
             </h2>
             <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-3 text-left">
               <div className="rounded-2xl bg-white p-5 shadow-xs border border-slate-200">

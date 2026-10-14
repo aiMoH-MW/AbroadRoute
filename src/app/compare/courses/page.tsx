@@ -7,7 +7,7 @@ import { CourseCompareClient } from "@/components/tools/CourseCompareClient";
 
 export const metadata: Metadata = {
   title:
-    "Compare Courses & Degrees Side-by-Side (Syllabus, Fees, IELTS & ROI) | Abroadroute",
+    "Compare Courses & Degrees Side-by-Side (Syllabus, Fees, IELTS & ROI) | AbroadRoute",
   description: fitMetaDescription(
     "Compare international degree programs and courses side-by-side. Evaluate syllabus modules, tuition fees in INR, IELTS cutoff scores, post-study work permit durations, and ROI ratings.",
   ),

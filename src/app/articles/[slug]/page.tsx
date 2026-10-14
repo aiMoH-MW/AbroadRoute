@@ -35,13 +35,13 @@ export async function generateMetadata({
   const { slug } = await params;
   const article = await getArticleBySlug(slug);
 
-  if (!article) return { title: "Article Not Found | Abroadroute" };
+  if (!article) return { title: "Article Not Found | AbroadRoute" };
 
-  const rawDescription = `${article.excerpt || article.title} Abroadroute guide for Indian students planning international education in 2026-2027.`;
+  const rawDescription = `${article.excerpt || article.title} AbroadRoute guide for Indian students planning international education in 2026-2027.`;
   const formattedDesc = fitMetaDescription(rawDescription);
 
   return {
-    title: `${article.title} | Abroadroute Guides`,
+    title: `${article.title} | AbroadRoute Guides`,
     description: formattedDesc,
     openGraph: {
       title: article.title,

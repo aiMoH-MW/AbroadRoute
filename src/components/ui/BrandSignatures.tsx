@@ -68,7 +68,7 @@ export function BrandLogo({
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={symbolSrc}
-          alt="Abroadroute Logo Symbol"
+          alt="AbroadRoute Logo Symbol"
           width={iconDim}
           height={iconDim}
           className="object-contain"
@@ -82,7 +82,7 @@ export function BrandLogo({
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={getImageSrc()}
-          alt="Abroadroute Logo Full Lockup"
+          alt="AbroadRoute Logo Full Lockup"
           height={iconDim}
           className="h-auto object-contain max-h-[52px]"
         />
@@ -97,7 +97,7 @@ export function BrandLogo({
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={symbolSrc}
-          alt="Abroadroute Logo Symbol"
+          alt="AbroadRoute Logo Symbol"
           width={iconDim}
           height={iconDim}
           className="object-contain shrink-0"

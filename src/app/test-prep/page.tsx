@@ -35,7 +35,7 @@ export const metadata: Metadata = {
   description:
     "Compare exam fees in INR, scoring scales, cutoffs for top global universities, and get free 8-week study blueprints for IELTS, GRE, GMAT, NCLEX, and PLAB.",
   openGraph: {
-    title: "International Test Prep & Licensing Hub | Abroadroute",
+    title: "International Test Prep & Licensing Hub | AbroadRoute",
     description:
       "Compare exam fees in INR, scoring scales, cutoffs for top global universities, and get free 8-week study blueprints for IELTS, GRE, GMAT, NCLEX, and PLAB.",
     url: "https://abroadroute.com/test-prep",

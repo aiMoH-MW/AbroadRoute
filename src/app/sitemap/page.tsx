@@ -56,11 +56,11 @@ const TEST_PREP_SITEMAP_GROUPS: {
 
 
 export const metadata: Metadata = {
-  title: "HTML Sitemap & Complete URL Directory | Abroadroute",
+  title: "HTML Sitemap & Complete URL Directory | AbroadRoute",
   description:
     "Comprehensive navigational sitemap and directory of all country guides, academic programs, test prep blueprints, universities, and tools.",
   openGraph: {
-    title: "Complete Website Sitemap | Abroadroute",
+    title: "Complete Website Sitemap | AbroadRoute",
     description:
       "Comprehensive navigational sitemap and directory of all country guides, academic programs, test prep blueprints, universities, and tools.",
     url: "https://abroadroute.com/sitemap",
@@ -104,7 +104,7 @@ export default async function SitemapPage() {
               <span>Complete Portal Directory</span>
             </div>
             <h1 className="mt-4 font-display text-3xl sm:text-5xl font-bold text-white tracking-tight">
-              Abroadroute Sitemap
+              AbroadRoute Sitemap
             </h1>
             <p className="mt-3 text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
               Explore the complete structured index of all{" "}

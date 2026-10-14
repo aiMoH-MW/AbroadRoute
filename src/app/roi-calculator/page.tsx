@@ -4,7 +4,7 @@ import { Footer } from "@/components/layout/Footer";
 import { ROICalculatorClient } from "@/components/tools/ROICalculatorClient";
 
 export const metadata: Metadata = {
-  title: "Executive MBA (EMBA) ROI & Career Gain Calculator | Abroadroute",
+  title: "Executive MBA (EMBA) ROI & Career Gain Calculator | AbroadRoute",
   description:
     "Calculate your post-EMBA salary leap, break-even payback period in years, and 10-year cumulative career wealth gain across top international business schools.",
   alternates: {

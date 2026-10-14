@@ -197,7 +197,7 @@ export default function PartnerWithUsPage() {
               <span>B2B Admission Consultant Onboarding [FR-BUY-001]</span>
             </div>
             <h1 className="mt-3 font-serif text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#102C57] tracking-tight">
-              Partner with Abroadroute
+              Partner with AbroadRoute
             </h1>
             <p className="mt-3 text-sm text-slate-600 leading-relaxed">
               Access 100% OTP-verified Indian student leads with high study
@@ -560,7 +560,7 @@ export default function PartnerWithUsPage() {
                   </h4>
                   <p>
                     <strong>1. 100% OTP Verification Guarantee:</strong>{" "}
-                    Abroadroute guarantees that all leads dispatched to the
+                    AbroadRoute guarantees that all leads dispatched to the
                     Buyer have completed mandatory SMS/WhatsApp OTP mobile
                     verification at the point of inquiry submission.
                   </p>
@@ -599,7 +599,7 @@ export default function PartnerWithUsPage() {
                     />
                     <span>
                       I have read and accept the{" "}
-                      <strong>Abroadroute B2B Master Service Agreement</strong>{" "}
+                      <strong>AbroadRoute B2B Master Service Agreement</strong>{" "}
                       and commercial terms.
                     </span>
                   </label>

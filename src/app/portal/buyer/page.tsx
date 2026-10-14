@@ -2180,7 +2180,7 @@ export default function BuyerPortalPage() {
       <footer className="border-t border-slate-200/80 bg-white py-6 text-center text-xs text-slate-500">
         <div className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>
-            © {new Date().getFullYear()} Abroadroute B2B Partner Portal
+            © {new Date().getFullYear()} AbroadRoute B2B Partner Portal
           </span>
           <div className="flex items-center gap-4">
             <Link href="/terms-of-service" className="hover:underline">

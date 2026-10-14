@@ -1,6 +1,6 @@
 ﻿export const metadata = {
-  title: "Sanity Studio | Abroadroute",
-  description: "Content Management for Abroadroute Editorial Guides and Articles",
+  title: "Sanity Studio | AbroadRoute",
+  description: "Content Management for AbroadRoute Editorial Guides and Articles",
 };
 
 export default function StudioLayout({

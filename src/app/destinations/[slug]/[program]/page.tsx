@@ -115,7 +115,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       canonical: `/study-in-${country.slug}/${canonicalProgramSlug}`,
     },
     openGraph: {
-      title: `${prog.name} in ${country.name} (2026-2027) — Abroadroute`,
+      title: `${prog.name} in ${country.name} (2026-2027) — AbroadRoute`,
       description: fitMetaDescription(rawDescription),
       url: `/study-in-${country.slug}/${canonicalProgramSlug}`,
       type: "website",
@@ -148,7 +148,7 @@ export default async function CountryProgramPage({ params }: Props) {
     description: `Study ${prog.name} in ${country.name}. Check top universities, tuition fees in INR, entrance requirements, and post-study work visa rights for Indian applicants.`,
     provider: {
       "@type": "EducationalOrganization",
-      name: "Abroadroute",
+      name: "AbroadRoute",
       url: "https://abroadroute.com",
     },
     hasCourseInstance: {

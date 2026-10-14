@@ -48,7 +48,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const exam = await getTestPrepExamBySlug(slug);
 
   if (!exam) {
-    return { title: "Exam Not Found | Abroadroute" };
+    return { title: "Exam Not Found | AbroadRoute" };
   }
 
   const rawDescription = `Complete guide to ${exam.name} (${exam.fullName}). ${exam.feeINR ? `Official fee ${exam.feeINR}, ` : ""}test format, score cutoffs for top universities, and free study blueprints.`;
@@ -109,7 +109,7 @@ export default async function TestPrepDetailPage({ params }: Props) {
     description: exam.overview,
     provider: {
       "@type": "Organization",
-      name: "Abroadroute / Dnyanal Educon Pvt. Ltd.",
+      name: "AbroadRoute / Dnyanal Educon Pvt. Ltd.",
       sameAs: "https://abroadroute.com",
     },
   };

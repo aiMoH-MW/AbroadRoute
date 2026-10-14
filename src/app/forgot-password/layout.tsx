@@ -1,9 +1,9 @@
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Reset Account Password | Abroadroute",
+  title: "Reset Account Password | AbroadRoute",
   description:
-    "Reset your Abroadroute account password. Secure recovery link sent instantly to registered Indian student, consultant, or university partner email.",
+    "Reset your AbroadRoute account password. Secure recovery link sent instantly to registered Indian student, consultant, or university partner email.",
 };
 
 export default function ForgotPasswordLayout({

@@ -19,7 +19,7 @@ export function getGeminiModel(
     model: modelName,
     systemInstruction:
       systemInstruction ||
-      "You are the ✦ Route AI Counsellor, an authoritative, warm, and zero-bias study abroad advisor by Abroadroute (a brand by Dnyanal Educon Pvt. Ltd.) for Indian students and families.",
+      "You are the ✦ Route AI Counsellor, an authoritative, warm, and zero-bias study abroad advisor by AbroadRoute (a brand by Dnyanal Educon Pvt. Ltd.) for Indian students and families.",
     generationConfig: {
       temperature: 0.4,
       maxOutputTokens: 1500,

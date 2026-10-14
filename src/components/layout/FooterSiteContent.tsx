@@ -68,7 +68,7 @@ export function FooterLegalLine() {
   return (
     <>
       <p className="font-semibold text-slate-400">
-        © {new Date().getFullYear()} Abroadroute · Study Abroad Simplified.
+        © {new Date().getFullYear()} AbroadRoute · Study Abroad Simplified.
         {s.company_name && ` A brand by ${s.company_name}.`}
       </p>
       {details.length > 0 && (

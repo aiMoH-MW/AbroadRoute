@@ -17,11 +17,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const exam = await getTestPrepExamBySlug(slug);
 
   if (!exam) {
-    return { title: "Exam Not Found | Abroadroute" };
+    return { title: "Exam Not Found | AbroadRoute" };
   }
 
   return {
-    title: `${exam.shortName} Online Mock Test | Abroadroute`,
+    title: `${exam.shortName} Online Mock Test | AbroadRoute`,
     description: `Take a free ${exam.name} online mock test and get your results by email.`,
     robots: { index: false, follow: false },
   };
@@ -45,7 +45,7 @@ export default async function OnlineTestPage({ params }: Props) {
             href="/"
             className="font-serif text-lg font-bold text-[#103B47]"
           >
-            Abroadroute
+            AbroadRoute
           </Link>
           <span className="text-xs font-semibold text-slate-500">
             {exam.shortName} Online Test

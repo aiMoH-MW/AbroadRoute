@@ -9,7 +9,7 @@ export const client = createClient({
 });
 
 /**
- * Standard GROQ Queries for Abroadroute Content Lake
+ * Standard GROQ Queries for AbroadRoute Content Lake
  */
 export const queries = {
   allArticles: `*[_type == "article"] | order(publishedAt desc) {

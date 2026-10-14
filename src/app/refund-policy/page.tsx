@@ -16,13 +16,13 @@ import {
 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Cancellation & Refund Policy | Abroadroute",
+  title: "Cancellation & Refund Policy | AbroadRoute",
   description:
-    "Official cancellation and refund policy for Abroadroute (a brand by Dnyanal Educon Pvt. Ltd.). Review transparent guidelines for B2B lead wallet recharges, disputes, and student services.",
+    "Official cancellation and refund policy for AbroadRoute (a brand by Dnyanal Educon Pvt. Ltd.). Review transparent guidelines for B2B lead wallet recharges, disputes, and student services.",
   openGraph: {
-    title: "Cancellation & Refund Policy | Abroadroute",
+    title: "Cancellation & Refund Policy | AbroadRoute",
     description:
-      "Official cancellation and refund policy for Abroadroute. Review transparent guidelines for B2B lead wallet recharges, disputes, and student services.",
+      "Official cancellation and refund policy for AbroadRoute. Review transparent guidelines for B2B lead wallet recharges, disputes, and student services.",
     url: "https://abroadroute.com/refund-policy",
     type: "website",
   },
@@ -59,7 +59,7 @@ export default function RefundPolicyPage() {
               </h1>
               <p className="mt-2 text-xs text-slate-500">
                 Effective Date: September 2026 | Last Updated: September 2026 |
-                Abroadroute · Dnyanal Educon Pvt. Ltd.
+                AbroadRoute · Dnyanal Educon Pvt. Ltd.
               </p>
             </div>
 
@@ -70,7 +70,7 @@ export default function RefundPolicyPage() {
                 <span>1. Overview & Operating Entity</span>
               </h2>
               <p>
-                Abroadroute (hereinafter referred to as{" "}
+                AbroadRoute (hereinafter referred to as{" "}
                 <strong>&quot;Platform&quot;</strong>,{" "}
                 <strong>&quot;We&quot;</strong>, <strong>&quot;Us&quot;</strong>
                 , or <strong>&quot;Our&quot;</strong>) is an authoritative
@@ -113,7 +113,7 @@ export default function RefundPolicyPage() {
                   (IDP IELTS, ETS TOEFL/GRE, GMAC GMAT, Pearson VUE NCLEX/PTE)
                   are strictly governed by the refund policies of those
                   individual institutions and examination authorities.
-                  Abroadroute does not collect or hold foreign university
+                  AbroadRoute does not collect or hold foreign university
                   tuition deposits.
                 </p>
               </div>
@@ -254,7 +254,7 @@ export default function RefundPolicyPage() {
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 space-y-2 text-xs">
                 <p>
                   <strong>Entity Name:</strong> Dnyanal Educon Pvt. Ltd.
-                  (Abroadroute)
+                  (AbroadRoute)
                 </p>
                 <p>
                   <strong>Founder Director:</strong> Nikhita Pradeep Deshmukh

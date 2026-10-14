@@ -3,9 +3,9 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 
 export const metadata: Metadata = {
-  title: "Terms of Service | Platform Usage Guidelines | Abroadroute",
+  title: "Terms of Service | Platform Usage Guidelines | AbroadRoute",
   description:
-    "Official terms of service for Abroadroute (a brand by Dnyanal Educon Pvt. Ltd.). Review platform usage rules, student portal guidelines, B2B marketplace terms, and compliance standards.",
+    "Official terms of service for AbroadRoute (a brand by Dnyanal Educon Pvt. Ltd.). Review platform usage rules, student portal guidelines, B2B marketplace terms, and compliance standards.",
 };
 
 export default function TermsOfServicePage() {
@@ -20,7 +20,7 @@ export default function TermsOfServicePage() {
                 Terms of Service
               </h1>
               <p className="mt-1 text-xs text-slate-500">
-                Effective Date: September 2026 | Abroadroute · Dnyanal Educon
+                Effective Date: September 2026 | AbroadRoute · Dnyanal Educon
                 Pvt. Ltd.
               </p>
             </div>
@@ -29,7 +29,7 @@ export default function TermsOfServicePage() {
               1. Acceptance of Terms
             </h2>
             <p>
-              By accessing or using Abroadroute, a brand by Dnyanal Educon Pvt.
+              By accessing or using AbroadRoute, a brand by Dnyanal Educon Pvt.
               Ltd. (Founder Director: Nikhita Pradeep Deshmukh), you agree to be
               bound by these Terms of Service.
             </p>
@@ -38,7 +38,7 @@ export default function TermsOfServicePage() {
               2. Educational Discovery & Advice Disclaimer
             </h2>
             <p>
-              Abroadroute provides discovery tools, rankings, tuition
+              AbroadRoute provides discovery tools, rankings, tuition
               calculators, and ✦ Route AI counseling assistance for
               informational purposes. Admission cutoffs, currency exchange
               rates, and visa regulations are subject to change by respective

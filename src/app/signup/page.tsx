@@ -675,7 +675,7 @@ export default function SignupPage() {
 
       {/* Page Footer */}
       <footer className="border-t border-[#D9CFB8]/60 bg-white py-3.5 text-center text-xs font-mono text-[#6B6B6B]">
-        © 2026 Abroadroute
+        © 2026 AbroadRoute
       </footer>
     </div>
   );

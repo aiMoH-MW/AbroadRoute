@@ -244,7 +244,7 @@ function AdminPortalContent() {
             Authentication Required
           </h1>
           <p className="mt-2 text-xs text-slate-400 leading-relaxed">
-            The Abroadroute Operations & Lead Distribution Engine is restricted
+            The AbroadRoute Operations & Lead Distribution Engine is restricted
             to authorized platform administrators only.
           </p>
 

@@ -1,9 +1,9 @@
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Admin Operations Center | Abroadroute",
+  title: "Admin Operations Center | AbroadRoute",
   description:
-    "Abroadroute Operations & Lead Distribution Engine control center for authorized administrators.",
+    "AbroadRoute Operations & Lead Distribution Engine control center for authorized administrators.",
 };
 
 export default function AdminLayout({

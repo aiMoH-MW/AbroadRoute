@@ -5,7 +5,7 @@ import { CostCalculatorWidget } from "@/components/home/CostCalculatorWidget";
 
 export const metadata: Metadata = {
   title:
-    "Study Abroad Cost of Living & Tuition Calculator (INR) | Abroadroute",
+    "Study Abroad Cost of Living & Tuition Calculator (INR) | AbroadRoute",
   description:
     "Calculate total study abroad expenses in INR. Compare tuition, accommodation, food, transport and other living costs by university, program and city for Indian students.",
 };

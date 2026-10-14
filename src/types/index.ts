@@ -1,5 +1,5 @@
 // ============================================================
-// Abroadroute - Core Domain Types
+// AbroadRoute - Core Domain Types
 // ============================================================
 
 export type TierCategory = "Tier 1" | "Tier 2" | "Tier 3";

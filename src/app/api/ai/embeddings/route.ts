@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     status: "healthy",
-    service: "Abroadroute Vector Embedding Service",
+    service: "AbroadRoute Vector Embedding Service",
     model: process.env.GEMINI_EMBEDDING_MODEL || GEMINI_EMBED_MODEL,
     dimensions: 3072,
     configured: Boolean(process.env.GEMINI_API_KEY),

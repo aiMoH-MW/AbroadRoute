@@ -8,7 +8,7 @@ import { fetchSiteStats, withCount } from "@/lib/siteStats";
 
 
 export const metadata = {
-  title: "Study Abroad Guides & Visa Updates (2026-2027) | Abroadroute",
+  title: "Study Abroad Guides & Visa Updates (2026-2027) | AbroadRoute",
   description:
     "Comprehensive admissions guides, country pillar overviews, visa regulations, and scholarship checklists written for Indian students planning study abroad.",
 };

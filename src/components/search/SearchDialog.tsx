@@ -631,7 +631,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
               close
             </span>
           </div>
-          <span className="font-bold text-[#1D5A6C]">Abroadroute Search</span>
+          <span className="font-bold text-[#1D5A6C]">AbroadRoute Search</span>
         </div>
       </div>
     </div>

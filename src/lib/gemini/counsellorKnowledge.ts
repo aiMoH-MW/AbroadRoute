@@ -1,6 +1,6 @@
 /**
  * Master Knowledge Base, Context Injector, and Guardrails for ✦ Route AI Counsellor
- * Powered by Google Gemini 3.8 Flash · Abroadroute
+ * Powered by Google Gemini 3.8 Flash · AbroadRoute
  */
 
 export interface AIUserProfile {
@@ -37,7 +37,7 @@ export interface AIPageContext {
  */
 export function getContextAwareGreeting(pathname?: string): string {
   const generic =
-    "Namaste! I am your ✦ Route AI Counsellor by Abroadroute. What destination, degree, or budget are you exploring today?";
+    "Namaste! I am your ✦ Route AI Counsellor by AbroadRoute. What destination, degree, or budget are you exploring today?";
   if (!pathname || pathname === "/" || pathname === "/ai-counsellor") {
     return generic;
   }
@@ -147,7 +147,7 @@ When relevant, recommend helpful site actions by including special action tags a
 - **No Visa Guarantees**: Never promise or guarantee 100% visa approval. Visas are at the sole discretion of the destination embassy/consulate.
 - **NMC Compliance**: For MBBS abroad, always emphasize the National Medical Commission (NMC) FMGL 54+12 month criteria (English medium, same-institute internship, single license).
 - **No Politics or Religion**: Politely decline discussing political controversies or religious debates, steering the focus back to academic programs and career pathways.
-- **No External Competitor Promotion**: Do not recommend or endorse third-party commercial consulting agencies outside the Abroadroute partner network.
+- **No External Competitor Promotion**: Do not recommend or endorse third-party commercial consulting agencies outside the AbroadRoute partner network.
 - **Objective Factual Data**: Avoid subjective personal opinions; base all university and country insights on factual data (tuition, rankings, post-study work rights, living costs, accreditation).
 
 ### RESPONSE FORMATTING RULES:

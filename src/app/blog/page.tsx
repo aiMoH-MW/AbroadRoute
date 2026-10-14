@@ -13,9 +13,9 @@ import {
 import { show } from "@/components/tools/NotProvided";
 
 export const metadata = {
-  title: "Study Abroad Blog & Admissions News | Abroadroute",
+  title: "Study Abroad Blog & Admissions News | AbroadRoute",
   description:
-    "Official Abroadroute blog: authentic visa rule updates, country comparisons, scholarship alerts, and student success stories for international degrees.",
+    "Official AbroadRoute blog: authentic visa rule updates, country comparisons, scholarship alerts, and student success stories for international degrees.",
 };
 
 export default async function BlogDirectoryPage() {
@@ -32,7 +32,7 @@ export default async function BlogDirectoryPage() {
             <div className="max-w-3xl">
               <div className="inline-flex items-center gap-2 rounded-full border border-[#D9CFB8]/40 bg-[#F5EFE0]/10 px-3.5 py-1 text-xs font-semibold text-[#A8CDBD]">
                 <BookOpen className="h-3.5 w-3.5 text-[#D89A3E]" />
-                <span>Official Abroadroute Admissions Journal</span>
+                <span>Official AbroadRoute Admissions Journal</span>
               </div>
               <h1 className="mt-4 font-display text-3xl sm:text-4xl lg:text-5xl font-medium tracking-tight text-white leading-tight">
                 Admissions News, Insights &{" "}

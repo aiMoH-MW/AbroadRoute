@@ -189,7 +189,7 @@ export function Footer() {
                   href="/about"
                   className="text-slate-400 hover:text-white transition"
                 >
-                  About Abroadroute
+                  About AbroadRoute
                 </Link>
               </li>
               <li>

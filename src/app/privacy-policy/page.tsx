@@ -4,9 +4,9 @@ import { Footer } from "@/components/layout/Footer";
 import { ShieldCheck } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | DPDP Act 2023 Compliance | Abroadroute",
+  title: "Privacy Policy | DPDP Act 2023 Compliance | AbroadRoute",
   description:
-    "Official privacy policy for Abroadroute (a brand by Dnyanal Educon Pvt. Ltd.). Learn how student personal data is protected under India DPDP Act 2023 with strict zero-spam data privacy.",
+    "Official privacy policy for AbroadRoute (a brand by Dnyanal Educon Pvt. Ltd.). Learn how student personal data is protected under India DPDP Act 2023 with strict zero-spam data privacy.",
 };
 
 export default function PrivacyPolicyPage() {
@@ -25,7 +25,7 @@ export default function PrivacyPolicyPage() {
                 Privacy Policy
               </h1>
               <p className="mt-1 text-xs text-slate-500">
-                Last Updated: September 2026 | Abroadroute · Dnyanal Educon Pvt.
+                Last Updated: September 2026 | AbroadRoute · Dnyanal Educon Pvt.
                 Ltd.
               </p>
             </div>
@@ -34,7 +34,7 @@ export default function PrivacyPolicyPage() {
               1. Introduction
             </h2>
             <p>
-              Abroadroute (a brand by Dnyanal Educon Pvt. Ltd., Founder
+              AbroadRoute (a brand by Dnyanal Educon Pvt. Ltd., Founder
               Director: Nikhita Pradeep Deshmukh) is committed to protecting the
               privacy and personal data of Indian students, applicants, and
               educational partners. This Privacy Policy details how we collect,

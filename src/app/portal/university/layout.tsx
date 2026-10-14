@@ -1,9 +1,9 @@
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "University Partner Portal | Abroadroute",
+  title: "University Partner Portal | AbroadRoute",
   description:
-    "Official university partner portal on Abroadroute. Manage verified program listings, track student inquiries, and view impression performance analytics.",
+    "Official university partner portal on AbroadRoute. Manage verified program listings, track student inquiries, and view impression performance analytics.",
 };
 
 export default function UniversityPortalLayout({ children }: { children: React.ReactNode }) {

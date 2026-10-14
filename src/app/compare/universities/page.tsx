@@ -7,7 +7,7 @@ import { UniversityCompareClient } from "@/components/tools/UniversityCompareCli
 
 export const metadata: Metadata = {
   title:
-    "Compare Universities Side-by-Side (QS Rank, INR Fees & Visas) | Abroadroute",
+    "Compare Universities Side-by-Side (QS Rank, INR Fees & Visas) | AbroadRoute",
   description: fitMetaDescription(
     "Compare up to 5 global universities side-by-side. Analyze QS world rankings, annual tuition fees in INR, minimum IELTS cutoffs, GRE waivers, and post-study work visa rights.",
   ),

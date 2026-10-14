@@ -1,9 +1,9 @@
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Authorized Sign In | Abroadroute",
+  title: "Authorized Sign In | AbroadRoute",
   description:
-    "Secure sign-in for Abroadroute portals. Access student shortlists, B2B lead marketplace, university listings dashboard, and ✦ Route AI counsellor history.",
+    "Secure sign-in for AbroadRoute portals. Access student shortlists, B2B lead marketplace, university listings dashboard, and ✦ Route AI counsellor history.",
 };
 
 export default function LoginLayout({

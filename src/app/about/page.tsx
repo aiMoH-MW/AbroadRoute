@@ -16,9 +16,9 @@ import { fetchSiteSettings } from "@/lib/siteContent";
 
 
 export const metadata: Metadata = {
-  title: "About Us · Brand Essence & Mandate | Abroadroute",
+  title: "About Us · Brand Essence & Mandate | AbroadRoute",
   description:
-    "The clearest route for every ambition. Abroadroute is the authoritative discovery and admissions engine for Indian students pursuing degrees abroad.",
+    "The clearest route for every ambition. AbroadRoute is the authoritative discovery and admissions engine for Indian students pursuing degrees abroad.",
 };
 
 export default async function AboutPage() {
@@ -44,7 +44,7 @@ export default async function AboutPage() {
               </span>
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-base text-[#FDFCF7]/85 sm:text-lg leading-relaxed font-sans">
-              Abroadroute is the authoritative discovery and admissions engine
+              AbroadRoute is the authoritative discovery and admissions engine
               for Indian students pursuing degrees abroad. Not a consultancy,
               not a lead-gen funnel. A trusted place to see every route abroad
               clearly, compare honestly, and decide well.
@@ -59,7 +59,7 @@ export default async function AboutPage() {
             <div className="rounded-3xl border border-[#D9CFB8] bg-[#F5EFE0] p-8 sm:p-12 shadow-sm">
               <div className="flex items-center gap-3 text-xs font-mono font-bold uppercase tracking-widest text-[#1D5A6C]">
                 <PeacockEye size={16} />
-                <span>The Abroadroute Promise</span>
+                <span>The AbroadRoute Promise</span>
               </div>
 
               <blockquote className="mt-6 font-display text-2xl sm:text-3xl text-[#103B47] leading-snug">
@@ -70,7 +70,7 @@ export default async function AboutPage() {
               </blockquote>
 
               <p className="mt-6 text-sm sm:text-base text-slate-700 leading-relaxed font-sans">
-                Abroadroute exists so those routes come into focus{" "}
+                AbroadRoute exists so those routes come into focus{" "}
                 <strong>before the counsellor calls</strong>. The word{" "}
                 <em>route</em> carries the promise in a single syllable: a path,
                 a direction, a way through. The identity system, colour palette,
@@ -155,7 +155,7 @@ export default async function AboutPage() {
                   Four Audiences, One Honest Voice
                 </h2>
                 <p className="mt-2 text-xs sm:text-sm text-slate-600 font-sans">
-                  Abroadroute serves four distinct stakeholders. Every page,
+                  AbroadRoute serves four distinct stakeholders. Every page,
                   every product decision, and every tool lands credibly across
                   all of them without pandering to any.
                 </p>
@@ -235,7 +235,7 @@ export default async function AboutPage() {
                   </h3>
                   <p className="mt-2 text-xs text-slate-600 leading-relaxed font-sans">
                     Independent educational advisors and school career guidance
-                    cells using Abroadroute as a verified reference catalog and
+                    cells using AbroadRoute as a verified reference catalog and
                     high-intent lead engine.
                   </p>
                   <div className="mt-4 pt-3 border-t border-[#D9CFB8]/50">
@@ -264,7 +264,7 @@ export default async function AboutPage() {
                   </h3>
                   <p className="mt-2 text-xs text-slate-600 leading-relaxed font-sans">
                     Platinum, Gold, and Silver tier institutions listing
-                    verified degrees on Abroadroute to attract serious,
+                    verified degrees on AbroadRoute to attract serious,
                     academically qualified Indian applicants.
                   </p>
                   <div className="mt-4 pt-3 border-t border-[#D9CFB8]/50">
@@ -308,7 +308,7 @@ export default async function AboutPage() {
                     </h3>
                     <p className="mt-2 text-xs text-slate-600 leading-relaxed font-sans">
                       Verified data, cited sources, no invented rankings.
-                      Abroadroute is a trusted reference, not a rumour.
+                      AbroadRoute is a trusted reference, not a rumour.
                     </p>
                   </div>
                 </div>
@@ -396,14 +396,14 @@ export default async function AboutPage() {
               </div>
             </div>
 
-            {/* 13 · Message Pillars: Four Things Abroadroute Always Says */}
+            {/* 13 · Message Pillars: Four Things AbroadRoute Always Says */}
             <div className="space-y-8">
               <div className="text-center max-w-2xl mx-auto">
                 <div className="inline-flex items-center gap-2 rounded-full border border-[#D89A3E]/40 bg-[#D89A3E]/10 px-3.5 py-1 text-xs font-bold text-[#103B47]">
                   <span>Message Pillars</span>
                 </div>
                 <h2 className="mt-3 font-display text-3xl font-bold text-[#103B47]">
-                  Four Things Abroadroute Always Says
+                  Four Things AbroadRoute Always Says
                 </h2>
                 <p className="mt-2 text-xs sm:text-sm text-slate-600 font-sans">
                   Every campaign, page, and publication leans on one of these
@@ -429,7 +429,7 @@ export default async function AboutPage() {
                     </h3>
                     <p className="mt-2 text-xs text-slate-600 leading-relaxed font-sans">
                       Complex admission rules, visa timelines, and cost
-                      comparisons made legible. Abroadroute wins by being the
+                      comparisons made legible. AbroadRoute wins by being the
                       clearest source, not the loudest.
                     </p>
                   </div>
@@ -454,7 +454,7 @@ export default async function AboutPage() {
                       The Family in the Room
                     </h3>
                     <p className="mt-2 text-xs text-slate-600 leading-relaxed font-sans">
-                      Abroadroute never speaks to students as if their parents
+                      AbroadRoute never speaks to students as if their parents
                       were not part of the conversation. Content addresses both,
                       sometimes together, sometimes apart.
                     </p>
@@ -480,7 +480,7 @@ export default async function AboutPage() {
                       Rooted, Then Global
                     </h3>
                     <p className="mt-2 text-xs text-slate-600 leading-relaxed font-sans">
-                      Abroadroute starts with the Indian context: NEET scores,
+                      AbroadRoute starts with the Indian context: NEET scores,
                       CBSE streams, budget in rupees, family location. Then it
                       opens the world.
                     </p>
@@ -507,7 +507,7 @@ export default async function AboutPage() {
                     </h3>
                     <p className="mt-2 text-xs text-slate-600 leading-relaxed font-sans">
                       Information is free, tools are open, AI counsel is
-                      available 24/7. Abroadroute does not hide the good stuff
+                      available 24/7. AbroadRoute does not hide the good stuff
                       behind a lead form.
                     </p>
                   </div>
@@ -527,7 +527,7 @@ export default async function AboutPage() {
               <p className="mt-4 text-sm leading-relaxed text-slate-600 font-sans">
                 {settings.company_name && (
                   <>
-                    Abroadroute is wholly owned and operated by{" "}
+                    AbroadRoute is wholly owned and operated by{" "}
                     <strong>{settings.company_name}</strong>
                     {settings.founder_name && (
                       <>

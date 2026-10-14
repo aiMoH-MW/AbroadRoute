@@ -1,9 +1,9 @@
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Student & Partner Registration | Abroadroute",
+  title: "Student & Partner Registration | AbroadRoute",
   description:
-    "Register free on Abroadroute. Access ✦ Route AI university shortlisting, real-time admission tracking, scholarship matching, and expert counseling support.",
+    "Register free on AbroadRoute. Access ✦ Route AI university shortlisting, real-time admission tracking, scholarship matching, and expert counseling support.",
 };
 
 export default function SignupLayout({

@@ -48,8 +48,8 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: {
     default:
-      "Abroadroute | Authoritative International Education Discovery Portal",
-    template: "%s | Abroadroute",
+      "AbroadRoute | Authoritative International Education Discovery Portal",
+    template: "%s | AbroadRoute",
   },
   description:
     "Compare global study destinations and career disciplines for Indian students. Discover tuition in INR, post-study visas, and verified university rankings.",

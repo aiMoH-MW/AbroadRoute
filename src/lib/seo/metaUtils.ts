@@ -1,11 +1,11 @@
 // ============================================================
-// Abroadroute - SEO & AEO Meta Description Engine
+// AbroadRoute - SEO & AEO Meta Description Engine
 // Guarantees all page meta descriptions are strictly between 150 - 160 characters.
 // ============================================================
 
 export function fitMetaDescription(
   text: string,
-  fallbackSuffix: string = " Explore 2026 intake deadlines, fees, and eligibility on Abroadroute.",
+  fallbackSuffix: string = " Explore 2026 intake deadlines, fees, and eligibility on AbroadRoute.",
 ): string {
   const cleaned = text.replace(/\s+/g, " ").trim();
 

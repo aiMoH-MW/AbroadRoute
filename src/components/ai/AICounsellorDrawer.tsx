@@ -524,7 +524,7 @@ export function AICounsellorDrawer({
                     Ready for 1-on-1 Human Profile Review?
                   </h4>
                   <p className="text-[11px] text-[#6B6B6B] mt-0.5">
-                    Connect with an authorized Abroadroute senior counsellor for
+                    Connect with an authorized AbroadRoute senior counsellor for
                     application filing, visa checks, and scholarship guidance.
                   </p>
                   <button

@@ -5,7 +5,7 @@ import { ScholarshipFinderClient } from "@/components/tools/ScholarshipFinderCli
 
 export const metadata: Metadata = {
   title:
-    "Study Abroad Scholarships for Indian Students (2026-2027) | Abroadroute",
+    "Study Abroad Scholarships for Indian Students (2026-2027) | AbroadRoute",
   description:
     "Explore fully funded study abroad scholarships open to Indian students (DAAD, Chevening, Fulbright-Nehru, Erasmus Mundus, Women in STEM) with award values, deadlines and application help.",
   alternates: {

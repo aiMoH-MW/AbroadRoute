@@ -276,7 +276,7 @@ export async function POST(req: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     status: "healthy",
-    service: "Abroadroute AI Counsellor API",
+    service: "AbroadRoute AI Counsellor API",
     model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
     configured: Boolean(process.env.GEMINI_API_KEY),
 
